@@ -1,2 +1,4 @@
 # piccolomon
-An C++ markdown parser to make markdown markup to html
+An C++  parser to make markdown markup to html
+
+![logo](./piccolomon.jpg)
