@@ -448,6 +448,38 @@ fn icon(name: &'static str, color: u32) -> AnyElement {
         .flex_shrink_0()
         .into_any_element()
 }
+fn shortcut_hint(shortcut: RenderShortcut) -> String {
+    if cfg!(target_os = "macos") {
+        shortcut.hint.to_string()
+    } else {
+        format!(
+            "Ctrl+{}{}{}",
+            if shortcut.alt { "Alt+" } else { "" },
+            if shortcut.shift { "Shift+" } else { "" },
+            shortcut.key
+        )
+    }
+}
+pub(super) fn render_action_width(
+    action: &RenderAction,
+    language: Language,
+    window: &Window,
+) -> Pixels {
+    // Popup border/padding, row padding, optional icon and shortcut gap.
+    menu_text_width(
+        language.render_label(action.label, action.fallback),
+        14.,
+        window,
+    ) + px(32.)
+        + if action.checked || action.icon.is_some() {
+            px(24.)
+        } else {
+            px(0.)
+        }
+        + action.shortcut.map_or(px(0.), |shortcut| {
+            menu_text_width(&shortcut_hint(shortcut), 11., window) + px(8.)
+        })
+}
 fn menu_item(
     item: RenderMenuItem,
     key: RenderFrameKey,
@@ -460,7 +492,8 @@ fn menu_item(
     let enabled = item.action.enabled;
     let mut row = div()
         .id(SharedString::from(format!("render-action-{child}-{index}")))
-        .h(px(32.))
+        .min_h(px(32.))
+        .py_1()
         .px_2()
         .flex()
         .gap_2()
@@ -476,7 +509,7 @@ fn menu_item(
     if selected && enabled {
         row = row.bg(rgb(0xe5edf8));
     }
-    let mut label = div().flex().gap_2().items_center();
+    let mut label = div().flex().flex_1().min_w_0().gap_2().items_center();
     if item.action.checked {
         label = label.child(icon("checkmark_square", 0x555e69));
     } else if let Some(name) = item.action.icon {
@@ -485,21 +518,12 @@ fn menu_item(
     label = label.child(language.render_label(item.action.label, item.action.fallback));
     row = row.child(label);
     if let Some(s) = item.action.shortcut {
-        let hint = if cfg!(target_os = "macos") {
-            s.hint.to_string()
-        } else {
-            format!(
-                "Ctrl+{}{}{}",
-                if s.alt { "Alt+" } else { "" },
-                if s.shift { "Shift+" } else { "" },
-                s.key
-            )
-        };
         row = row.child(
             div()
+                .flex_shrink_0()
                 .text_size(px(11.))
                 .text_color(rgb(if enabled { 0x8c9198 } else { 0xb5b8bc }))
-                .child(hint),
+                .child(shortcut_hint(s)),
         );
     }
     let hovered = entity.clone();
@@ -619,7 +643,18 @@ pub(super) fn prepaint_render_controls(
     let Some(menu) = editor.menu.as_ref().filter(|m| m.key == key) else {
         return;
     };
-    let width = px(280.).min(geometry.bounds.size.width);
+    let width = menu
+        .rows
+        .iter()
+        .fold(px(280.), |width, row| {
+            width.max(match row {
+                RenderMenuRow::Action(item) => render_action_width(&item.action, language, window),
+                RenderMenuRow::Submenu {
+                    label, fallback, ..
+                } => menu_text_width(language.render_label(label, fallback), 14., window) + px(56.),
+            })
+        })
+        .min(geometry.bounds.size.width);
     let mut view = popup("render-menu", width, geometry.bounds.size.height);
     let mut last_group = None;
     for (index, row) in menu.rows.iter().enumerate() {
@@ -644,7 +679,8 @@ pub(super) fn prepaint_render_controls(
                 let hover = entity.clone();
                 div()
                     .id(SharedString::from(format!("render-submenu-{index}")))
-                    .h(px(32.))
+                    .min_h(px(32.))
+                    .py_1()
                     .px_2()
                     .flex()
                     .items_center()
@@ -653,7 +689,7 @@ pub(super) fn prepaint_render_controls(
                     .cursor_pointer()
                     .when(menu.selected == index, |s| s.bg(rgb(0xe5edf8)))
                     .child(language.render_label(label, fallback))
-                    .child("›")
+                    .child(div().flex_shrink_0().child("›"))
                     .on_hover(move |value, _, cx| {
                         if *value {
                             hover.update(cx, |e, cx| e.hover_render_row(index, false, cx));
@@ -685,7 +721,12 @@ pub(super) fn prepaint_render_controls(
     if let Some(RenderMenuRow::Submenu { children, .. }) =
         menu.submenu.and_then(|i| menu.rows.get(i))
     {
-        let child_width = px(150.).min(geometry.bounds.size.width);
+        let child_width = children
+            .iter()
+            .fold(px(150.), |width, item| {
+                width.max(render_action_width(&item.action, language, window))
+            })
+            .min(geometry.bounds.size.width);
         let mut child = popup("render-submenu", child_width, geometry.bounds.size.height)
             .children(children.iter().enumerate().map(|(i, item)| {
                 menu_item(

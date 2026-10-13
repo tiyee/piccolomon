@@ -75,7 +75,7 @@ impl Editor {
         cx.spawn_in(window, async move |this, cx| {
             let _blink_observer = blink_observer;
             let mut typography_anchor: Option<(usize, Pixels)> = None;
-            for stage in 0..166 {
+            for stage in 0..196 {
                 cx.background_executor()
                     .timer(std::time::Duration::from_millis(500))
                     .await;
@@ -1790,6 +1790,90 @@ impl Editor {
                         163 => {
                             check_eq!(editor.document.source.text(),"- first\n  - child\n- \n- second\n\noutside\n");check_eq!(editor.document.history_len(false),1);
                             editor.undo(&Undo,window,cx);check!(!editor.document.dirty());
+                        }
+                        164 => {
+                            editor.document = editor.document.fork("# heading\r\n\r\n- first\r\n  - child\r\n- second\r\n\r\n| A | B |\r\n| --- | ---: |\r\n| x | y |\r\n");
+                            editor.move_to(2, false, cx);
+                        }
+                        165..=192 => {
+                            let language = Language::ALL[(stage - 1 - 165) as usize / 4];
+                            let phase = (stage - 1 - 165) % 4;
+                            let source = editor.document.source.clone();
+                            let selection = editor.document.selection();
+                            let undo = editor.document.history_len(false);
+                            let redo = editor.document.history_len(true);
+                            match phase {
+                                0 => {
+                                    editor.select_language(Preference(Some(language)), cx);
+                                    check!(editor.block_menu.is_none());
+                                    check!(editor.render_menu.is_none());
+                                    // Validate the labels emitted by the real feature providers,
+                                    // including disabled actions and the alignment submenu.
+                                    let controls = editor.document.render_controls()?;
+                                    check!(controls.iter().any(|control| control.provider == "list"));
+                                    check!(controls.iter().any(|control| control.provider == "table"));
+                                    for control in controls {
+                                        for action in control.actions {
+                                            check!(language.render_label(action.label, "MISSING") != "MISSING");
+                                            if let Some(submenu) = action.submenu {
+                                                check!(language.render_label(submenu.label, "MISSING") != "MISSING");
+                                            }
+                                        }
+                                    }
+                                    let block = block::at(&editor.document.parse, 2).ok_or("missing localized heading")?;
+                                    editor.hovered_block = Some((source.id(), block.clone()));
+                                    editor.open_block_menu(source.id(), block, cx);
+                                }
+                                1 => {
+                                    let bounds = geometry.block_menu.ok_or("missing translated block menu")?;
+                                    for command in [BlockAction::Source, BlockAction::Select, BlockAction::Copy] {
+                                        check!(menu_text_width(language.block_action(command, false), 13., window) + px(24.) <= bounds.size.width);
+                                    }
+                                    let region = geometry.render_regions.iter().find(|r| r.controls[0].provider == "table").ok_or("missing localized table controls")?;
+                                    editor.open_render_menu(geometry.render_key(window.viewport_size()), region.key(), window, cx);
+                                    editor.right(&Right, window, cx);
+                                }
+                                2 => {
+                                    check_eq!(geometry.render_menu_bounds.len(), 2);
+                                    let menu = editor.render_menu.as_ref().ok_or("missing translated table menu")?;
+                                    for row in &menu.rows {
+                                        match row {
+                                            RenderMenuRow::Action(item) => check!(render_action_width(&item.action, language, window) <= geometry.render_menu_bounds[0].size.width),
+                                            RenderMenuRow::Submenu { children, .. } => {
+                                                for item in children {
+                                                    check!(render_action_width(&item.action, language, window) <= geometry.render_menu_bounds[1].size.width);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    let region = geometry.render_regions.iter().find(|r| r.controls[0].provider == "list").ok_or("missing localized list controls")?;
+                                    editor.open_render_menu(geometry.render_key(window.viewport_size()), region.key(), window, cx);
+                                }
+                                _ => {
+                                    check_eq!(geometry.render_menu_bounds.len(), 1);
+                                    let menu = editor.render_menu.as_ref().ok_or("missing translated list menu")?;
+                                    for row in &menu.rows {
+                                        if let RenderMenuRow::Action(item) = row {
+                                            let required = render_action_width(&item.action, language, window);
+                                            if required > geometry.render_menu_bounds[0].size.width {
+                                                return Err(format!("translated list menu too narrow: {language:?}, {}, required {required:?}, actual {:?}", item.action.label, geometry.render_menu_bounds[0].size.width));
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            check_eq!(editor.document.source.id(), source.id());
+                            check_eq!(editor.document.source.text(), source.text());
+                            check_eq!(editor.document.selection(), selection);
+                            check_eq!(editor.document.history_len(false), undo);
+                            check_eq!(editor.document.history_len(true), redo);
+                            check!(!editor.document.dirty());
+                            check_eq!(editor.locale.language, language);
+                        }
+                        193 => {
+                            editor.select_language(Preference(None), cx);
+                            std::fs::remove_file(std::env::temp_dir().join(format!("ryne-language-smoke-{}", std::process::id()))).map_err(|e| e.to_string())?;
+                            println!("Menu localization passed: block titles/actions, list/table provider labels and alignment submenu in all seven languages; measured translated text, icons and shortcut space; unchanged source, selection, dirty state and undo/redo");
                         }
                         _ => {
                             if window.is_window_active() {

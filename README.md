@@ -80,8 +80,10 @@ settings, commands and signing behavior.
   Korean, French and Spanish. Use **Language** in the toolbar to switch immediately
   or follow the system language. Explicit choices survive restarts (macOS:
   `~/Library/Application Support/Ryne/language`); unsupported system languages fall
-  back to English. Toolbar, block/insert menus, file prompts, status messages,
-  welcome examples and newly inserted placeholders are localized. Switching keeps
+  back to English. Toolbar, block/insert menus, table and list action menus (including
+  the alignment submenu), file prompts, status messages,
+  welcome examples and newly inserted placeholders are localized. Menu widths adapt
+  to translated labels, icons and shortcuts within the window. Switching keeps
   the current document, selection, undo/redo and IME composition intact. Technical
   error details from the OS and renderers retain their original text. Native file
   dialog controls follow macOS language settings.

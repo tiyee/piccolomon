@@ -85,6 +85,19 @@ impl Language {
         };
         self.text(text)
     }
+    pub fn block_action(
+        self,
+        command: ryne_extensions::BlockCommand,
+        source_open: bool,
+    ) -> &'static str {
+        use ryne_extensions::BlockCommand;
+        self.text(match command {
+            BlockCommand::Source if source_open => Text::FoldSource,
+            BlockCommand::Source => Text::EditSource,
+            BlockCommand::Select => Text::SelectBlock,
+            BlockCommand::Copy => Text::CopyBlock,
+        })
+    }
     pub fn error(self, key: Text, detail: impl std::fmt::Display) -> Status {
         Status {
             key,
@@ -378,8 +391,8 @@ impl Text {
                 "Eliminar columna",
             ],
             Self::InsertRowBelow => [
-                "添加行",
-                "新增列",
+                "在下方插入行",
+                "在下方插入列",
                 "Insert row below",
                 "下に行を追加",
                 "아래에 행 추가",
@@ -414,7 +427,7 @@ impl Text {
                 "Centro",
             ],
             Self::AlignRight => [
-                "右边",
+                "靠右",
                 "靠右",
                 "Right",
                 "右揃え",
@@ -423,8 +436,8 @@ impl Text {
                 "Derecha",
             ],
             Self::InsertRowAbove => [
-                "在上面添加行",
-                "在上方新增列",
+                "在上方插入行",
+                "在上方插入列",
                 "Insert row above",
                 "上に行を追加",
                 "위에 행 추가",
@@ -432,8 +445,8 @@ impl Text {
                 "Insertar fila encima",
             ],
             Self::InsertColumnAfter => [
-                "添加列",
-                "新增欄",
+                "在右侧插入列",
+                "在右側插入欄",
                 "Insert column after",
                 "右に列を追加",
                 "오른쪽에 열 추가",
@@ -441,8 +454,8 @@ impl Text {
                 "Insertar columna después",
             ],
             Self::InsertColumnBefore => [
-                "在前面添加列",
-                "在前面新增欄",
+                "在左侧插入列",
+                "在左側插入欄",
                 "Insert column before",
                 "左に列を追加",
                 "왼쪽에 열 추가",
@@ -1274,6 +1287,65 @@ mod tests {
             error.render(Language::Ja),
             "ファイルを開けませんでした: /tmp/文件😀.md"
         );
+    }
+    #[test]
+    fn block_menu_types_and_source_states_use_every_language() {
+        use editable_markdown_parser::{ParseSnapshot, Source};
+        use ryne_extensions::BlockCommand;
+        // Use actual AST metadata so new block icons cannot silently fall back
+        // to the Chinese semantic name in another interface language.
+        for (source, needle, key) in [
+            ("plain\n", "plain", Text::Paragraph),
+            ("# heading\n", "heading", Text::Heading),
+            ("title\n===\n", "title", Text::Heading),
+            ("- item\n", "item", Text::Unordered),
+            ("1. item\n", "item", Text::Ordered),
+            ("- [ ] pending\n", "pending", Text::Task),
+            ("> quote\n", "quote", Text::Quote),
+            ("```rust\ncode\n```\n", "code", Text::Code),
+            ("<div>raw</div>\n", "raw", Text::Raw),
+            ("| A | B |\n|---|---|\n| x | y |\n", "x", Text::Table),
+            ("![alt](image.png)\n", "alt", Text::Image),
+            ("---\n", "---", Text::Rule),
+        ] {
+            let parse = ParseSnapshot::new(Source::new(source));
+            let block = ryne_syntax::block::at(&parse, source.find(needle).unwrap()).unwrap();
+            for language in Language::ALL {
+                assert_eq!(
+                    language.block_name(block.icon, block.name),
+                    language.text(key)
+                );
+                assert_eq!(
+                    language.block_action(BlockCommand::Source, false),
+                    language.text(Text::EditSource)
+                );
+                assert_eq!(
+                    language.block_action(BlockCommand::Source, true),
+                    language.text(Text::FoldSource)
+                );
+                for source_open in [false, true] {
+                    assert_eq!(
+                        language.block_action(BlockCommand::Select, source_open),
+                        language.text(Text::SelectBlock)
+                    );
+                    assert_eq!(
+                        language.block_action(BlockCommand::Copy, source_open),
+                        language.text(Text::CopyBlock)
+                    );
+                }
+            }
+        }
+        for language in Language::ALL {
+            assert_eq!(
+                language.render_label("extension.custom", "Custom action"),
+                "Custom action"
+            );
+            assert_eq!(
+                language.block_name(Some("extension-icon"), "Custom block"),
+                "Custom block"
+            );
+            assert_eq!(language.block_name(Some("mermaid"), "Mermaid"), "Mermaid");
+        }
     }
     #[test]
     fn preferences_round_trip_reset_and_fail_without_losing_current_language() {

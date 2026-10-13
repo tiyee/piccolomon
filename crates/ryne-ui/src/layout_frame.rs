@@ -809,9 +809,27 @@ impl EditorElement {
                 );
                 controls.push(control);
                 if menu_open {
+                    let source_open = source_scope.as_ref() == Some(&block.scope);
+                    let title = language.block_name(spec.metadata.icon, spec.metadata.name);
+                    let menu_width = spec
+                        .menu
+                        .iter()
+                        .fold(
+                            px(260.).max(menu_text_width(title, 12., window) + px(58.)),
+                            |width, item| {
+                                width.max(
+                                    menu_text_width(
+                                        language.block_action(item.command, source_open),
+                                        13.,
+                                        window,
+                                    ) + px(34.),
+                                )
+                            },
+                        )
+                        .min(bounds.size.width);
                     let mut menu = div()
                         .id("block-menu")
-                        .w(px(260.).min(bounds.size.width))
+                        .w(menu_width)
                         .p_1()
                         .bg(rgb(0xfdfcf9))
                         .text_color(rgb(0x363c44))
@@ -830,20 +848,11 @@ impl EditorElement {
                                 .text_size(px(12.))
                                 .text_color(rgb(0x858b93))
                                 .child(block_type_icon(&spec.metadata, 0x858b93))
-                                .child(language.block_name(spec.metadata.icon, spec.metadata.name)),
+                                .child(title),
                         )
                         .children(spec.menu.iter().map(|item| {
                             block_menu_item(
-                                language.text(match item.command {
-                                    BlockAction::Source
-                                        if source_scope.as_ref() == Some(&block.scope) =>
-                                    {
-                                        Text::FoldSource
-                                    }
-                                    BlockAction::Source => Text::EditSource,
-                                    BlockAction::Select => Text::SelectBlock,
-                                    BlockAction::Copy => Text::CopyBlock,
-                                }),
+                                language.block_action(item.command, source_open),
                                 item.command,
                                 self.editor.clone(),
                                 snapshot,
@@ -854,10 +863,7 @@ impl EditorElement {
                         .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .into_any_element();
                     let menu_size = menu.layout_as_root(
-                        size(
-                            px(260.).min(bounds.size.width).into(),
-                            AvailableSpace::MinContent,
-                        ),
+                        size(menu_width.into(), AvailableSpace::MinContent),
                         window,
                         cx,
                     );

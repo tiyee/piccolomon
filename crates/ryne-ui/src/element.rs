@@ -47,7 +47,11 @@ pub(super) fn block_menu_item(
     block: crate::block::Block,
 ) -> impl IntoElement {
     div()
-        .id(label)
+        .id(match action {
+            BlockAction::Source => "block-source",
+            BlockAction::Select => "block-select",
+            BlockAction::Copy => "block-copy",
+        })
         .px_3()
         .py_2()
         .text_size(px(13.))
@@ -62,6 +66,30 @@ pub(super) fn block_menu_item(
             });
         })
         .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+}
+
+/// Measure UI labels with the same system font used by menu elements. The
+/// document font and reading-column width must not constrain translated menus.
+pub(super) fn menu_text_width(text: &str, size: f32, window: &Window) -> Pixels {
+    let width = window
+        .text_system()
+        .shape_line(
+            text.to_owned().into(),
+            px(size),
+            &[TextRun {
+                len: text.len(),
+                font: font(".SystemUIFont"),
+                color: rgb(theme::INK).into(),
+                background_color: None,
+                underline: None,
+                strikethrough: None,
+            }],
+            None,
+        )
+        .width;
+    // Native layout quantizes fractional widths. Round up so a translated
+    // label cannot lose its final fraction of a pixel after popup layout.
+    px(f32::from(width).ceil())
 }
 
 impl IntoElement for EditorElement {
