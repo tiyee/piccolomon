@@ -60,7 +60,11 @@ Windows Server labels identify build environments; both packages target Windows
 10/11 x64, rather than separate desktop OS editions. CI packaging does not validate
 GUI, GPU or IME behavior on Windows 10/11 or older macOS releases. The macOS binary
 deployment target and bundle metadata are both set to 12.0; packages are ad-hoc
-signed and are not notarized. There are no Linux jobs or automatic GitHub Releases.
+signed and are not notarized. There are no Linux packages. Push a version tag such
+as `v1.2.3` to run the **Release desktop apps** workflow. It builds the same six
+ZIP packages and publishes each package with its SHA-256 checksum on the GitHub
+Release page. Tags containing a hyphen (for example, `v1.2.3-rc.1`) create
+prereleases.
 
 The separate **Publish to Microsoft Store** workflow builds a Windows x64 MSIX
 and optionally submits an update through Microsoft's Store CLI. Run it manually

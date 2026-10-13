@@ -52,7 +52,9 @@ Runner 标签依据 GitHub 的[可用镜像](https://github.com/actions/runner-i
 Windows Server 标签代表构建环境，两种包均面向 Windows 10/11 x64，并非分别对应桌面系统版本。
 CI 打包不代表已验收 Windows 10/11 或旧版 macOS 上的 GUI、GPU 和输入法行为。
 macOS 二进制部署目标与应用元数据均为 12.0，使用临时签名，尚未公证。
-暂不包含 Linux 任务，也不自动创建 GitHub Release。
+暂不提供 Linux 包。推送版本标签（例如 `v1.2.3`）会触发 **Release desktop apps** 工作流，
+构建上述六种 ZIP 包，并将每个包及其 SHA-256 校验文件发布到 GitHub Release 页面。
+标签包含连字符时（例如 `v1.2.3-rc.1`）会创建预发布版本。
 
 另有 **Publish to Microsoft Store** 工作流，手动构建 Windows x64 MSIX，
 并可选通过微软官方 Store CLI 提交更新。输入四段版本号，默认不勾选 `submit`，
