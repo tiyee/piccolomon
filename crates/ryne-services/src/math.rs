@@ -1,6 +1,6 @@
 //! Disposable inline math views. Markdown bytes remain owned by Document.
 
-use formulary::{ast::Node as MathNode, Item, MathFont};
+use formulary::{Item, MathFont, ast::Node as MathNode};
 pub use ryne_projection::Formula;
 use std::{
     collections::HashMap,

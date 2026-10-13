@@ -3,8 +3,8 @@ use super::*;
 use editable_markdown_parser::Edit;
 use ryne_core::PreparedEdit;
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Mutex,
+    atomic::{AtomicUsize, Ordering},
 };
 struct Reject {
     calls: Arc<AtomicUsize>,
@@ -91,13 +91,14 @@ fn cross_document_and_stale_plans_are_rejected_and_notifications_follow_publicat
     assert!(doc.publish_plan(foreign).is_err());
     let mut invalid = doc.state.clone();
     invalid.head = usize::MAX;
-    assert!(doc
-        .publish_plan(CommandPlan::Select {
+    assert!(
+        doc.publish_plan(CommandPlan::Select {
             base: key,
             state: invalid,
             handled: true
         })
-        .is_err());
+        .is_err()
+    );
     assert_eq!(record.0.lock().unwrap().as_slice(), [(1, "ac".into())]);
 }
 #[test]
@@ -119,20 +120,22 @@ fn empty_features_support_literal_editing_and_navigation_without_content_history
 fn invalid_multi_edit_and_selection_plans_never_partially_update() {
     let mut doc = new_document("a中\r\nb");
     let before = doc.source.id();
-    assert!(PreparedEdit::prepare(
-        &doc.source,
-        vec![
-            Edit {
-                range: 0..1,
-                replacement: "x".into()
-            },
-            Edit {
-                range: 2..3,
-                replacement: "y".into()
-            }
-        ]
-    )
-    .is_err());
+    assert!(
+        PreparedEdit::prepare(
+            &doc.source,
+            vec![
+                Edit {
+                    range: 0..1,
+                    replacement: "x".into()
+                },
+                Edit {
+                    range: 2..3,
+                    replacement: "y".into()
+                }
+            ]
+        )
+        .is_err()
+    );
     assert_eq!(doc.source.id(), before);
     let prepared = PreparedEdit::prepare(
         &doc.source,
@@ -144,34 +147,37 @@ fn invalid_multi_edit_and_selection_plans_never_partially_update() {
     .unwrap();
     let mut state = EditingState::new(prepared.applied().source.clone());
     state.head = 2;
-    assert!(doc
-        .publish_plan(CommandPlan::Edit {
+    assert!(
+        doc.publish_plan(CommandPlan::Edit {
             prepared,
             state,
             handled: true
         })
-        .is_err());
+        .is_err()
+    );
     assert_eq!(doc.source.id(), before);
     assert_eq!(doc.history_len(false), 0);
     let mut invalid_checkpoint = doc.state.clone();
     invalid_checkpoint.closers.push(2..3); // Inside the UTF-8 character.
-    assert!(doc
-        .publish_plan(CommandPlan::Select {
+    assert!(
+        doc.publish_plan(CommandPlan::Select {
             base: before,
             state: invalid_checkpoint,
             handled: true,
         })
-        .is_err());
+        .is_err()
+    );
     let mut stale_reveal = doc.state.clone();
     stale_reveal.reveal =
         Some(editable_markdown_parser::Session::new(&Source::new("a"), 0..1).unwrap());
-    assert!(doc
-        .publish_plan(CommandPlan::View {
+    assert!(
+        doc.publish_plan(CommandPlan::View {
             base: before,
             state: stale_reveal,
             handled: true,
         })
-        .is_err());
+        .is_err()
+    );
     assert_eq!(doc.source.id(), before);
     assert!(!doc.dirty());
 }
@@ -259,13 +265,14 @@ fn foreign_input_range_is_rejected_even_with_a_current_planning_context() {
     let mut doc = new_document("中文");
     let other = new_document("中文");
     let before = doc.source.id();
-    assert!(doc
-        .dispatch(EditIntent::Insert {
+    assert!(
+        doc.dispatch(EditIntent::Insert {
             range: ryne_core::SourceRange::new(other.source.id(), 0..0),
             text: "x".into(),
             origin: InputOrigin::Paste,
         })
-        .is_err());
+        .is_err()
+    );
     assert_eq!(doc.source.id(), before);
     assert_eq!(doc.history_len(false), 0);
     assert!(!doc.dirty());

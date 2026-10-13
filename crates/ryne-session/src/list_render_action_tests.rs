@@ -27,18 +27,22 @@ fn ordered_unordered_nested_empty_and_task_items_contribute_leading_controls() {
         let doc = new_document(raw);
         let controls = doc.render_controls().unwrap();
         assert!(!controls.is_empty(), "{raw:?}");
-        assert!(controls
-            .iter()
-            .all(|c| c.placement == RenderControlPlacement::Leading
-                && c.trailing_space == 0.
-                && c.actions.len() == 7));
+        assert!(
+            controls
+                .iter()
+                .all(|c| c.placement == RenderControlPlacement::Leading
+                    && c.trailing_space == 0.
+                    && c.actions.len() == 7)
+        );
         assert!(!doc.dirty());
         assert_eq!(doc.history_len(false), 0);
     }
-    assert!(new_document("```\n- literal\n1. literal\n```\n")
-        .render_controls()
-        .unwrap()
-        .is_empty());
+    assert!(
+        new_document("```\n- literal\n1. literal\n```\n")
+            .render_controls()
+            .unwrap()
+            .is_empty()
+    );
 }
 #[test]
 fn insert_siblings_preserves_prefix_newlines_subtree_and_missing_final_newline() {
@@ -65,9 +69,11 @@ fn insert_siblings_preserves_prefix_newlines_subtree_and_missing_final_newline()
                         };
                         assert_eq!(doc.source.text(), expected, "{command}");
                         assert_eq!(doc.history_len(false), 1);
-                        assert!(ryne_syntax::list::items(&doc.parse)
-                            .iter()
-                            .any(|i| i.body == doc.head));
+                        assert!(
+                            ryne_syntax::list::items(&doc.parse)
+                                .iter()
+                                .any(|i| i.body == doc.head)
+                        );
                         doc.undo(false);
                         assert_eq!(doc.source.text(), raw);
                         assert!(!doc.dirty());
@@ -159,9 +165,10 @@ fn list_move_keeps_external_paragraph_separator_at_list_end() {
         doc.source.text(),
         "9. second\r\n   - other\r\n10. parent\r\n    - child\r\n\r\noutside\r\n"
     );
-    assert!(!ryne_syntax::list::items(&doc.parse).iter().any(|i| i
-        .range
-        .contains(&doc.source.text().find("outside").unwrap())));
+    assert!(!ryne_syntax::list::items(&doc.parse).iter().any(|i| {
+        i.range
+            .contains(&doc.source.text().find("outside").unwrap())
+    }));
     doc.undo(false);
     assert_eq!(doc.source.text(), raw);
 }
@@ -235,13 +242,24 @@ fn move_follows_unicode_caret_and_cross_line_selection_without_splitting_graphem
 }
 #[test]
 fn loose_lists_and_nested_tables_move_without_losing_separator_or_container_bytes() {
-    for raw in ["- first\n\n  continuation\n\n- second\n\n- third\n", "> - first\r\n>\r\n>   | A | B |\r\n>   | --- | --- |\r\n>   | 中😀 | x |\r\n> - second\r\n"] {
-        let mut doc=new_document(raw);let table_count=doc.display().tables.len();
-        doc.execute_render_action(&request(&doc,"first","list.move-down")).unwrap();
-        assert!(doc.source.text().find("second").unwrap()<doc.source.text().find("first").unwrap());
-        assert_eq!(doc.display().tables.len(),table_count);
-        assert_eq!(doc.source.text().bytes().filter(|b|*b==b'\n').count(),raw.bytes().filter(|b|*b==b'\n').count());
-        doc.undo(false);assert_eq!(doc.source.text(),raw);
+    for raw in [
+        "- first\n\n  continuation\n\n- second\n\n- third\n",
+        "> - first\r\n>\r\n>   | A | B |\r\n>   | --- | --- |\r\n>   | 中😀 | x |\r\n> - second\r\n",
+    ] {
+        let mut doc = new_document(raw);
+        let table_count = doc.display().tables.len();
+        doc.execute_render_action(&request(&doc, "first", "list.move-down"))
+            .unwrap();
+        assert!(
+            doc.source.text().find("second").unwrap() < doc.source.text().find("first").unwrap()
+        );
+        assert_eq!(doc.display().tables.len(), table_count);
+        assert_eq!(
+            doc.source.text().bytes().filter(|b| *b == b'\n').count(),
+            raw.bytes().filter(|b| *b == b'\n').count()
+        );
+        doc.undo(false);
+        assert_eq!(doc.source.text(), raw);
     }
 }
 #[test]
@@ -265,11 +283,12 @@ fn empty_insert_before_first_item_cannot_turn_prior_paragraph_into_setext_headin
         doc.execute_render_action(&request(&doc, "first", "list.insert-before"))
             .unwrap();
         assert_eq!(ryne_syntax::list::items(&doc.parse).len(), count + 1);
-        assert!(!doc
-            .parse
-            .nodes
-            .iter()
-            .any(|n| matches!(n.kind, editable_markdown_parser::NodeKind::Heading(_))));
+        assert!(
+            !doc.parse
+                .nodes
+                .iter()
+                .any(|n| matches!(n.kind, editable_markdown_parser::NodeKind::Heading(_)))
+        );
         doc.undo(false);
         assert_eq!(doc.source.text(), raw);
     }

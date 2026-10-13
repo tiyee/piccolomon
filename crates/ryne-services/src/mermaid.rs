@@ -1,5 +1,5 @@
 //! Bounded, disposable Mermaid views; the document owns every editable byte.
-use merman::render::{layout_parsed, HeadlessRenderer, LayoutOptions, SvgPipeline};
+use merman::render::{HeadlessRenderer, LayoutOptions, SvgPipeline, layout_parsed};
 pub use ryne_projection::Diagram;
 #[cfg(test)]
 use ryne_syntax::code_block::CodeBlock;
@@ -240,9 +240,11 @@ mod tests {
             "    flowchart LR\n    A-->B\n",
         ] {
             let parse = ParseSnapshot::new(Source::new(raw));
-            assert!(ryne_syntax::code_block::blocks(&parse)
-                .iter()
-                .all(|b| source(raw, b).is_none()));
+            assert!(
+                ryne_syntax::code_block::blocks(&parse)
+                    .iter()
+                    .all(|b| source(raw, b).is_none())
+            );
         }
     }
     #[test]
@@ -253,12 +255,14 @@ mod tests {
         )
         .expect("valid diagram");
         assert!(diagram.width > 0. && diagram.height > 0.);
-        assert!(diagram
-            .pixels
-            .as_chunks::<4>()
-            .0
-            .iter()
-            .any(|p| p[2] > 240 && p[0] < 20 && p[1] < 20));
+        assert!(
+            diagram
+                .pixels
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .any(|p| p[2] > 240 && p[0] < 20 && p[1] < 20)
+        );
         assert!(render("flowchart LR\nA[Unclosed --> B", control()).is_err());
         assert!(render("unknown\nA-->B", control()).is_err());
         assert!(render(&"x".repeat(MAX_SOURCE + 1), control()).is_err());
@@ -280,16 +284,20 @@ mod tests {
         ] {
             assert!(render(source, control()).is_ok(), "{source}");
         }
-        assert!(render(
-            &format!("flowchart LR\n{}", "subgraph X\n".repeat(300)),
-            control()
-        )
-        .is_err());
-        assert!(render(
-            &format!("flowchart LR\nA{}x{}", "[".repeat(40), "]".repeat(40)),
-            control()
-        )
-        .is_err());
+        assert!(
+            render(
+                &format!("flowchart LR\n{}", "subgraph X\n".repeat(300)),
+                control()
+            )
+            .is_err()
+        );
+        assert!(
+            render(
+                &format!("flowchart LR\nA{}x{}", "[".repeat(40), "]".repeat(40)),
+                control()
+            )
+            .is_err()
+        );
     }
 
     #[test]

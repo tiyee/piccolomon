@@ -4,7 +4,7 @@ mod protocol;
 #[cfg(test)]
 mod tests;
 
-use features::{session, ListActions, TableActions};
+use features::{ListActions, TableActions, session};
 use protocol::*;
 
 fn main() -> Result<(), String> {

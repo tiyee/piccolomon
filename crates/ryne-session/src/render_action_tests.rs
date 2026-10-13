@@ -19,12 +19,14 @@ fn request(
         command,
     }
 }
-const RAW: &str="before\n\n| A | B | C |\n| :--- | :---: | ---: |\n| 中😀 | a\\|b | `code` |\n| next | x | y |\n\nafter\n";
+const RAW: &str = "before\n\n| A | B | C |\n| :--- | :---: | ---: |\n| 中😀 | a\\|b | `code` |\n| next | x | y |\n\nafter\n";
 #[test]
 fn all_render_commands_are_atomic_preserve_context_and_round_trip() {
     for newline in ["\n", "\r\n", "\r"] {
         for prefix in ["", "> ", ">   "] {
-            let raw=format!("{prefix}| A | B | C |{newline}{prefix}| :--- | --- | ---: |{newline}{prefix}| 中😀 | a\\|b | `code` |{newline}{prefix}| next | x | y |");
+            let raw = format!(
+                "{prefix}| A | B | C |{newline}{prefix}| :--- | --- | ---: |{newline}{prefix}| 中😀 | a\\|b | `code` |{newline}{prefix}| next | x | y |"
+            );
             for command in [
                 "table.align-left",
                 "table.align-center",
@@ -69,7 +71,10 @@ fn column_operations_keep_escaped_pipes_alignment_and_neighbor_bytes() {
     let mut doc = new_document(RAW);
     doc.execute_render_action(&request(&doc, 1, 1, "table.move-column-left"))
         .unwrap();
-    assert_eq!(doc.source.text(),"before\n\n| B | A | C |\n| :---: | :--- | ---: |\n| a\\|b | 中😀 | `code` |\n| x | next | y |\n\nafter\n");
+    assert_eq!(
+        doc.source.text(),
+        "before\n\n| B | A | C |\n| :---: | :--- | ---: |\n| a\\|b | 中😀 | `code` |\n| x | next | y |\n\nafter\n"
+    );
     doc.undo(false);
     doc.execute_render_action(&request(&doc, 1, 1, "table.delete-column"))
         .unwrap();
@@ -225,14 +230,18 @@ fn controls_and_malformed_table_fallback_are_read_only() {
     assert_eq!(doc.selection(), selection);
     assert!(!doc.dirty());
     assert_eq!(doc.history_len(false), 0);
-    assert!(new_document("|a|b|\n|---|---|\n|short|\n")
-        .render_controls()
-        .unwrap()
-        .is_empty());
-    assert!(new_document("A | B\n--- | ---\na | \n")
-        .render_controls()
-        .unwrap()
-        .is_empty());
+    assert!(
+        new_document("|a|b|\n|---|---|\n|short|\n")
+            .render_controls()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        new_document("A | B\n--- | ---\na | \n")
+            .render_controls()
+            .unwrap()
+            .is_empty()
+    );
 }
 struct Custom;
 #[test]
@@ -284,9 +293,10 @@ fn render_action_validation_failure_does_not_publish_any_state() {
     doc.add_validator(Arc::new(Reject));
     let key = doc.source.id();
     let selection = doc.selection();
-    assert!(doc
-        .execute_render_action(&request(&doc, 1, 1, "table.delete-column"))
-        .is_err());
+    assert!(
+        doc.execute_render_action(&request(&doc, 1, 1, "table.delete-column"))
+            .is_err()
+    );
     assert_eq!(doc.source.id(), key);
     assert_eq!(doc.source.text(), RAW);
     assert_eq!(doc.selection(), selection);

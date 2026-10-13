@@ -815,11 +815,13 @@ mod typography_tests {
         let local = build_with_heading(&parse, None, false, None, Some(&scope));
         let second = local.text.find("second").unwrap();
         assert!(local.flow[local.flow_at(second).unwrap()].raw);
-        assert!(local
-            .spans
-            .iter()
-            .filter(|span| scope.start <= span.source.start && span.source.start < scope.end)
-            .all(|span| span.style.source && !span.style.bold));
+        assert!(
+            local
+                .spans
+                .iter()
+                .filter(|span| scope.start <= span.source.start && span.source.start < scope.end)
+                .all(|span| span.style.source && !span.style.bold)
+        );
         let title = local.text.find("标题").unwrap();
         assert!(!local.flow[local.flow_at(title).unwrap()].raw);
         assert_eq!(
@@ -1159,11 +1161,12 @@ mod math_tests {
         assert_eq!(active, 0..raw.len());
         let open = build(&parse, Some(&active), false);
         assert_eq!(open.text, raw);
-        assert!(open
-            .spans
-            .iter()
-            .filter(|s| s.source.contains(&raw.find("frac").unwrap()))
-            .all(|s| s.style.code));
+        assert!(
+            open.spans
+                .iter()
+                .filter(|s| s.source.contains(&raw.find("frac").unwrap()))
+                .all(|s| s.style.code)
+        );
     }
 
     #[test]

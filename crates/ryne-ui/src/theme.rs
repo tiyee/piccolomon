@@ -1,5 +1,5 @@
 //! Shared typography and page geometry. Values use GPUI logical pixels.
-use gpui::{font, Font, FontFallbacks, TextSystem};
+use gpui::{Font, FontFallbacks, TextSystem, font};
 
 pub const BODY: (f32, f32) = (18., 30.);
 pub const CODE: (f32, f32) = (15., 24.);

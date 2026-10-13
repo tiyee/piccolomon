@@ -2,8 +2,8 @@ use super::{features::*, protocol::*};
 use ryne_extensions::{CommandPlan, EditingState, Validator};
 use ryne_session::{Composition, EditorSession};
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 fn host() -> Host {
@@ -67,7 +67,10 @@ fn table_insert_preserves_prefix_and_all_three_newline_styles() {
     for newline in ["\n", "\r\n", "\r"] {
         for prefix in ["", "> "] {
             for suffix in [true, false] {
-                let raw = format!("{prefix}| A | B |{newline}{prefix}| --- | --- |{newline}{prefix}| 中😀 | x |{}", if suffix {newline} else {""});
+                let raw = format!(
+                    "{prefix}| A | B |{newline}{prefix}| --- | --- |{newline}{prefix}| 中😀 | x |{}",
+                    if suffix { newline } else { "" }
+                );
                 let mut doc = session(&raw).unwrap();
                 let host = host();
                 let frame = frame(&host, &doc);
@@ -108,10 +111,11 @@ fn header_insert_follows_delimiter_and_header_delete_is_disabled() {
     let command = menu.take(1).unwrap();
     assert!(menu.take(1).is_err());
     host.execute(&mut doc, frame.context, command).unwrap();
-    assert!(doc
-        .source
-        .text()
-        .contains("| :--- | ---: |\n|  |  |\n| 中😀"));
+    assert!(
+        doc.source
+            .text()
+            .contains("| :--- | ---: |\n|  |  |\n| 中😀")
+    );
 }
 
 #[test]
@@ -188,9 +192,10 @@ fn unchanged_source_with_new_layout_epoch_rejects_old_frame_and_menu() {
         epoch: frame.context.epoch + 1,
         ..frame.context
     };
-    assert!(host
-        .activate(&doc, context, &frame, frame.controls[0].bounds.center())
-        .is_err());
+    assert!(
+        host.activate(&doc, context, &frame, frame.controls[0].bounds.center())
+            .is_err()
+    );
     assert!(host.execute(&mut doc, context, command).is_err());
     assert!(!doc.dirty());
 }
@@ -355,9 +360,10 @@ fn overlap_is_diagnosed_instead_of_losing_an_operation() {
     let specs = host.contribute(&doc).unwrap();
     let mut surfaces = fixture_surfaces(&specs);
     surfaces[1].bounds = surfaces[0].bounds;
-    assert!(host
-        .layout(&doc, Context::rendered(doc.source.id()), &surfaces, specs)
-        .is_err());
+    assert!(
+        host.layout(&doc, Context::rendered(doc.source.id()), &surfaces, specs)
+            .is_err()
+    );
 }
 #[test]
 fn malformed_markdown_stays_editable_without_interaction_contributions() {

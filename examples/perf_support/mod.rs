@@ -15,5 +15,10 @@ pub fn measure(label: &str, mut operation: impl FnMut()) {
         })
         .collect::<Vec<_>>();
     times.sort_by(f64::total_cmp);
-    println!("{{\"metric\":\"{label}\",\"samples\":{SAMPLES},\"p50_ms\":{:.4},\"p95_ms\":{:.4},\"p99_ms\":{:.4}}}", times[SAMPLES / 2], times[SAMPLES * 95 / 100], times[SAMPLES * 99 / 100]);
+    println!(
+        "{{\"metric\":\"{label}\",\"samples\":{SAMPLES},\"p50_ms\":{:.4},\"p95_ms\":{:.4},\"p99_ms\":{:.4}}}",
+        times[SAMPLES / 2],
+        times[SAMPLES * 95 / 100],
+        times[SAMPLES * 99 / 100]
+    );
 }

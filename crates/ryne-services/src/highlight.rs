@@ -416,11 +416,13 @@ mod tests {
                         raw.is_char_boundary(span.range.start)
                             && raw.is_char_boundary(span.range.end)
                     );
-                    assert!(blocks[0]
-                        .rows
-                        .iter()
-                        .any(|row| row.content.start <= span.range.start
-                            && span.range.end <= row.content.end));
+                    assert!(
+                        blocks[0]
+                            .rows
+                            .iter()
+                            .any(|row| row.content.start <= span.range.start
+                                && span.range.end <= row.content.end)
+                    );
                 }
             }
         }

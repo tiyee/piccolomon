@@ -23,7 +23,7 @@ pub const ITEMS: &[(&str, InsertBlock)] = &[
 
 pub trait MarkdownTemplate: Sized {
     fn template_with_labels(self, newline: &str, labels: &TemplateLabels)
-        -> (String, Range<usize>);
+    -> (String, Range<usize>);
     fn template(self, newline: &str) -> (String, Range<usize>) {
         self.template_with_labels(newline, &TemplateLabels::default())
     }
