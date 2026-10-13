@@ -7,7 +7,7 @@ pub(super) fn services() -> SessionServices {
     SessionServices {
         features: Arc::new(
             ryne_features::MarkdownFeatures::new(
-                Arc::new(ryne_services::math::FormularyRenderer),
+                Arc::new(ryne_services::math::FormularyRenderer::default()),
                 vec![ryne_features::diagrams::FencedPreview {
                     id: "mermaid",
                     language: "mermaid",
@@ -31,7 +31,7 @@ mod code_language_completion {
         let mut ports = services();
         ports.features = Arc::new(
             ryne_features::MarkdownFeatures::new(
-                Arc::new(ryne_services::math::FormularyRenderer),
+                Arc::new(ryne_services::math::FormularyRenderer::default()),
                 vec![],
             )
             .unwrap()
@@ -1787,5 +1787,51 @@ fn localized_append_preserves_unicode_selection_newlines_and_single_undo() {
                 assert_eq!(document.source.text(), inserted);
             }
         }
+    }
+}
+
+#[test]
+fn formula_projection_reuses_more_than_256_live_resources_without_document_edits() {
+    let raw = (0..257)
+        .map(|i| format!("$x_{{{i}}}$\r\n\r\n"))
+        .collect::<String>();
+    let doc = new_document(&raw);
+    let first = doc.display();
+    assert_eq!(first.formulas.len(), 257);
+    let second = doc.display();
+    assert_eq!(second.formulas.len(), 257);
+    for (a, b) in first.formulas.iter().zip(&second.formulas) {
+        assert!(std::sync::Arc::ptr_eq(&a.formula, &b.formula));
+        assert_eq!(a.source, b.source);
+        assert_eq!(a.display, b.display);
+    }
+    assert_eq!(doc.source.text(), raw);
+    assert_eq!(doc.history_len(false), 0);
+    assert!(!doc.dirty());
+}
+
+#[test]
+fn large_table_event_projection_keeps_empty_unicode_and_substitution_boundaries() {
+    for newline in ["\n", "\r\n", "\r"] {
+        let raw = format!(
+            "| A | B | C |{newline}| --- | --- | --- |{newline}{}",
+            format!("| 中😀 | | a\\|b<br>c |{newline}").repeat(400)
+        );
+        let doc = new_document(&raw);
+        let view = doc.display();
+        let table = &view.tables[0];
+        assert_eq!(table.rows.len(), 401);
+        for (row_index, row) in table.rows.iter().enumerate().skip(1) {
+            assert_eq!(&view.text[row[0].clone()], "中😀");
+            assert!(row[1].is_empty());
+            assert_eq!(&view.text[row[2].clone()], "a|b\nc");
+            for (c, cell) in row.iter().enumerate() {
+                let source = &table.source.rows[row_index].cells[c].content;
+                assert_eq!(view.position_at(source.start), cell.start);
+                assert_eq!(view.position_at(source.end), cell.end);
+            }
+        }
+        assert_eq!(doc.source.text(), raw);
+        assert!(!doc.dirty());
     }
 }

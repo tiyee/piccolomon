@@ -1,4 +1,6 @@
+use crate::commands::dispatch::BuiltinCommand;
 use ryne_extensions::*;
+use std::sync::Arc;
 pub(crate) struct Builtin {
     pub id: &'static str,
     pub dependencies: &'static [&'static str],
@@ -17,11 +19,60 @@ impl BuiltinFeature for Builtin {
             exclusive: true,
             priority: 0,
         });
+        let handlers: &[BuiltinCommand] = match self.id {
+            "code" => &[BuiltinCommand::Code],
+            "list" => &[BuiltinCommand::List],
+            "table" => &[BuiltinCommand::Table],
+            "inline" => &[BuiltinCommand::Input],
+            "paragraph-heading" => &[BuiltinCommand::Navigation, BuiltinCommand::Paragraph],
+            "templates" => &[BuiltinCommand::Templates],
+            "format" => &[BuiltinCommand::Format],
+            _ => &[],
+        };
+        for &handler in handlers {
+            r.command(
+                Contribution {
+                    id: handler.id(),
+                    slot: if matches!(handler, BuiltinCommand::Input) {
+                        Slot::InputRule("text")
+                    } else {
+                        Slot::Command("edit")
+                    },
+                    exclusive: false,
+                    priority: 0,
+                },
+                Arc::new(handler),
+            )?;
+        }
+        if self.id == "document-presentation" {
+            r.presentation(
+                Contribution {
+                    id: "document.display",
+                    slot: Slot::PrimaryPresentation("document"),
+                    exclusive: true,
+                    priority: 0,
+                },
+                Arc::new(crate::presentation::MarkdownPresentation),
+            )?;
+        }
         Ok(())
     }
 }
-pub(crate) fn registry(previews: &[crate::diagrams::FencedPreview]) -> Result<Registry, String> {
+pub(crate) fn registry(
+    previews: &[crate::diagrams::FencedPreview],
+    additional: &[Arc<dyn BuiltinFeature + Send + Sync>],
+) -> Result<Registry, String> {
     let builtins = [
+        Builtin {
+            id: "format",
+            dependencies: &[],
+            slot: Slot::Command("format"),
+        },
+        Builtin {
+            id: "document-presentation",
+            dependencies: &["code", "table", "list", "formula"],
+            slot: Slot::Ui("document-presentation"),
+        },
         Builtin {
             id: "code",
             dependencies: &[],
@@ -73,5 +124,6 @@ pub(crate) fn registry(previews: &[crate::diagrams::FencedPreview]) -> Result<Re
         .map(|f| f as &dyn BuiltinFeature)
         .collect::<Vec<_>>();
     features.extend(previews.iter().map(|p| p as &dyn BuiltinFeature));
+    features.extend(additional.iter().map(|f| f.as_ref() as &dyn BuiltinFeature));
     Registry::build(&features)
 }

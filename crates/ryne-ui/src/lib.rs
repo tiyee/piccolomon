@@ -8,12 +8,14 @@ mod i18n;
 mod input;
 mod layout;
 mod layout_frame;
+mod math_fonts;
 mod menus;
 mod paint;
 mod profile;
 mod recent;
 mod render_controls;
 mod smoke;
+mod text_layout;
 mod theme;
 mod welcome;
 use editable_markdown_parser::{Affinity, ParseSnapshot, Session, SnapshotId, Source};
@@ -21,10 +23,10 @@ use element::*;
 use gpui::{prelude::*, *};
 use i18n::{Language, Localization, Preference, Status, Text};
 use layout::*;
-use menus::OpenRecent;
+use menus::{OpenRecent, SelectLanguage, SelectMathFont};
 use render_controls::*;
 pub use ryne_extensions::DesktopServices;
-use ryne_extensions::{FormulaRenderer, SyntaxHighlighter};
+use ryne_extensions::{FormulaRenderer, MathFont, SyntaxHighlighter};
 use ryne_projection::{self as presentation, Display};
 use ryne_session::{Composition, EditorSession as Document, SessionServices};
 use std::{ops::Range, path::PathBuf};
@@ -58,7 +60,6 @@ actions!(
         Undo,
         Redo,
         About,
-        Settings,
         CheckUpdates,
         Hide,
         New,
@@ -70,6 +71,7 @@ actions!(
         Open,
         Save,
         SaveAs,
+        FormatSource,
         ToggleSource,
         ToggleBlockSource,
         Escape,
@@ -89,6 +91,8 @@ fn heading_metrics(level: u8) -> (f32, f32) {
 struct Editor {
     document: Document,
     desktop: DesktopServices,
+    formulas: std::sync::Arc<dyn FormulaRenderer>,
+    math_font: math_fonts::MathFontPreference,
     recent: recent::RecentFiles,
     file_operation_pending: bool,
     exporting: bool,
@@ -106,9 +110,8 @@ struct Editor {
     dragging: bool,
     status: Status,
     locale: Localization,
-    language_menu: bool,
     top_menu: Option<usize>,
-    recent_menu: bool,
+    top_submenu: Option<usize>,
     allow_close: bool,
     close_prompt: bool,
     close_after_save: bool,
@@ -116,6 +119,7 @@ struct Editor {
     preferred_x: Option<Pixels>,
     caret_affinity: Affinity,
     block_menu: Option<(SnapshotId, crate::block::Block)>,
+    block_insert: Option<bool>,
     hovered_block: Option<(SnapshotId, crate::block::Block)>,
     append_hovered: bool,
     append_menu: Option<SnapshotId>,
@@ -129,8 +133,8 @@ struct Editor {
 
 impl Editor {
     fn select_language(&mut self, preference: Preference, cx: &mut Context<Self>) {
-        self.language_menu = false;
         self.top_menu = None;
+        self.top_submenu = None;
         self.block_menu = None;
         self.append_menu = None;
         self.render_menu = None;
@@ -232,6 +236,47 @@ impl Editor {
         self.refresh(cx);
     }
 
+    fn insert_adjacent_block(
+        &mut self,
+        snapshot: SnapshotId,
+        block: &crate::block::Block,
+        before: bool,
+        kind: ryne_extensions::InsertBlock,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if snapshot != self.document.source.id()
+            || self.document.source_mode
+            || self.dragging
+            || self.document.composition.is_some()
+            || self.block_menu.as_ref() != Some(&(snapshot, block.clone()))
+            || self.block_insert != Some(before)
+        {
+            self.block_menu = None;
+            self.block_insert = None;
+            cx.notify();
+            return;
+        }
+        match self
+            .document
+            .dispatch(ryne_extensions::EditIntent::InsertAdjacent {
+                block: ryne_core::SourceRange::new(snapshot, block.range.clone()),
+                before,
+                template: kind,
+                labels: self.locale.language.template_labels(),
+            }) {
+            Ok(_) => {
+                self.status = Text::Added.into();
+                self.preferred_x = None;
+                self.caret_affinity = Affinity::Downstream;
+                self.ensure_caret = true;
+                window.focus(&self.focus);
+            }
+            Err(_) => self.status = Text::InsertFailed.into(),
+        }
+        self.refresh(cx);
+    }
+
     fn active_block(&self) -> Option<crate::block::Block> {
         self.hovered_block
             .as_ref()
@@ -275,6 +320,7 @@ impl Editor {
             return;
         }
         if self.active_block().as_ref() == Some(&block) {
+            self.block_insert = None;
             self.block_menu = Some((snapshot, block));
             cx.notify();
         }
@@ -294,6 +340,21 @@ impl Editor {
             return;
         }
         match action {
+            BlockAction::AddBelow | BlockAction::AddAbove => {
+                if self.document.source_mode
+                    || self.dragging
+                    || self.block_menu.as_ref() != Some(&(snapshot, block.clone()))
+                {
+                    return;
+                }
+                let before = matches!(action, BlockAction::AddAbove);
+                if before && !block::can_insert_above(&self.document.parse, block) {
+                    return;
+                }
+                self.block_insert = Some(before);
+                cx.notify();
+                return;
+            }
             BlockAction::Source => {
                 if self
                     .document
@@ -328,6 +389,8 @@ impl Editor {
     fn new(
         mut document: Document,
         desktop: DesktopServices,
+        formulas: std::sync::Arc<dyn FormulaRenderer>,
+        math_font: math_fonts::MathFontPreference,
         mut highlighter: Box<dyn SyntaxHighlighter>,
         locale: Localization,
         cx: &mut Context<Self>,
@@ -337,6 +400,8 @@ impl Editor {
         let mut editor = Self {
             document,
             desktop,
+            formulas,
+            math_font,
             recent: recent::RecentFiles::default(),
             file_operation_pending: false,
             exporting: false,
@@ -354,9 +419,8 @@ impl Editor {
             dragging: false,
             status: Text::Help.into(),
             locale,
-            language_menu: false,
             top_menu: None,
-            recent_menu: false,
+            top_submenu: None,
             allow_close: false,
             close_prompt: false,
             close_after_save: false,
@@ -364,6 +428,7 @@ impl Editor {
             preferred_x: None,
             caret_affinity: Affinity::Downstream,
             block_menu: None,
+            block_insert: None,
             hovered_block: None,
             append_hovered: false,
             append_menu: None,
@@ -397,20 +462,46 @@ impl Editor {
             .as_ref()
             .map_or(self.document.head, |c| c.selection.end)
     }
+    fn accept_render_controls(
+        &mut self,
+        batch: Result<ryne_extensions::RenderControlBatch, String>,
+    ) {
+        match batch {
+            Ok(batch) => {
+                if let Some(diagnostic) = batch.diagnostics.first() {
+                    self.status = self.locale.language.error(
+                        Text::RenderActionFailed,
+                        format!("{}: {}", diagnostic.feature, diagnostic.message),
+                    );
+                }
+                self.document.record_diagnostics(batch.diagnostics);
+                self.render_controls = batch.controls;
+            }
+            Err(error) => {
+                self.status = self.locale.language.error(Text::RenderActionFailed, error);
+                self.render_controls.clear();
+            }
+        }
+    }
     fn refresh(&mut self, cx: &mut Context<Self>) {
         let _profile = profile::Scope::new("refresh");
+        // Keep preedit and drag geometry stable; apply the saved choice when
+        // the normal input lifecycle next refreshes a settled document.
+        if !self.dragging && self.document.composition.is_none() {
+            self.formulas.set_font(self.math_font.font);
+        }
         self.reset_caret_blink();
         self.render_menu = None;
         self.block_menu = None;
+        self.block_insert = None;
         self.append_menu = None;
         self.append_hovered = false;
-        self.render_controls = match self.document.render_controls() {
-            Ok(controls) => controls,
-            Err(error) => {
-                self.status = self.locale.language.error(Text::RenderActionFailed, error);
-                Vec::new()
-            }
+        let batch = if self.document.composition.is_some() {
+            Ok(ryne_extensions::RenderControlBatch::default())
+        } else {
+            self.document.project_render_control_batch(&self.document)
         };
+        self.accept_render_controls(batch);
         if self.dragging || self.document.composition.is_some() || self.document.source_mode {
             self.hovered_render = None;
         }
@@ -496,10 +587,8 @@ impl Editor {
             temporary.heading_reveal =
                 heading.and_then(|r| Session::new(&temporary.source, r).ok());
             temporary.block_source = block.and_then(|r| Session::new(&temporary.source, r).ok());
-            self.render_controls = self
-                .document
-                .project_render_controls(&temporary)
-                .unwrap_or_default();
+            let batch = self.document.project_render_control_batch(&temporary);
+            self.accept_render_controls(batch);
             self.document
                 .project(&temporary, Some(self.highlighter.as_mut()), &views)
         } else {
@@ -940,6 +1029,36 @@ impl Editor {
         self.ensure_caret = true;
         self.refresh(cx);
     }
+    fn format_source(&mut self, _: &FormatSource, window: &mut Window, cx: &mut Context<Self>) {
+        if self.dragging || self.document.composition.is_some() {
+            self.status = Text::OperationWait.into();
+            cx.notify();
+            return;
+        }
+        let before = self.document.source.id();
+        match self
+            .document
+            .dispatch(ryne_extensions::EditIntent::FormatSource)
+        {
+            Ok(_) => {
+                self.status = if self.document.source.id() == before {
+                    Text::SourceUnchanged
+                } else {
+                    Text::SourceFormatted
+                }
+                .into();
+                self.preferred_x = None;
+                self.caret_affinity = Affinity::Downstream;
+                self.ensure_caret = true;
+                self.refresh(cx);
+            }
+            Err(error) => {
+                self.status = self.locale.language.error(Text::FormatFailed, error);
+                cx.notify();
+            }
+        }
+        self.focus.focus(window);
+    }
     fn toggle_source(&mut self, _: &ToggleSource, _: &mut Window, cx: &mut Context<Self>) {
         self.commit_composition(cx);
         self.document.clear_heading_reveal();
@@ -969,6 +1088,7 @@ impl Editor {
     }
     fn escape(&mut self, _: &Escape, _: &mut Window, cx: &mut Context<Self>) {
         if self.top_menu.take().is_some() {
+            self.top_submenu = None;
             cx.notify();
             return;
         }
@@ -979,15 +1099,14 @@ impl Editor {
             cx.notify();
             return;
         }
-        if std::mem::take(&mut self.language_menu) {
-            cx.notify();
-            return;
-        }
         if self.append_menu.take().is_some() {
             cx.notify();
             return;
         }
-        if self.block_menu.take().is_some() {
+        if self.block_menu.is_some() {
+            if self.block_insert.take().is_none() {
+                self.block_menu = None;
+            }
             cx.notify();
             return;
         }
@@ -1112,6 +1231,16 @@ impl Editor {
         {
             return;
         }
+        if self.block_menu.is_some()
+            && let (Some(control), Some(menu)) = (geometry.block_control, geometry.block_menu)
+            && position.x >= control.left().min(menu.left())
+            && position.x < control.right().max(menu.right())
+            && position.y >= control.top().min(menu.top())
+            && position.y < control.bottom().max(menu.bottom())
+        {
+            // Keep the menu open across the small gap between it and its control.
+            return;
+        }
         if geometry
             .append_zone
             .is_some_and(|zone| zone.contains(&position))
@@ -1145,16 +1274,6 @@ impl Editor {
                 self.hovered_block = Some((snapshot, block.clone()));
                 self.open_block_menu(snapshot, block, cx);
             }
-            return;
-        }
-        if self.block_menu.is_some()
-            && let (Some(control), Some(menu)) = (geometry.block_control, geometry.block_menu)
-            && position.x >= control.left().min(menu.left())
-            && position.x < control.right().max(menu.right())
-            && position.y >= control.top().min(menu.top())
-            && position.y < control.bottom().max(menu.bottom())
-        {
-            // Keep the menu open across the small gap between it and its control.
             return;
         }
         let block =
@@ -1257,9 +1376,21 @@ pub fn run(
     } else {
         Localization::load()
     };
+    let font_storage = if smoke {
+        Some(std::env::temp_dir().join(format!("ryne-math-font-smoke-{}", std::process::id())))
+    } else {
+        i18n::preference_path().map(|p| p.with_file_name("math-font"))
+    };
+    let mut math_font = math_fonts::MathFontPreference::load(font_storage);
+    if smoke {
+        math_font.font = MathFont::default();
+    }
+    formulas.set_font(math_font.font);
     let path = argument.filter(|_| !smoke).map(PathBuf::from);
     Application::new()
-        .with_assets(crate::assets::Assets { formulas })
+        .with_assets(crate::assets::Assets {
+            formulas: formulas.clone(),
+        })
         .run(move |cx: &mut App| {
             cx.bind_keys([
                 KeyBinding::new("left", Left, Some("MarkdownEditor")),
@@ -1291,7 +1422,6 @@ pub fn run(
                 KeyBinding::new("cmd-z", Undo, Some("MarkdownEditor")),
                 KeyBinding::new("cmd-shift-z", Redo, Some("MarkdownEditor")),
                 KeyBinding::new("cmd-n", New, Some("MarkdownEditor")),
-                KeyBinding::new("cmd-,", Settings, Some("MarkdownEditor")),
                 KeyBinding::new("cmd-h", Hide, Some("MarkdownEditor")),
                 KeyBinding::new("cmd-shift-r", Reload, Some("MarkdownEditor")),
                 KeyBinding::new("cmd-shift-e", ExportPdf, Some("MarkdownEditor")),
@@ -1308,6 +1438,10 @@ pub fn run(
                 WindowOptions {
                     window_bounds: Some(WindowBounds::Windowed(bounds)),
                     window_min_size: Some(size(px(520.), px(360.))),
+                    titlebar: Some(TitlebarOptions {
+                        appears_transparent: cfg!(target_os = "macos"),
+                        ..Default::default()
+                    }),
                     ..Default::default()
                 },
                 move |window, cx| {
@@ -1326,7 +1460,15 @@ pub fn run(
                             None => (Document::new(sample, services.clone()), None),
                         };
                     let editor = cx.new(|cx| {
-                        let mut editor = Editor::new(document, desktop, highlighter, locale, cx);
+                        let mut editor = Editor::new(
+                            document,
+                            desktop,
+                            formulas,
+                            math_font,
+                            highlighter,
+                            locale,
+                            cx,
+                        );
                         if !smoke {
                             editor.recent = recent::RecentFiles::load(
                                 i18n::preference_path().map(|p| p.with_file_name("recent.json")),

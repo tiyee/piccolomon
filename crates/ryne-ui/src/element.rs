@@ -2,6 +2,24 @@ use super::*;
 pub(super) struct EditorElement {
     pub(super) editor: Entity<Editor>,
 }
+
+struct ModeTooltip(&'static str);
+
+impl Render for ModeTooltip {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .px_2()
+            .py_1()
+            .rounded_md()
+            .bg(rgb(theme::PAPER))
+            .border_1()
+            .border_color(rgb(theme::BORDER))
+            .text_color(rgb(theme::INK))
+            .font_family(".SystemUIFont")
+            .text_size(px(12.))
+            .child(self.0)
+    }
+}
 pub(super) struct Frame {
     pub(super) geometry: Geometry,
     pub(super) selections: Vec<PaintQuad>,
@@ -51,6 +69,8 @@ pub(super) fn block_menu_item(
             BlockAction::Source => "block-source",
             BlockAction::Select => "block-select",
             BlockAction::Copy => "block-copy",
+            BlockAction::AddBelow => "block-add-below",
+            BlockAction::AddAbove => "block-add-above",
         })
         .px_3()
         .py_2()
@@ -66,6 +86,52 @@ pub(super) fn block_menu_item(
             });
         })
         .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+}
+
+/// Shared type picker for the document tail and adjacent-block insertion.
+pub(super) fn insert_type_picker(
+    editor: Entity<Editor>,
+    snapshot: SnapshotId,
+    target: Option<(crate::block::Block, bool)>,
+    language: crate::i18n::Language,
+    templates: &[(&'static str, ryne_extensions::InsertBlock)],
+) -> impl IntoElement {
+    let mut picker = div();
+    for items in templates.chunks(2) {
+        let mut row = div().flex();
+        for &(label, kind) in items {
+            let entity = editor.clone();
+            let target = target.clone();
+            row = row.child(
+                div()
+                    .id(label)
+                    .flex_1()
+                    .min_w_0()
+                    .px_3()
+                    .py_2()
+                    .text_size(px(13.))
+                    .rounded_md()
+                    .cursor_pointer()
+                    .hover(|style| style.bg(rgb(theme::CODE_BG)))
+                    .child(language.insert_label(kind))
+                    .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+                        cx.stop_propagation();
+                        entity.update(cx, |editor, cx| {
+                            if let Some((block, before)) = &target {
+                                editor.insert_adjacent_block(
+                                    snapshot, block, *before, kind, window, cx,
+                                );
+                            } else {
+                                editor.append_block(snapshot, kind, window, cx);
+                            }
+                        });
+                    })
+                    .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation()),
+            );
+        }
+        picker = picker.child(row);
+    }
+    picker
 }
 
 /// Measure UI labels with the same system font used by menu elements. The
@@ -188,17 +254,6 @@ impl Render for Editor {
             name,
             if self.document.dirty() { " •" } else { "" }
         ));
-        let button = |label: &'static str| {
-            div()
-                .px_3()
-                .py_1()
-                .rounded_md()
-                .cursor_pointer()
-                .text_size(px(13.))
-                .bg(rgb(0xecebe7))
-                .hover(|s| s.bg(rgb(0xe0dfd9)))
-                .child(label)
-        };
         div()
             .size_full()
             .flex()
@@ -214,10 +269,10 @@ impl Render for Editor {
                 MouseButton::Left,
                 cx.listener(|editor, _, _, cx| {
                     let top = editor.top_menu.take().is_some();
-                    let language = std::mem::take(&mut editor.language_menu);
+                    editor.top_submenu = None;
                     let append = editor.append_menu.take().is_some();
                     let render = editor.render_menu.take().is_some();
-                    if editor.block_menu.take().is_some() || append || language || render || top {
+                    if editor.block_menu.take().is_some() || append || render || top {
                         cx.notify();
                     }
                 }),
@@ -247,7 +302,8 @@ impl Render for Editor {
             .on_action(cx.listener(Self::undo))
             .on_action(cx.listener(Self::redo))
             .on_action(cx.listener(Self::about))
-            .on_action(cx.listener(Self::settings))
+            .on_action(cx.listener(Self::change_language))
+            .on_action(cx.listener(Self::change_math_font))
             .on_action(cx.listener(Self::check_updates))
             .on_action(cx.listener(Self::hide))
             .on_action(cx.listener(Self::new_document))
@@ -259,10 +315,19 @@ impl Render for Editor {
             .on_action(cx.listener(Self::open))
             .on_action(cx.listener(Self::save))
             .on_action(cx.listener(Self::save_as))
+            .on_action(cx.listener(Self::format_source))
             .on_action(cx.listener(Self::toggle_source))
             .on_action(cx.listener(Self::toggle_block_source))
             .on_action(cx.listener(Self::escape))
             .on_action(cx.listener(Self::quit))
+            .when(
+                cfg!(target_os = "macos") && !window.is_fullscreen(),
+                |view| {
+                    // The transparent native titlebar hides its text and lets PAPER
+                    // show through. Reserve its traffic-light/drag area above controls.
+                    view.child(div().h(px(28.)).flex_shrink_0())
+                },
+            )
             .when(!cfg!(target_os = "macos"), |view| {
                 view.child(self.window_menu(window, cx))
             })
@@ -274,7 +339,7 @@ impl Render for Editor {
                     .flex_wrap()
                     .gap_2()
                     .px_5()
-                    .py_3()
+                    .py(px(2.))
                     .border_b_1()
                     .border_color(rgb(theme::BORDER))
                     .child(
@@ -291,100 +356,76 @@ impl Render for Editor {
                         div()
                             .flex()
                             .gap_2()
-                            .flex_wrap()
-                            .justify_end()
+                            .items_center()
                             .child(
-                                button(self.locale.language.text(Text::Language)).on_mouse_down(
-                                    MouseButton::Left,
-                                    cx.listener(|this, _, _, cx| {
-                                        cx.stop_propagation();
-                                        this.language_menu = !this.language_menu;
-                                        cx.notify();
+                                div()
+                                    .id("format-source")
+                                    .size(px(28.))
+                                    .flex_shrink_0()
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .cursor_pointer()
+                                    .tooltip({
+                                        let label = self.locale.language.text(Text::FormatSource);
+                                        move |_, cx| cx.new(|_| ModeTooltip(label)).into()
+                                    })
+                                    .child(
+                                        svg()
+                                            .path("icon:format")
+                                            .size(px(18.))
+                                            .text_color(rgb(theme::INK)),
+                                    )
+                                    .on_mouse_down(
+                                        MouseButton::Left,
+                                        cx.listener(|this, _, window, cx| {
+                                            cx.stop_propagation();
+                                            this.format_source(&FormatSource, window, cx);
+                                        }),
+                                    )
+                                    .on_mouse_up(MouseButton::Left, |_, _, cx| {
+                                        cx.stop_propagation()
                                     }),
-                                ),
-                            )
-                            .child(button(self.locale.language.text(Text::Open)).on_mouse_down(
-                                MouseButton::Left,
-                                cx.listener(|this, _, window, cx| this.open(&Open, window, cx)),
-                            ))
-                            .child(button(self.locale.language.text(Text::Save)).on_mouse_down(
-                                MouseButton::Left,
-                                cx.listener(|this, _, window, cx| this.save(&Save, window, cx)),
-                            ))
-                            .child(
-                                button(if self.document.block_source.is_some() {
-                                    self.locale.language.text(Text::FoldSource)
-                                } else {
-                                    self.locale.language.text(Text::BlockSource)
-                                })
-                                .on_mouse_down(
-                                    MouseButton::Left,
-                                    cx.listener(|this, _, window, cx| {
-                                        this.toggle_block_source(&ToggleBlockSource, window, cx)
-                                    }),
-                                ),
                             )
                             .child(
-                                button(if self.document.source_mode {
-                                    self.locale.language.text(Text::Preview)
-                                } else {
-                                    self.locale.language.text(Text::Source)
-                                })
-                                .on_mouse_down(
-                                    MouseButton::Left,
-                                    cx.listener(|this, _, window, cx| {
-                                        this.toggle_source(&ToggleSource, window, cx)
-                                    }),
-                                ),
+                                div()
+                                    .id("toggle-source")
+                                    .size(px(28.))
+                                    .flex_shrink_0()
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .rounded_md()
+                                    .cursor_pointer()
+                                    .tooltip({
+                                        let label = self.locale.language.text(
+                                            if self.document.source_mode {
+                                                Text::SourceMode
+                                            } else {
+                                                Text::ViewMode
+                                            },
+                                        );
+                                        move |_, cx| cx.new(|_| ModeTooltip(label)).into()
+                                    })
+                                    .child(
+                                        svg()
+                                            .path(if self.document.source_mode {
+                                                "icon:code"
+                                            } else {
+                                                "icon:eye"
+                                            })
+                                            .size(px(18.))
+                                            .text_color(rgb(theme::INK)),
+                                    )
+                                    .on_mouse_down(
+                                        MouseButton::Left,
+                                        cx.listener(|this, _, window, cx| {
+                                            this.toggle_source(&ToggleSource, window, cx)
+                                        }),
+                                    ),
                             ),
                     ),
             )
-            .when(self.language_menu, |view| {
-                view.child(
-                    div()
-                        .flex()
-                        .flex_wrap()
-                        .gap_2()
-                        .px_5()
-                        .py_2()
-                        .child(self.locale.language.text(Text::Settings))
-                        .child(self.locale.language.text(Text::Language))
-                        .child(
-                            button(self.locale.language.text(Text::Close)).on_mouse_down(
-                                MouseButton::Left,
-                                cx.listener(|this, _, _, cx| {
-                                    cx.stop_propagation();
-                                    this.language_menu = false;
-                                    cx.notify();
-                                }),
-                            ),
-                        )
-                        .child(
-                            button(self.locale.language.text(Text::System))
-                                .when(self.locale.preference.0.is_none(), |s| s.bg(rgb(0xdde8ef)))
-                                .on_mouse_down(
-                                    MouseButton::Left,
-                                    cx.listener(|this, _, _, cx| {
-                                        cx.stop_propagation();
-                                        this.select_language(Preference(None), cx);
-                                    }),
-                                ),
-                        )
-                        .children(Language::ALL.into_iter().map(|language| {
-                            button(language.native_name())
-                                .when(self.locale.preference.0 == Some(language), |s| {
-                                    s.bg(rgb(0xdde8ef))
-                                })
-                                .on_mouse_down(
-                                    MouseButton::Left,
-                                    cx.listener(move |this, _, _, cx| {
-                                        cx.stop_propagation();
-                                        this.select_language(Preference(Some(language)), cx);
-                                    }),
-                                )
-                        })),
-                )
-            })
             .child(
                 div()
                     .id("editor")

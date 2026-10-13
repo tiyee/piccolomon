@@ -180,7 +180,8 @@ impl Editor {
         });
         self.block_menu = None;
         self.append_menu = None;
-        self.language_menu = false;
+        self.top_menu = None;
+        self.top_submenu = None;
         window.focus(&self.focus);
         cx.notify();
     }
@@ -207,6 +208,40 @@ impl Editor {
         self.ensure_caret = true;
         window.focus(&self.focus);
         self.refresh(cx);
+    }
+    pub(super) fn activate_render_control(
+        &mut self,
+        key: RenderFrameKey,
+        region: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if !self.render_key_current(&key, window) {
+            return;
+        }
+        let item = self.geometry.as_ref().and_then(|g| {
+            let region = g.render_regions.iter().find(|r| r.key() == region)?;
+            let control = region.controls.first()?;
+            if !matches!(
+                control.placement,
+                ryne_extensions::RenderControlPlacement::Marker { .. }
+            ) {
+                return None;
+            }
+            Some(RenderMenuItem {
+                action: control.actions.first()?.clone(),
+                request: RenderActionRequest {
+                    provider: control.provider,
+                    target: control.target.clone(),
+                    command: control.actions.first()?.command,
+                },
+            })
+        });
+        if let Some(item) = item {
+            self.run_render_item(key, item, window, cx);
+            // A structural toggle preserves the selection; do not scroll to a distant caret.
+            self.ensure_caret = false;
+        }
     }
     pub(super) fn update_render_hover(
         &mut self,
@@ -570,10 +605,57 @@ pub(super) fn prepaint_render_controls(
     window: &mut Window,
     cx: &mut App,
 ) {
+    let key = geometry.render_key(window.viewport_size());
+    // Structural icons remain visible while dragging or composing; only activation is suppressed.
+    for region in &geometry.render_regions {
+        let Some(control) = region.controls.first() else {
+            continue;
+        };
+        let ryne_extensions::RenderControlPlacement::Marker { icon: name } = control.placement
+        else {
+            continue;
+        };
+        let trigger = region.trigger;
+        if !geometry.bounds.contains(&trigger.center()) {
+            continue;
+        }
+        let mut button = div()
+            .id(SharedString::from(format!(
+                "render-marker-{}",
+                region.key()
+            )))
+            .size(px(24.))
+            .flex()
+            .items_center()
+            .justify_center()
+            .child(icon(name, 0x6f7781));
+        if editor.available {
+            geometry.render_buttons.push(trigger);
+            let entity = entity.clone();
+            let key = key.clone();
+            let id = region.key();
+            button = button
+                .cursor_pointer()
+                .on_mouse_down(MouseButton::Left, move |_, window, cx| {
+                    cx.stop_propagation();
+                    entity.update(cx, |e, cx| {
+                        e.activate_render_control(key.clone(), id.clone(), window, cx)
+                    });
+                })
+                .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation());
+        }
+        let mut button = button.into_any_element();
+        button.prepaint_as_root(
+            trigger.origin,
+            size(px(24.).into(), px(24.).into()),
+            window,
+            cx,
+        );
+        controls.push(button);
+    }
     if !editor.available {
         return;
     }
-    let key = geometry.render_key(window.viewport_size());
     let language = entity.read(cx).locale.language;
     let focused = geometry
         .render_regions
@@ -583,6 +665,14 @@ pub(super) fn prepaint_render_controls(
         .map(RenderRegion::key);
     let mut menu_anchor = None;
     for region in &geometry.render_regions {
+        if region.controls.iter().any(|c| {
+            matches!(
+                c.placement,
+                ryne_extensions::RenderControlPlacement::Marker { .. }
+            )
+        }) {
+            continue;
+        }
         let id = region.key();
         let active = editor.hovered.as_ref() == Some(&id)
             || (editor.focused && focused.as_ref() == Some(&id))

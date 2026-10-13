@@ -297,3 +297,78 @@ fn failing_observer_cannot_rollback_a_published_transaction_or_break_undo() {
     assert!(!doc.dirty());
     assert_eq!(doc.diagnostics.len(), 2);
 }
+
+struct RegisteredInput;
+impl ryne_extensions::BuiltinFeature for RegisteredInput {
+    fn manifest(&self) -> ryne_extensions::FeatureManifest {
+        let mut manifest = ryne_extensions::FeatureManifest::builtin("test-shortcut");
+        manifest.before.push("inline");
+        manifest
+    }
+    fn register(&self, r: &mut ryne_extensions::Registrar) -> Result<(), String> {
+        r.command(
+            ryne_extensions::Contribution {
+                id: "test-shortcut.input",
+                slot: ryne_extensions::Slot::InputRule("text"),
+                priority: 10,
+                exclusive: false,
+            },
+            Arc::new(RegisteredInput),
+        )
+    }
+}
+impl ryne_extensions::CommandHandler for RegisteredInput {
+    fn plan(
+        &self,
+        intent: &EditIntent,
+        state: &EditingState,
+        _: &ryne_extensions::FeatureServices<'_>,
+    ) -> Result<Option<CommandPlan>, String> {
+        let EditIntent::Insert { range, text, .. } = intent else {
+            return Ok(None);
+        };
+        if text != "::" {
+            return Ok(None);
+        }
+        let prepared = ryne_core::PreparedEdit::prepare_plan(
+            &state.source,
+            vec![ryne_core::SourceEdit {
+                range: range.clone(),
+                replacement: "λ😀".into(),
+            }],
+        )
+        .map_err(|e| format!("{e:?}"))?;
+        let mut next = EditingState::new(prepared.applied().source.clone());
+        next.head = range.bytes.start.0 + "λ😀".len();
+        next.anchor = next.head;
+        Ok(Some(CommandPlan::Edit {
+            prepared,
+            state: next,
+            handled: true,
+        }))
+    }
+}
+#[test]
+fn registered_input_runs_through_real_session_validation_and_history() {
+    let mut services = super::regression_tests::services();
+    services.features = Arc::new(
+        ryne_features::MarkdownFeatures::new(
+            Arc::new(ryne_services::math::FormularyRenderer::default()),
+            vec![],
+        )
+        .unwrap()
+        .with_feature(Arc::new(RegisteredInput))
+        .unwrap(),
+    );
+    let mut doc = EditorSession::new("before\r\n", services);
+    doc.insert_text(0..0, "::").unwrap();
+    assert_eq!(doc.source.text(), "λ😀before\r\n");
+    assert_eq!(doc.head, "λ😀".len());
+    assert_eq!(doc.history_len(false), 1);
+    doc.undo(false);
+    assert_eq!(doc.source.text(), "before\r\n");
+    assert!(!doc.dirty());
+    doc.insert_text(0..0, "ordinary").unwrap();
+    assert_eq!(doc.source.text(), "ordinarybefore\r\n");
+    assert!(!doc.display().text.is_empty());
+}

@@ -75,6 +75,9 @@ try {
     foreach ($notice in @('OFL.txt', 'FONTLOG.txt')) {
         Copy-Item -LiteralPath (Join-Path $root "assets/fonts/stix-two-math/$notice") -Destination $notices
     }
+    $leteNotices = Join-Path $bundle 'licenses/lete-sans-math'
+    New-Item -ItemType Directory -Path $leteNotices -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $root 'assets/fonts/lete-sans-math/OFL.txt') -Destination $leteNotices
     Copy-Item -LiteralPath (Join-Path $root 'README.md'), (Join-Path $root 'README.zh-CN.md') -Destination $bundle
     Compress-Archive -LiteralPath $bundle -DestinationPath $archive -Force
     $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()

@@ -3,6 +3,12 @@ use editable_markdown_parser::{NodeKind, ParseSnapshot, TokenKind};
 use std::ops::Range;
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct Task {
+    pub marker: Range<usize>,
+    pub checked: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Item {
     pub id: usize,
     pub list: usize,
@@ -11,6 +17,7 @@ pub struct Item {
     pub scope: Range<usize>,
     pub marker: Range<usize>,
     pub body: usize,
+    pub task: Option<Task>,
     pub label: String,
     pub next_marker: String,
     pub continuation: String,
@@ -152,6 +159,16 @@ pub fn items(parse: &ParseSnapshot) -> Vec<Item> {
             let width = columns(&text[line.start..end])
                 .saturating_sub(columns(&text[line.start..start]))
                 .max(2);
+            let task = parse.nodes.iter().find_map(|node| {
+                let NodeKind::Task(checked) = node.kind else {
+                    return None;
+                };
+                let marker = node.envelope.clone();
+                // Only a parser-confirmed task marker at this item's body is structural.
+                (marker.start == end
+                    && matches!(text.get(marker.clone()), Some("[ ]" | "[x]" | "[X]")))
+                .then_some(Task { marker, checked })
+            });
             Some(Item {
                 id,
                 list,
@@ -160,6 +177,7 @@ pub fn items(parse: &ParseSnapshot) -> Vec<Item> {
                 scope,
                 marker: start..end,
                 body: end,
+                task,
                 label,
                 next_marker,
                 continuation: format!("{}{}", &text[line.start..start], " ".repeat(width)),
@@ -207,6 +225,13 @@ pub fn rows(parse: &ParseSnapshot) -> Vec<Row> {
             // Bare CR parsing uses the normalized AST above; recover its proven first-line marker.
             if first {
                 hidden.push(item.marker.clone());
+                if let Some(task) = &item.task {
+                    let mut end = task.marker.end;
+                    if end < line.end && matches!(text.as_bytes()[end], b' ' | b'\t') {
+                        end += 1;
+                    }
+                    hidden.push(task.marker.start..end);
+                }
             }
             let content = hidden
                 .iter()

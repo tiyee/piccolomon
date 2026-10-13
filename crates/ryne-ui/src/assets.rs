@@ -7,7 +7,15 @@ impl AssetSource for Assets {
     fn load(&self, path: &str) -> gpui::Result<Option<Cow<'static, [u8]>>> {
         if let Some(name) = path.strip_prefix("icon:") {
             let bytes = match name {
+                "checkbox_checked" => {
+                    &include_bytes!("../../../assets/icons/checkbox_checked.svg")[..]
+                }
+                "checkbox_unchecked" => {
+                    &include_bytes!("../../../assets/icons/checkbox_unchecked.svg")[..]
+                }
                 "code" => &include_bytes!("../../../assets/icons/code.svg")[..],
+                "format" => &include_bytes!("../../../assets/icons/format.svg")[..],
+                "eye" => &include_bytes!("../../../assets/icons/eye.svg")[..],
                 "divider" => &include_bytes!("../../../assets/icons/divider.svg")[..],
                 "image" => &include_bytes!("../../../assets/icons/image.svg")[..],
                 "mermaid" => &include_bytes!("../../../assets/icons/mermaid.svg")[..],
@@ -43,8 +51,9 @@ impl AssetSource for Assets {
             return Ok(Some(Cow::Borrowed(bytes)));
         }
         Ok(path
-            .strip_prefix("math:")
-            .and_then(|latex| self.formulas.render(latex))
+            .starts_with("math:")
+            .then(|| self.formulas.render_asset(path))
+            .flatten()
             .map(|formula| Cow::Owned(formula.svg.clone())))
     }
     fn list(&self, _: &str) -> gpui::Result<Vec<SharedString>> {

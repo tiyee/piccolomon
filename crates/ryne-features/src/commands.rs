@@ -2,6 +2,8 @@
 //! Only the host publishes the returned candidate and history.
 mod append;
 mod code;
+pub(crate) mod dispatch;
+mod format;
 mod headings;
 mod inline;
 mod language;

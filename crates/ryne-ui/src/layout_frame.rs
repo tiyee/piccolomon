@@ -10,294 +10,29 @@ impl EditorElement {
         let editor = self.editor.read(cx);
         let display = &editor.display;
         let page = theme::Page::new(f32::from(bounds.size.width), editor.document.source_mode);
-        let runs = display
-            .spans
-            .iter()
-            .map(|span| {
-                let style = span.style;
-                let mut face = if style.source || style.code || style.code_block {
-                    editor.fonts.code.clone()
-                } else {
-                    editor.fonts.body.clone()
-                };
-                if style.bold {
-                    let header = display
-                        .tables
-                        .iter()
-                        .filter_map(|table| table.rows.first())
-                        .flatten()
-                        .any(|cell| cell.start < span.display.end && span.display.start < cell.end);
-                    face.weight = if header {
-                        FontWeight::SEMIBOLD
-                    } else {
-                        FontWeight::BOLD
-                    };
-                } else if style.heading > 0 {
-                    face.weight = FontWeight::SEMIBOLD;
-                }
-                if style.italic {
-                    face = face.italic();
-                }
-                let color = rgb(if style.marker {
-                    theme::MARKER
-                } else if style.link {
-                    theme::LINK
-                } else if let Some(syntax) = style.syntax {
-                    syntax.color()
-                } else if style.heading > 0 {
-                    theme::HEADING_INK
-                } else {
-                    theme::INK
-                })
-                .into();
-                TextRun {
-                    len: span.display.len(),
-                    font: face,
-                    color,
-                    background_color: (style.code && !style.source)
-                        .then(|| rgb(theme::CODE_BG).into()),
-                    underline: style.link.then_some(UnderlineStyle {
-                        color: None,
-                        thickness: px(1.),
-                        wavy: false,
-                    }),
-                    strikethrough: style.strike.then_some(StrikethroughStyle {
-                        color: None,
-                        thickness: px(1.),
-                    }),
-                }
-            })
-            .collect::<Vec<_>>();
-        let mut top = px(0.);
-        let mut start = 0;
-        let mut lines = Vec::new();
-        let mut previous_code = None;
-        let mut table_cells = Vec::new();
-        let mut spacing = presentation::FlowSpacing::default();
-        while start <= display.text.len() {
-            let code = display.code_row(start);
-            if previous_code.is_some() && code != previous_code {
-                top += px(12.);
-            }
-            top += px(spacing.enter(display, start));
-            if code.is_some() && code != previous_code {
-                top += px(32.);
-            }
-            previous_code = code;
-            if let Some((index, diagram)) = display
-                .diagrams
-                .iter()
-                .enumerate()
-                .find(|(_, view)| view.display.start == start)
-            {
-                let inset = px(diagram.source.indent as f32 * 18.);
-                let available = (px(page.width) - inset).max(px(40.));
-                let scale = (f32::from(available) / diagram.diagram.width).min(1.);
-                let height = px(diagram.diagram.height * scale + 24.);
-                let shaped = window
-                    .text_system()
-                    .shape_text(
-                        ryne_projection::OBJECT.into(),
-                        px(1.),
-                        &[TextRun {
-                            len: ryne_projection::OBJECT.len(),
-                            font: editor.fonts.body.clone(),
-                            color: transparent_black(),
-                            background_color: None,
-                            underline: None,
-                            strikethrough: None,
-                        }],
-                        None,
-                        None,
-                    )
-                    .unwrap_or_default()
-                    .into_iter()
-                    .next()
-                    .unwrap_or_default();
-                lines.push(Line {
-                    shaped,
-                    start,
-                    top,
-                    line_height: height,
-                    diagram: Some(index),
-                    code: None,
-                    inset,
-                    cell: None,
-                    align: TextAlign::Left,
-                    width: px(diagram.diagram.width * scale),
-                    mixed: None,
-                });
-                top += height;
-                start = diagram.display.end
-                    + usize::from(display.text.as_bytes().get(diagram.display.end) == Some(&b'\n'));
-                continue;
-            }
-            if let Some(table) = display
-                .tables
-                .iter()
-                .find(|table| table.range.start == start)
-            {
-                let inset = px(table.source.inset as f32);
-                let cell_width =
-                    ((px(page.width) - inset) / table.source.align.len() as f32).max(px(24.));
-                for (row_index, row) in table.rows.iter().enumerate() {
-                    let row_start = lines.len();
-                    let mut row_height = px(theme::TABLE.1 + 16.);
-                    for (column, cell) in row.iter().enumerate() {
-                        let reserve = editor
-                            .render_controls
-                            .iter()
-                            .filter(|c| {
-                                c.target.owner == table.source.range
-                                    && c.focus == table.source.rows[row_index].cells[column].content
-                            })
-                            .map(|c| c.trailing_space)
-                            .fold(0., f32::max);
-                        let rectangle = Bounds::new(
-                            point(inset + cell_width * column, top),
-                            size(cell_width, px(0.)),
-                        );
-                        let align = match table.source.align[column] {
-                            editable_markdown_parser::Alignment::Center => TextAlign::Center,
-                            editable_markdown_parser::Alignment::Right => TextAlign::Right,
-                            _ => TextAlign::Left,
-                        };
-                        let mut segment_start = cell.start;
-                        let mut used = px(0.);
-                        for segment in display.text[cell.clone()].split('\n') {
-                            let segment_end = segment_start + segment.len();
-                            for layout in shape_inline(
-                                display,
-                                &runs,
-                                segment_start..segment_end,
-                                theme::TABLE,
-                                (cell_width - px(24. + reserve)).max(px(4.)),
-                                window,
-                            ) {
-                                let height = layout.shaped.size(layout.line_height).height;
-                                lines.push(Line {
-                                    shaped: layout.shaped,
-                                    start: layout.start,
-                                    top: top + px(8.) + used,
-                                    line_height: layout.line_height,
-                                    diagram: None,
-                                    code: None,
-                                    inset: rectangle.left() + px(12.),
-                                    cell: Some(rectangle),
-                                    align,
-                                    width: (cell_width - px(24. + reserve)).max(px(4.)),
-                                    mixed: layout.mixed,
-                                });
-                                used += height;
-                            }
-                            segment_start = segment_end + 1;
-                        }
-                        row_height = row_height.max(used + px(16.));
-                    }
-                    for line in &mut lines[row_start..] {
-                        if let Some(cell) = &mut line.cell {
-                            cell.size.height = row_height;
-                        }
-                    }
-                    for column in 0..row.len() {
-                        table_cells.push((
-                            Bounds::new(
-                                point(inset + cell_width * column, top),
-                                size(cell_width, row_height),
-                            ),
-                            row_index == 0,
-                            editor
-                                .render_controls
-                                .iter()
-                                .filter(|c| {
-                                    c.target.owner == table.source.range
-                                        && c.focus
-                                            == table.source.rows[row_index].cells[column].content
-                                })
-                                .cloned()
-                                .collect::<Vec<_>>(),
-                        ));
-                    }
-                    top += row_height;
-                }
-                start = table.range.end;
-                continue;
-            }
-            let text = display.text[start..].split('\n').next().unwrap_or("");
-            let end = start + text.len();
-            let heading = display
-                .spans
-                .iter()
-                .find(|span| {
-                    span.display.start <= end && start < span.display.end && span.style.heading > 0
-                })
-                .map_or(0, |span| span.style.heading);
-            let raw = editor.document.source_mode
-                || display.spans.iter().any(|span| {
-                    span.style.source
-                        && span.display.start <= start
-                        && (start < span.display.end || start == display.text.len())
-                });
-            let (font_size, mut line_height) = if raw || code.is_some() {
-                theme::CODE
-            } else {
-                heading_metrics(heading)
-            };
-            if text.is_empty() && code.is_none() && !raw {
-                line_height = spacing.empty_height(display, start);
-            }
-            let list = display.list_row(start);
-            let inset = code.map_or(
-                list.map_or(px(0.), |row| px(row.source.item.inset as f32)),
-                |index| px(16. + display.code_blocks[index].source.indent as f32 * 18.),
-            );
-            for layout in shape_inline(
-                display,
-                &runs,
-                start..end,
-                (font_size, line_height),
-                (px(page.width) - inset - if code.is_some() { px(16.) } else { px(0.) })
-                    .max(px(40.)),
-                window,
-            ) {
-                let height = layout.shaped.size(layout.line_height).height;
-                lines.push(Line {
-                    shaped: layout.shaped,
-                    start: layout.start,
-                    top,
-                    line_height: layout.line_height,
-                    diagram: None,
-                    code,
-                    inset,
-                    cell: None,
-                    align: TextAlign::Left,
-                    width: px(0.),
-                    mixed: layout.mixed,
-                });
-                top += height;
-            }
-            start = end + 1;
-        }
-        if previous_code.is_some() {
-            top += px(12.);
-        }
+        let control_index = text_layout::control_index(&editor.render_controls);
+        let key = text_layout::LayoutKey::new(editor, page, window, &control_index);
+        let layout = editor
+            .geometry
+            .as_ref()
+            .map(|g| &g.text_layout)
+            .filter(|layout| layout.key == key)
+            .cloned()
+            .unwrap_or_else(|| {
+                std::sync::Arc::new(text_layout::TextLayout::build(editor, key, window))
+            });
         let mut geometry = Geometry {
             snapshot: editor.document.source.id(),
             frame_epoch: editor.frame_epoch,
-            display: display.clone(),
-            rows: Vec::new(),
+            display: layout.display.clone(),
+            rows: layout.rows.clone(),
+            text_layout: layout.clone(),
             bounds,
             page,
             source_mode: editor.document.source_mode,
-            lines,
+            lines: layout.lines.clone(),
             scroll: editor.scroll,
-            height: top
-                + px(page.top + theme::BOTTOM)
-                + if editor.document.source_mode {
-                    px(0.)
-                } else {
-                    px(APPEND_HEIGHT)
-                },
+            height: layout.height,
             math_painted: 0,
             diagrams_painted: 0,
             diagram_images: editor.diagram_images.clone(),
@@ -314,46 +49,11 @@ impl EditorElement {
             render_buttons: Vec::new(),
             render_menu_bounds: Vec::new(),
         };
-        for (line_index, line) in geometry.lines.iter().enumerate() {
-            let mut starts = vec![0];
-            starts.extend(line.shaped.wrap_boundaries.iter().map(|boundary| {
-                line.shaped.unwrapped_layout.runs[boundary.run_ix].glyphs[boundary.glyph_ix].index
-            }));
-            let ends = starts
-                .iter()
-                .copied()
-                .skip(1)
-                .chain(std::iter::once(line.shaped.len()));
-            for (row_index, (start, end)) in starts.iter().copied().zip(ends).enumerate() {
-                geometry.rows.push(VisualRow {
-                    range: line.start + start..line.start + end,
-                    line: line_index,
-                    top: line.top + line.line_height * row_index,
-                    start_x: if line.mixed.is_some() {
-                        px(0.)
-                    } else {
-                        line.x_for_index(start)
-                    },
-                    align_offset: {
-                        let width = line.mixed.as_ref().map_or_else(
-                            || line.x_for_index(end) - line.x_for_index(start),
-                            |mixed| mixed.width,
-                        );
-                        match line.align {
-                            TextAlign::Center => (line.width - width) / 2.,
-                            TextAlign::Right => line.width - width,
-                            _ => px(0.),
-                        }
-                    },
-                    line_height: line.line_height,
-                    newline: end == line.shaped.len()
-                        && display.text.as_bytes().get(line.start + end) == Some(&b'\n'),
-                });
-            }
-        }
         if let Some(previous) = editor.geometry.as_ref().filter(|previous| {
             previous.snapshot == editor.document.source.id()
-                && (previous.page != page || previous.source_mode != editor.document.source_mode)
+                && (previous.page != page
+                    || previous.source_mode != editor.document.source_mode
+                    || previous.display.formulas != display.formulas)
         }) && let Some(row) = previous
             .rows
             .iter()
@@ -444,7 +144,8 @@ impl EditorElement {
             });
         }
         let mut table_quads = Vec::new();
-        for (mut cell, header, contributions) in table_cells {
+        for &(mut cell, header, control_key) in &layout.cells {
+            let contributions = control_index.get(&control_key).cloned().unwrap_or_default();
             cell.origin += bounds.origin + point(px(page.left), px(page.top) - geometry.scroll);
             if !contributions.is_empty() {
                 geometry.render_regions.push(RenderRegion {
@@ -494,14 +195,26 @@ impl EditorElement {
                 }],
                 None,
             );
+            let task = row.source.item.task.is_some();
+            let numbered = row.source.item.label != "•";
+            let marker_width = if task {
+                px(24.)
+                    + if numbered {
+                        shaped.width + px(10.)
+                    } else {
+                        px(0.)
+                    }
+            } else {
+                shaped.width
+            };
             let origin = bounds.origin
                 + point(
-                    px(page.left) + line.inset - shaped.width - px(10.),
+                    px(page.left) + line.inset - marker_width - px(10.),
                     px(page.top) + line.top - geometry.scroll,
                 );
             geometry.list_markers.push((
                 row.source.item.range.clone(),
-                Bounds::new(origin, size(shaped.width, line.line_height)),
+                Bounds::new(origin, size(marker_width, line.line_height)),
             ));
             let contributions = editor
                 .render_controls
@@ -548,7 +261,37 @@ impl EditorElement {
                     controls: contributions,
                 });
             }
-            list_labels.push((origin, shaped, line.line_height));
+            if row.source.item.task.is_some() {
+                let contributions = editor
+                    .render_controls
+                    .iter()
+                    .filter(|c| {
+                        matches!(
+                            c.placement,
+                            ryne_extensions::RenderControlPlacement::Marker { .. }
+                        ) && c.target.part == [row.source.item.marker.start]
+                            && c.target.owner.start == row.source.item.range.start
+                    })
+                    .cloned()
+                    .collect::<Vec<_>>();
+                if !contributions.is_empty() {
+                    let trigger = Bounds::new(
+                        point(
+                            origin.x + marker_width - px(24.),
+                            origin.y + (line.line_height - px(24.)) / 2.,
+                        ),
+                        size(px(24.), px(24.)),
+                    );
+                    geometry.render_regions.push(RenderRegion {
+                        bounds: trigger,
+                        trigger,
+                        controls: contributions,
+                    });
+                }
+            }
+            if !task || numbered {
+                list_labels.push((origin, shaped, line.line_height));
+            }
         }
         let selected = editor.selected();
         // Items whose first child is a code/table/diagram panel have no first
@@ -609,6 +352,11 @@ impl EditorElement {
         .then(|| editor.active_block())
         .flatten();
         let menu_open = editor.block_menu.is_some();
+        let block_insert = editor.block_insert;
+        let can_insert_above = menu_open
+            && focused_block
+                .as_ref()
+                .is_some_and(|block| block::can_insert_above(&editor.document.parse, block));
         let source_scope = editor
             .document
             .block_source
@@ -623,14 +371,25 @@ impl EditorElement {
         let insert_templates = editor.document.insert_templates().to_vec();
         let snapshot = editor.document.source.id();
         let append_menu_open = editor.append_menu == Some(snapshot);
+        let append_available = !editor.document.source_mode
+            && !editor.dragging
+            && editor.document.composition.is_none();
+        let append_hovered = editor.append_hovered;
         let render_view = RenderViewState::new(editor, window);
         let mut controls = Vec::new();
-        if !editor.document.source_mode && !editor.dragging && editor.document.composition.is_none()
-        {
+        prepaint_render_controls(
+            &render_view,
+            &self.editor,
+            &mut geometry,
+            &mut controls,
+            window,
+            cx,
+        );
+        if append_available {
             let origin = bounds.origin
                 + point(
                     px(page.left),
-                    px(page.top) + top + px(12.) - geometry.scroll,
+                    px(page.top) + layout.body_height + px(12.) - geometry.scroll,
                 );
             let zone = Bounds::new(
                 point(bounds.left(), origin.y),
@@ -639,7 +398,7 @@ impl EditorElement {
             geometry.append_zone = Some(zone);
             let control_origin = origin - point(px(40.), px(0.));
             let control_bounds = Bounds::new(control_origin, size(px(32.), px(28.)));
-            if editor.append_hovered
+            if append_hovered
                 && control_origin.y >= bounds.top()
                 && control_bounds.bottom() <= bounds.bottom()
             {
@@ -703,35 +462,13 @@ impl EditorElement {
                                 .text_color(rgb(0x858b93))
                                 .child(language.text(Text::AddContent)),
                         );
-                    for items in insert_templates.chunks(2) {
-                        let mut row = div().flex();
-                        for &(label, kind) in items {
-                            let entity = self.editor.clone();
-                            row = row.child(
-                                div()
-                                    .id(label)
-                                    .flex_1()
-                                    .min_w_0()
-                                    .px_3()
-                                    .py_2()
-                                    .text_size(px(13.))
-                                    .rounded_md()
-                                    .cursor_pointer()
-                                    .hover(|style| style.bg(rgb(theme::CODE_BG)))
-                                    .child(language.insert_label(kind))
-                                    .on_mouse_down(MouseButton::Left, move |_, window, cx| {
-                                        cx.stop_propagation();
-                                        entity.update(cx, |editor, cx| {
-                                            editor.append_block(snapshot, kind, window, cx)
-                                        });
-                                    })
-                                    .on_mouse_up(MouseButton::Left, |_, _, cx| {
-                                        cx.stop_propagation()
-                                    }),
-                            );
-                        }
-                        menu = menu.child(row);
-                    }
+                    menu = menu.child(insert_type_picker(
+                        self.editor.clone(),
+                        snapshot,
+                        None,
+                        language,
+                        &insert_templates,
+                    ));
                     let mut menu = menu
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
@@ -811,8 +548,14 @@ impl EditorElement {
                 if menu_open {
                     let source_open = source_scope.as_ref() == Some(&block.scope);
                     let title = language.block_name(spec.metadata.icon, spec.metadata.name);
-                    let menu_width = spec
+                    let items: Vec<_> = spec
                         .menu
+                        .iter()
+                        .filter(|item| {
+                            !matches!(item.command, BlockAction::AddAbove) || can_insert_above
+                        })
+                        .collect();
+                    let mut menu_width = items
                         .iter()
                         .fold(
                             px(260.).max(menu_text_width(title, 12., window) + px(58.)),
@@ -827,6 +570,16 @@ impl EditorElement {
                             },
                         )
                         .min(bounds.size.width);
+                    if block_insert.is_some() {
+                        let column_width = insert_templates
+                            .iter()
+                            .map(|(_, kind)| {
+                                menu_text_width(&language.insert_label(*kind), 13., window)
+                                    + px(34.)
+                            })
+                            .fold(px(0.), Pixels::max);
+                        menu_width = menu_width.max(column_width * 2.).min(bounds.size.width);
+                    }
                     let mut menu = div()
                         .id("block-menu")
                         .w(menu_width)
@@ -849,8 +602,47 @@ impl EditorElement {
                                 .text_color(rgb(0x858b93))
                                 .child(block_type_icon(&spec.metadata, 0x858b93))
                                 .child(title),
-                        )
-                        .children(spec.menu.iter().map(|item| {
+                        );
+                    if let Some(before) = block_insert {
+                        let entity = self.editor.clone();
+                        menu = menu
+                            .child(
+                                div()
+                                    .id("block-insert-back")
+                                    .px_3()
+                                    .py_2()
+                                    .text_size(px(13.))
+                                    .cursor_pointer()
+                                    .rounded_md()
+                                    .hover(|style| style.bg(rgb(theme::CODE_BG)))
+                                    .child(format!(
+                                        "‹  {}",
+                                        language.text(if before {
+                                            Text::AddAbove
+                                        } else {
+                                            Text::AddBelow
+                                        })
+                                    ))
+                                    .on_mouse_down(MouseButton::Left, move |_, _, cx| {
+                                        cx.stop_propagation();
+                                        entity.update(cx, |editor, cx| {
+                                            editor.block_insert = None;
+                                            cx.notify();
+                                        });
+                                    })
+                                    .on_mouse_up(MouseButton::Left, |_, _, cx| {
+                                        cx.stop_propagation()
+                                    }),
+                            )
+                            .child(insert_type_picker(
+                                self.editor.clone(),
+                                snapshot,
+                                Some((block.clone(), before)),
+                                language,
+                                &insert_templates,
+                            ));
+                    } else {
+                        menu = menu.children(items.iter().map(|item| {
                             block_menu_item(
                                 language.block_action(item.command, source_open),
                                 item.command,
@@ -858,7 +650,9 @@ impl EditorElement {
                                 snapshot,
                                 block.clone(),
                             )
-                        }))
+                        }));
+                    }
+                    let mut menu = menu
                         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                         .into_any_element();
@@ -882,14 +676,6 @@ impl EditorElement {
                 }
             }
         }
-        prepaint_render_controls(
-            &render_view,
-            &self.editor,
-            &mut geometry,
-            &mut controls,
-            window,
-            cx,
-        );
         Frame {
             geometry,
             selections,

@@ -349,7 +349,7 @@ impl RenderActionProvider for Custom {
 #[test]
 fn extra_provider_registers_an_executable_custom_role_without_session_branches() {
     let features = ryne_features::MarkdownFeatures::new(
-        Arc::new(ryne_services::math::FormularyRenderer),
+        Arc::new(ryne_services::math::FormularyRenderer::default()),
         vec![],
     )
     .unwrap()
@@ -368,4 +368,71 @@ fn extra_provider_registers_an_executable_custom_role_without_session_branches()
     assert_eq!(doc.selection(), 0..doc.source.text().len());
     assert!(!doc.dirty());
     assert_eq!(doc.history_len(false), 0);
+}
+
+struct BrokenControls(u8);
+impl RenderActionProvider for BrokenControls {
+    fn id(&self) -> &'static str {
+        "broken"
+    }
+    fn commands(&self) -> &'static [&'static str] {
+        &["broken.run"]
+    }
+    fn controls(&self, s: &EditingState) -> Result<Vec<RenderControl>, String> {
+        match self.0 {
+            0 => Err("provider unavailable".into()),
+            1 => panic!("provider failure"),
+            _ => {
+                let mut c = Custom.controls(s)?.remove(0);
+                c.provider = "broken";
+                c.actions[0].command = "broken.run";
+                let mut invalid = c.clone();
+                invalid.trailing_space = f32::NAN;
+                Ok(vec![c, invalid])
+            }
+        }
+    }
+    fn plan(&self, _: &EditingState, _: &RenderActionRequest) -> Result<CommandPlan, String> {
+        panic!("unavailable provider must not execute")
+    }
+}
+#[test]
+fn provider_errors_panics_and_invalid_batches_do_not_disable_other_controls() {
+    for failure in 0..3 {
+        let mut services = super::regression_tests::services();
+        services.features = Arc::new(
+            ryne_features::MarkdownFeatures::new(
+                Arc::new(ryne_services::math::FormularyRenderer::default()),
+                vec![],
+            )
+            .unwrap()
+            .with_render_action_provider(Arc::new(BrokenControls(failure)))
+            .unwrap()
+            .with_render_action_provider(Arc::new(Custom))
+            .unwrap(),
+        );
+        let mut doc = EditorSession::new(RAW, services);
+        let batch = doc.project_render_control_batch(&doc).unwrap();
+        assert_eq!(batch.diagnostics.len(), 1);
+        assert_eq!(batch.diagnostics[0].feature, "broken");
+        assert_eq!(
+            batch
+                .controls
+                .iter()
+                .filter(|c| c.provider == "table")
+                .count(),
+            9
+        );
+        assert!(batch.controls.iter().any(|c| c.provider == "custom"));
+        assert!(!batch.controls.iter().any(|c| c.provider == "broken"));
+        doc.record_diagnostics(batch.diagnostics.clone());
+        doc.record_diagnostics(batch.diagnostics);
+        assert_eq!(doc.diagnostics.len(), 1);
+        doc.execute_render_action(&request(&doc, 1, 0, "table.insert-below"))
+            .unwrap();
+        assert_eq!(doc.display().tables[0].rows.len(), 4);
+        doc.undo(false);
+        assert_eq!(doc.source.text(), RAW);
+        assert!(!doc.dirty());
+    }
 }

@@ -22,7 +22,7 @@ fn document(renderer: Arc<FakeRenderer>) -> EditorSession {
     let mut services = super::regression_tests::services();
     services.features = Arc::new(
         ryne_features::MarkdownFeatures::new(
-            Arc::new(ryne_services::math::FormularyRenderer),
+            Arc::new(ryne_services::math::FormularyRenderer::default()),
             vec![
                 ryne_features::diagrams::FencedPreview {
                     id: "test-alpha",
@@ -109,4 +109,37 @@ fn obsolete_targets_documents_and_service_generations_discard_results() {
     assert!(!doc.jobs.complete(result, doc.source.id()));
     let (_, request) = doc.diagram_views(false, &[]);
     assert_eq!(request.unwrap().key.generation, 2);
+}
+
+#[test]
+fn timed_out_content_keeps_diagnostic_and_does_not_starve_later_jobs() {
+    let renderer = Arc::new(FakeRenderer(AtomicU64::new(1)));
+    let mut doc = document(renderer.clone());
+    let (_, request) = doc.diagram_views(false, &[]);
+    let mut request = request.unwrap();
+    request.control = CancelControl::with_timeout(std::time::Duration::ZERO);
+    assert!(doc.jobs.complete(request.run(), doc.source.id()));
+    let (views, next) = doc.diagram_views(false, &[]);
+    assert_eq!(views.len(), 1);
+    assert!(views[0].1.as_ref().unwrap_err().contains("超时"));
+    let next = next.unwrap();
+    assert_eq!(next.key.feature, "test-beta");
+    assert!(doc.jobs.complete(next.run(), doc.source.id()));
+    for _ in 0..3 {
+        let (views, next) = doc.diagram_views(false, &[]);
+        assert_eq!(views.len(), 2);
+        assert!(next.is_none());
+    }
+    // A new renderer generation is allowed to retry the same source.
+    renderer.0.store(2, Ordering::SeqCst);
+    let (_, next) = doc.diagram_views(false, &[]);
+    let next = next.unwrap();
+    assert_eq!(next.key.feature, "test-alpha");
+    assert_eq!(next.key.generation, 2);
+    assert!(doc.jobs.complete(next.run(), doc.source.id()));
+    let start = doc.source.text().find("same").unwrap();
+    doc.replace(start..start + 4, "changed").unwrap();
+    doc.select(doc.source.text().len(), false, false);
+    let (_, next) = doc.diagram_views(false, &[]);
+    assert_eq!(next.unwrap().key.source, "changed");
 }

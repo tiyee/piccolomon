@@ -75,7 +75,8 @@ impl Editor {
         cx.spawn_in(window, async move |this, cx| {
             let _blink_observer = blink_observer;
             let mut typography_anchor: Option<(usize, Pixels)> = None;
-            for stage in 0..213 {
+            let mut cached_layout: Option<std::sync::Arc<text_layout::TextLayout>> = None;
+            for stage in 0..246 {
                 cx.background_executor()
                     .timer(std::time::Duration::from_millis(500))
                     .await;
@@ -103,6 +104,7 @@ impl Editor {
                             geometry.snapshot == editor.document.source.id()
                                 && geometry.display.text == editor.display.text
                                 && geometry.display.spans == editor.display.spans
+                                && geometry.display.formulas == editor.display.formulas
                                 && geometry.source_mode == editor.document.source_mode
                                 && geometry.bounds.size.width == window.viewport_size().width
                         });
@@ -336,7 +338,7 @@ impl Editor {
                             check!(previous.y < next.y);
                             check_eq!(geometry.hit_caret(previous + point(px(0.), px(8.))).0, boundary);
                             check_eq!(geometry.hit_caret(next + point(px(0.), px(8.))).0, boundary);
-                            for row in &geometry.rows {
+                            for row in geometry.rows.iter() {
                                 check_eq!(geometry.display.snap(row.range.start), row.range.start);
                                 check_eq!(geometry.display.snap(row.range.end), row.range.end);
                             }
@@ -1001,11 +1003,8 @@ impl Editor {
                                 _ => line.start == geometry.display.position_at(block.range.start),
                             }).ok_or("missing first block line")?;
                             check_eq!(control.center().y, geometry.bounds.top() + px(geometry.page.top) + first.top + first.line_height / 2. - geometry.scroll);
-                            if block.is_list() {
-                                check!(control.left()>=geometry.bounds.left()+px(geometry.page.left+geometry.page.width)-px(32.));
-                            } else {
-                                check!(control.right() <= geometry.position(geometry.display.position_at(block.anchor)).x);
-                            }
+                            check!(control.left() >= geometry.bounds.left());
+                            check!(control.right() <= geometry.position(geometry.display.position_at(block.anchor)).x);
                             check!(!editor.document.dirty());
                             editor.update_block_hover(control.center(),cx);
                         }
@@ -1320,7 +1319,7 @@ impl Editor {
                             let blank = geometry.rows.iter().find(|row| row.range.is_empty() && row.line_height == px(14.)).ok_or("missing compact separator row")?;
                             let separator_point = geometry.position_in_row(blank, blank.range.start) + point(px(0.), blank.line_height / 2.);
                             check_eq!(geometry.hit_caret(separator_point).0, blank.range.start);
-                            for row in &geometry.rows {
+                            for row in geometry.rows.iter() {
                                 if row.range.is_empty() || geometry.lines[row.line].diagram.is_some() { continue; }
                                 let position = geometry.position_in_row(row, row.range.start) + point(px(0.), row.line_height / 2.);
                                 check_eq!(geometry.hit_caret(position).0, row.range.start);
@@ -1377,7 +1376,7 @@ impl Editor {
                         }
                         102 => {
                             let mut sizes = Vec::new();
-                            for row in &geometry.rows {
+                            for row in geometry.rows.iter() {
                                 let line = &geometry.lines[row.line];
                                 let caret = geometry.caret_bounds(row.range.start, Affinity::Downstream);
                                 let origin = geometry.position_in_row(row, row.range.start);
@@ -1401,7 +1400,7 @@ impl Editor {
                             editor.toggle_source(&ToggleSource, window, cx);
                         }
                         103 => {
-                            for row in &geometry.rows {
+                            for row in geometry.rows.iter() {
                                 check_eq!(geometry.caret_bounds(row.range.start, Affinity::Downstream).size.height, px(theme::CODE.0));
                             }
                             editor.caret_visible = false;
@@ -1529,7 +1528,18 @@ impl Editor {
                             let composition = (composition.range.clone(), composition.text.clone(), composition.selection.clone());
                             let display = editor.display.clone();
                             let language = Language::ALL[(stage - 1 - 119) as usize];
-                            editor.select_language(Preference(Some(language)), cx);
+                            let menus = cx.get_menus().ok_or("missing native app menus")?;
+                            let language_menu = menus[0].items.iter().find_map(|item| match item {
+                                OwnedMenuItem::Submenu(menu) if menu.name.as_ref() == editor.locale.language.text(Text::Language) => Some(menu),
+                                _ => None,
+                            }).ok_or("missing Ryne language submenu")?;
+                            let action = language_menu.items.iter().find_map(|item| match item {
+                                OwnedMenuItem::Action { action, .. } => action.as_any().downcast_ref::<SelectLanguage>()
+                                    .filter(|action| action.preference == Preference(Some(language))).cloned(),
+                                _ => None,
+                            }).ok_or("missing native language action")?;
+                            check!(window.is_action_available(&action, cx));
+                            editor.change_language(&action, window, cx);
                             check_eq!(editor.locale.language, language);
                             check_eq!(editor.document.source.id(), source.id());
                             check_eq!(editor.document.source.text(), source.text());
@@ -1542,8 +1552,6 @@ impl Editor {
                             check_eq!((current.range.clone(), current.text.clone(), current.selection.clone()), composition);
                             let path = std::env::temp_dir().join(format!("ryne-language-smoke-{}", std::process::id()));
                             check_eq!(Preference::read(&path), Preference(Some(language)));
-                            // Draw every native language choice, including the longest labels.
-                            editor.language_menu = true;
                             cx.notify();
                         }
                         126 => {
@@ -1683,6 +1691,7 @@ impl Editor {
                             editor.dragging=false;editor.refresh(cx);
                         }
                         149 => {
+                            window.resize(size(px(640.), px(680.)));
                             editor.document=editor.document.fork("9. parent\r\n   - child\r\n10. second\r\n    - other\r\n\r\noutside\r\n");
                             editor.hovered_render=None;
                             let end=editor.document.source.text().len()-2;editor.move_to(end,false,cx);
@@ -1706,10 +1715,14 @@ impl Editor {
                             check!(target.is_list());check_eq!(target.range.start,0);
                             check!(target.range.end>=region.controls[0].target.owner.end);
                             check!(target.range.start<region.controls[0].target.owner.start);
-                            check!(control.left()>=geometry.bounds.left()+px(geometry.page.left+geometry.page.width)-px(32.));
+                            check!(control.left()>=geometry.bounds.left());
                             let first=geometry.render_regions.iter().find(|r|r.controls[0].focus.start==3).ok_or("missing first list item")?;
                             check_eq!(control.center().y,first.trigger.center().y);
-                            check!(control.left()>region.trigger.right());
+                            check!(control.right()+px(4.)<=first.trigger.left());
+                            let source=editor.document.source.id();let selection=editor.document.selection();let display=editor.display.clone();
+                            editor.update_block_hover(control.center(),cx);
+                            check_eq!(editor.block_menu.as_ref().map(|(_,b)|b),Some(target));
+                            check_eq!(editor.document.source.id(),source);check_eq!(editor.document.selection(),selection);check_eq!(editor.display,display);check!(!editor.document.dirty());
                             let selection=editor.document.selection();editor.open_render_menu(geometry.render_key(window.viewport_size()),region.key(),window,cx);
                             check_eq!(editor.document.selection(),selection);check_eq!(editor.document.history_len(false),0);
                         }
@@ -1732,7 +1745,8 @@ impl Editor {
                             let control=geometry.block_control.ok_or("missing nested whole-list control")?;
                             let first=geometry.render_regions.iter().find(|r|r.controls[0].focus.start==3).ok_or("missing outer first item")?;
                             check_eq!(control.center().y,first.trigger.center().y);
-                            check!(control.left()>=geometry.bounds.left()+px(geometry.page.left+geometry.page.width)-px(32.));
+                            check!(control.left()>=geometry.bounds.left());
+                            check!(control.right()+px(4.)<=first.trigger.left());
                             editor.render_shortcut(&KeyDownEvent{keystroke:Keystroke{key:"enter".into(),modifiers:Modifiers{alt:true,..Default::default()},..Default::default()},is_held:false},window,cx);
                             let menu=editor.render_menu.as_ref().ok_or("missing nested list menu")?;
                             let marker=editor.document.source.text().find("- child").ok_or("missing child marker")?;
@@ -1792,6 +1806,7 @@ impl Editor {
                             editor.undo(&Undo,window,cx);check!(!editor.document.dirty());
                         }
                         164 => {
+                            window.resize(size(px(960.), px(680.)));
                             editor.document = editor.document.fork("# heading\r\n\r\n- first\r\n  - child\r\n- second\r\n\r\n| A | B |\r\n| --- | ---: |\r\n| x | y |\r\n");
                             editor.move_to(2, false, cx);
                         }
@@ -1931,8 +1946,7 @@ impl Editor {
                             let snapshot = editor.document.source.id();
                             let selection = editor.document.selection();
                             let undo = editor.document.history_len(false);
-                            editor.settings(&Settings, window, cx);
-                            check!(editor.language_menu);
+                            editor.change_language(&SelectLanguage { preference: Preference(None) }, window, cx);
                             check_eq!(editor.document.source.id(), snapshot);
                             check_eq!(editor.document.selection(), selection);
                             check_eq!(editor.document.history_len(false), undo);
@@ -1995,14 +2009,337 @@ impl Editor {
                             std::fs::remove_file(path).map_err(|e| e.to_string())?;
                             editor.clear_recent(&ClearRecent, window, cx);
                             check!(editor.recent.paths.is_empty());
-                            println!("Application menus passed: localized native menus, settings without document changes, blank new document, recent open, CRLF reload, concurrent-edit rejection, IME/save guards and clear history");
+                            println!("Application menus passed: localized native menus, language preference without document changes, blank new document, recent open, CRLF reload, concurrent-edit rejection, IME/save guards and clear history");
+                        }
+                        209 => {
+                            editor.document = editor.document.fork("- [ ] 待办😀\r\n  1. [X] 已完成\r\n- [ ] \r\n\r\noutside\r\n");
+                            editor.move_to(editor.document.source.text().find("outside").ok_or("missing task outside")?, false, cx);
+                        }
+                        210 => {
+                            check!(!editor.display.text.contains("[ ]"));
+                            check!(!editor.display.text.contains("[X]"));
+                            let tasks = geometry.render_regions.iter().filter(|r| matches!(r.controls[0].placement, ryne_extensions::RenderControlPlacement::Marker { .. })).collect::<Vec<_>>();
+                            check_eq!(tasks.len(), 3);
+                            for task in &tasks {
+                                check!(geometry.render_buttons.contains(&task.trigger));
+                                let control = &task.controls[0];
+                                let start = geometry.display.position_at(control.focus.start);
+                                let row = geometry.row_for(start, Affinity::Downstream).ok_or("missing task text row")?;
+                                check_eq!(task.trigger.center().y, geometry.bounds.top() + px(geometry.page.top) + row.top + row.line_height / 2. - geometry.scroll);
+                                check!(task.trigger.right() < geometry.position(start).x);
+                            }
+                            let selection = editor.document.selection();
+                            let key = geometry.render_key(window.viewport_size());
+                            let id = tasks[0].key();
+                            editor.activate_render_control(key.clone(), id.clone(), window, cx);
+                            check!(editor.document.source.text().starts_with("- [x] 待办😀"));
+                            check_eq!(editor.document.selection(), selection);
+                            check_eq!(editor.document.history_len(false), 1);
+                            // The old frame must not toggle again after its source revision changes.
+                            editor.activate_render_control(key, id, window, cx);
+                            check_eq!(editor.document.history_len(false), 1);
+                        }
+                        211 => {
+                            let task = geometry.render_regions.iter().find(|r| matches!(r.controls[0].placement, ryne_extensions::RenderControlPlacement::Marker { icon: "checkbox_checked" })).ok_or("missing checked task SVG")?;
+                            editor.activate_render_control(geometry.render_key(window.viewport_size()), task.key(), window, cx);
+                            check!(editor.document.source.text().starts_with("- [ ] 待办😀"));
+                            check_eq!(editor.document.history_len(false), 2);
+                            editor.undo(&Undo, window, cx);
+                            editor.undo(&Undo, window, cx);
+                            check!(!editor.document.dirty());
+                            editor.document.composition = Some(Composition { range: 6..6, text: "预编辑".into(), selection: 0..0 });
+                            editor.refresh(cx);
+                        }
+                        212 => {
+                            check!(geometry.render_buttons.is_empty());
+                            let task = geometry.render_regions.iter().find(|r| matches!(r.controls[0].placement, ryne_extensions::RenderControlPlacement::Marker { .. })).ok_or("missing preedit task marker")?;
+                            editor.activate_render_control(geometry.render_key(window.viewport_size()), task.key(), window, cx);
+                            check!(!editor.document.dirty());
+                            editor.escape(&Escape, window, cx);
+                            editor.toggle_source(&ToggleSource, window, cx);
+                        }
+                        213 => {
+                            check!(geometry.render_regions.is_empty());
+                            check!(editor.display.text.contains("[ ]"));
+                            check!(editor.display.text.contains("[X]"));
+                            editor.toggle_source(&ToggleSource, window, cx);
+                            editor.dragging = true;
+                            editor.refresh(cx);
+                        }
+                        214 => {
+                            check!(geometry.render_buttons.is_empty());
+                            editor.dragging = false;
+                            editor.refresh(cx);
+                            println!("Task checkboxes passed: embedded checked/unchecked SVGs, nested real-window marker geometry, toggle with preserved selection and atomic undo, stale frame and source/IME/drag protection");
+                        }
+                        215 => {
+                            editor.document = editor.document.fork("# first\r\n\r\nsecond😀\r\n");
+                            editor.move_to(2, false, cx);
+                        }
+                        216 => {
+                            let control = geometry.block_control.ok_or("missing first block control")?;
+                            editor.update_block_hover(control.center(), cx);
+                        }
+                        217 => {
+                            let (snapshot, block) = editor.block_menu.clone().ok_or("missing first block menu")?;
+                            check!(!block::can_insert_above(&editor.document.parse, &block));
+                            let source = editor.document.source.clone();
+                            editor.block_action(snapshot, &block, BlockAction::AddAbove, cx);
+                            check!(editor.block_insert.is_none());
+                            editor.block_action(snapshot, &block, BlockAction::AddBelow, cx);
+                            check_eq!(editor.block_insert, Some(false));
+                            check_eq!(editor.document.source.id(), source.id());
+                            check!(!editor.document.dirty());
+                        }
+                        218 => {
+                            let picker = geometry.block_menu.ok_or("missing adjacent type picker")?;
+                            check!(geometry.bounds.contains(&picker.origin));
+                            check!(picker.right() <= geometry.bounds.right());
+                            check!(picker.bottom() <= geometry.bounds.bottom());
+                            let zone = geometry.append_zone.ok_or("missing picker-overlapped append zone")?;
+                            let overlap = point(picker.center().x, zone.center().y);
+                            check!(picker.contains(&overlap));
+                            editor.update_block_hover(overlap, cx);
+                            check!(editor.block_menu.is_some());
+                            check!(!editor.append_hovered);
+                            editor.update_block_hover(picker.center(), cx);
+                            check!(editor.block_menu.is_some());
+                            check_eq!(editor.block_insert, Some(false));
+                            editor.escape(&Escape, window, cx);
+                            check!(editor.block_menu.is_some());
+                            check!(editor.block_insert.is_none());
+                            let (snapshot, block) = editor.block_menu.clone().ok_or("missing retained insertion target")?;
+                            editor.block_action(snapshot, &block, BlockAction::AddBelow, cx);
+                            editor.insert_adjacent_block(snapshot, &block, false, ryne_extensions::InsertBlock::Code, window, cx);
+                            check_eq!(editor.document.history_len(false), 1);
+                            check!(editor.block_menu.is_none());
+                            check!(editor.document.source.text().contains("```\r\n\r\n```"));
+                        }
+                        219 => {
+                            check_eq!(geometry.display.code_blocks.len(), 1);
+                            editor.undo(&Undo, window, cx);
+                            check_eq!(editor.document.source.text(), "# first\r\n\r\nsecond😀\r\n");
+                            check!(!editor.document.dirty());
+                            let caret = editor.document.source.text().find("second").ok_or("missing second block")?;
+                            editor.move_to(caret, false, cx);
+                        }
+                        220 => {
+                            let control = geometry.block_control.ok_or("missing second block control")?;
+                            editor.update_block_hover(control.center(), cx);
+                        }
+                        221 => {
+                            let (snapshot, block) = editor.block_menu.clone().ok_or("missing second block menu")?;
+                            check!(block::can_insert_above(&editor.document.parse, &block));
+                            editor.block_action(snapshot, &block, BlockAction::AddAbove, cx);
+                            check_eq!(editor.block_insert, Some(true));
+                        }
+                        222 => {
+                            check!(geometry.block_menu.is_some());
+                            let (snapshot, block) = editor.block_menu.clone().ok_or("missing above insertion target")?;
+                            let selection = editor.document.selection();
+                            editor.document.composition = Some(Composition { range: selection.clone(), text: "临".into(), selection: 0..0 });
+                            editor.insert_adjacent_block(snapshot, &block, true, ryne_extensions::InsertBlock::Table, window, cx);
+                            check!(!editor.document.dirty());
+                            editor.document.composition = None;
+                            editor.hovered_block = Some((snapshot, block.clone()));
+                            editor.open_block_menu(snapshot, block.clone(), cx);
+                            editor.block_action(snapshot, &block, BlockAction::AddAbove, cx);
+                            editor.insert_adjacent_block(snapshot, &block, true, ryne_extensions::InsertBlock::Table, window, cx);
+                            check_eq!(editor.document.history_len(false), 1);
+                            check!(editor.document.source.text().find("| --- | --- |").ok_or("missing inserted table")? < editor.document.source.text().find("second").ok_or("missing original second block")?);
+                            let inserted = editor.document.source.id();
+                            editor.insert_adjacent_block(snapshot, &block, true, ryne_extensions::InsertBlock::Heading(2), window, cx);
+                            check_eq!(editor.document.source.id(), inserted);
+                        }
+                        223 => {
+                            check_eq!(geometry.display.tables.len(), 1);
+                            editor.undo(&Undo, window, cx);
+                            check_eq!(editor.document.source.text(), "# first\r\n\r\nsecond😀\r\n");
+                            check!(!editor.document.dirty());
+                            println!("Adjacent block insertion passed: first-block below-only, shared type picker geometry and hover, Escape back, above/below source transactions, CRLF, undo, stale target and IME protection");
+                        }
+                        224 => {
+                            editor.document = editor.document.fork("plain😀\r\n\r\n$\\frac{a_1}{\\sqrt{b}}$\r\n\r\n- $x^2$\r\n\r\n| f |\r\n| --- |\r\n| $x_i$ |\r\n");
+                            editor.move_to(5, false, cx);
+                        }
+                        225 => {
+                            check_eq!(editor.display.formulas.len(), 3);
+                            let before = editor.display.formulas.clone();
+                            let source = editor.document.source.clone();
+                            let selection = editor.document.selection();
+                            let menus = cx.get_menus().ok_or("missing native menus")?;
+                            let action = menus[0].items.iter().find_map(|item| match item {
+                                OwnedMenuItem::Submenu(menu) if menu.name.as_ref() == editor.locale.language.text(Text::MathFont) => menu.items.iter().find_map(|item| match item {
+                                    OwnedMenuItem::Action { action, .. } => action.as_any().downcast_ref::<SelectMathFont>().filter(|action| action.font == MathFont::StixTwo).cloned(),
+                                    _ => None,
+                                }),
+                                _ => None,
+                            }).ok_or("missing STIX action")?;
+                            check!(window.is_action_available(&action, cx));
+                            editor.change_math_font(&action, window, cx);
+                            check_eq!(editor.formulas.font(), MathFont::StixTwo);
+                            check!(!geometry.is_current(editor));
+                            check_eq!(editor.document.source.id(), source.id());
+                            check_eq!(editor.document.source.text(), source.text());
+                            check_eq!(editor.document.selection(), selection);
+                            check_eq!(editor.document.history_len(false), 0);
+                            check!(!editor.document.dirty());
+                            for (old, new) in before.iter().zip(&editor.display.formulas) {
+                                check!(old.formula.svg != new.formula.svg);
+                                check!(new.formula.path.starts_with("math:stix-two-math:"));
+                            }
+                        }
+                        226 => {
+                            check_eq!(geometry.display.formulas, editor.display.formulas);
+                            editor.replace_and_mark_text_in_range(None, "にほん", Some(3..3), window, cx);
+                            let composition = editor.document.composition.as_ref().ok_or("missing preedit")?;
+                            let composition = (composition.range.clone(), composition.text.clone(), composition.selection.clone());
+                            let display = editor.display.clone();
+                            let source = editor.document.source.id();
+                            editor.change_math_font(&SelectMathFont { font: MathFont::LeteSans }, window, cx);
+                            check_eq!(editor.formulas.font(), MathFont::StixTwo);
+                            check_eq!(editor.display, display);
+                            check_eq!(editor.document.source.id(), source);
+                            let current = editor.document.composition.as_ref().ok_or("lost preedit")?;
+                            check_eq!(current.range, composition.0);
+                            check_eq!(current.text, composition.1);
+                            check_eq!(current.selection, composition.2);
+                            editor.document.composition = None;
+                            editor.refresh(cx);
+                            check_eq!(editor.formulas.font(), MathFont::LeteSans);
+                        }
+                        227 => {
+                            check!(geometry.display.formulas.iter().all(|f| f.formula.path.starts_with("math:lete-sans-math:")));
+                            editor.dragging = true;
+                            let display = editor.display.clone();
+                            editor.change_math_font(&SelectMathFont { font: MathFont::StixTwo }, window, cx);
+                            check_eq!(editor.formulas.font(), MathFont::LeteSans);
+                            check_eq!(editor.display, display);
+                            editor.dragging = false;
+                            editor.refresh(cx);
+                            check_eq!(editor.formulas.font(), MathFont::StixTwo);
+                        }
+                        228 => {
+                            editor.change_math_font(&SelectMathFont { font: MathFont::LeteSans }, window, cx);
+                            check!(!editor.document.dirty());
+                            check_eq!(editor.document.history_len(false), 0);
+                            check_eq!(editor.document.history_len(true), 0);
+                            let path = std::env::temp_dir().join(format!("ryne-math-font-smoke-{}", std::process::id()));
+                            check_eq!(math_fonts::MathFontPreference::load(Some(path.clone())).font, MathFont::LeteSans);
+                            std::fs::remove_file(path).map_err(|e| e.to_string())?;
+                            println!("Math font menu passed: native action availability, Lete/STIX live metrics and SVG identity, fresh geometry, persisted preference, IME/drag deferral, unchanged Unicode/CRLF source, selection, dirty and history");
+                        }
+                        229 => {
+                            editor.document = editor.document.fork("#标题😀\r\n\r\n\r\n* __正文__\r\n\r\n~~~rust\r\n__literal__\r\n~~~\r\n");
+                            editor.move_to("#标题😀".len(), false, cx);
+                        }
+                        230 => {
+                            check!(window.is_action_available(&FormatSource, cx));
+                            let before = editor.document.source.id();
+                            editor.format_source(&FormatSource, window, cx);
+                            check!(!geometry.is_current(editor));
+                            check!(editor.document.source.id() != before);
+                            check_eq!(editor.document.source.text(), "# 标题😀\r\n\r\n- **正文**\r\n\r\n```rust\r\n__literal__\r\n```\r\n");
+                            check_eq!(editor.document.history_len(false), 1);
+                            check!(editor.document.dirty());
+                        }
+                        231 => {
+                            check_eq!(geometry.snapshot, editor.document.source.id());
+                            let before = editor.document.source.id();
+                            editor.format_source(&FormatSource, window, cx);
+                            check_eq!(editor.document.source.id(), before);
+                            check_eq!(editor.document.history_len(false), 1);
+                            editor.undo(&Undo, window, cx);
+                            check_eq!(editor.document.source.text(), "#标题😀\r\n\r\n\r\n* __正文__\r\n\r\n~~~rust\r\n__literal__\r\n~~~\r\n");
+                            check!(!editor.document.dirty());
+                        }
+                        232 => {
+                            editor.redo(&Redo, window, cx);
+                            let source = editor.document.source.id();
+                            let selection = editor.document.selection();
+                            editor.document.composition = Some(Composition { range: selection, text: "未".into(), selection: 0..3 });
+                            editor.format_source(&FormatSource, window, cx);
+                            check!(editor.document.composition.is_some());
+                            check_eq!(editor.document.source.id(), source);
+                            editor.document.composition = None;
+                            editor.dragging = true;
+                            editor.format_source(&FormatSource, window, cx);
+                            check_eq!(editor.document.source.id(), source);
+                            editor.dragging = false;
+                            editor.refresh(cx);
+                            println!("Source formatting passed: toolbar action availability, explicit heading repair, marker/fence rules, CRLF and literal code, fresh geometry, atomic undo/redo, idempotence and IME/drag protection");
+                        }
+                        233 => {
+                            editor.document = editor.document.fork("plain text 中文😀\n\n| A | B |\n| --- | --- |\n| $x^2$ | text |\n\n```rust\nlet x = 1;\n```\n");
+                            editor.scroll = px(0.);
+                            editor.move_to(0, false, cx);
+                            window.resize(size(px(960.), px(680.)));
+                        }
+                        234 => {
+                            cached_layout = Some(geometry.text_layout.clone());
+                            editor.caret_visible = !editor.caret_visible;
+                            cx.notify();
+                        }
+                        235 => {
+                            check!(cached_layout.as_ref().is_some_and(|old| std::sync::Arc::ptr_eq(old, &geometry.text_layout)), "blink rebuilt text layout");
+                            editor.move_to(1, false, cx);
+                            editor.hovered_render = editor.render_controls.first().map(|c| c.id.clone());
+                            cx.notify();
+                        }
+                        236 => {
+                            check!(cached_layout.as_ref().is_some_and(|old| std::sync::Arc::ptr_eq(old, &geometry.text_layout)), "caret/hover rebuilt text layout");
+                            window.resize(size(px(640.), px(680.)));
+                        }
+                        237 => {
+                            check!(cached_layout.as_ref().is_some_and(|old| !std::sync::Arc::ptr_eq(old, &geometry.text_layout)), "resize reused stale layout");
+                            cached_layout = Some(geometry.text_layout.clone());
+                            editor.fonts.body.weight = FontWeight::MEDIUM;
+                            cx.notify();
+                        }
+                        238 => {
+                            check!(cached_layout.as_ref().is_some_and(|old| !std::sync::Arc::ptr_eq(old, &geometry.text_layout)), "font change reused stale layout");
+                            cached_layout = Some(geometry.text_layout.clone());
+                            let control = editor.render_controls.first_mut().ok_or("missing spacing control")?;
+                            control.trailing_space += 8.;
+                            cx.notify();
+                        }
+                        239 => {
+                            check!(cached_layout.as_ref().is_some_and(|old| !std::sync::Arc::ptr_eq(old, &geometry.text_layout)), "control spacing reused stale layout");
+                            cached_layout = Some(geometry.text_layout.clone());
+                            editor.insert(0..0, "x", cx);
+                            check!(!geometry.is_current(editor));
+                        }
+                        240 => {
+                            check!(cached_layout.as_ref().is_some_and(|old| !std::sync::Arc::ptr_eq(old, &geometry.text_layout)), "edit reused stale layout");
+                            cached_layout = Some(geometry.text_layout.clone());
+                            editor.replace_and_mark_text_in_range(None, "未定😀", Some(3..3), window, cx);
+                            check!(!geometry.is_current(editor));
+                        }
+                        241 => {
+                            check!(cached_layout.as_ref().is_some_and(|old| !std::sync::Arc::ptr_eq(old, &geometry.text_layout)), "IME reused stale layout");
+                            cached_layout = Some(geometry.text_layout.clone());
+                            editor.escape(&Escape, window, cx);
+                        }
+                        242 => {
+                            check!(cached_layout.as_ref().is_some_and(|old| !std::sync::Arc::ptr_eq(old, &geometry.text_layout)), "cancelled IME retained temporary layout");
+                            cached_layout = Some(geometry.text_layout.clone());
+                            editor.toggle_source(&ToggleSource, window, cx);
+                        }
+                        243 => {
+                            check!(cached_layout.as_ref().is_some_and(|old| !std::sync::Arc::ptr_eq(old, &geometry.text_layout)), "source mode reused rendered layout");
+                            check_eq!(editor.document.history_len(false), 1);
+                            check!(editor.document.source.text().starts_with("xplain text"));
+                            editor.undo(&Undo, window, cx);
+                            check!(!editor.document.dirty());
+                            window.resize(size(px(960.), px(680.)));
+                            println!("Layout cache passed: blink/caret/hover reuse; resize/font/control-space/edit/IME/source-mode invalidation; unchanged document/history and shared source geometry");
                         }
                         _ => {
                             if window.is_window_active() {
                                 check!(blink_seen.load(std::sync::atomic::Ordering::Relaxed));
                             }
                             eprintln!("GUI smoke idle blink observed: {}", blink_seen.load(std::sync::atomic::Ordering::Relaxed));
-                            println!("List controls passed: ordered/unordered/nested and panel-first regions, leading SVG trigger and marker spacing, one whole-list type icon at the upper right across nested items, hover without reflow/selection changes, focused innermost target, clicked menu, whole-subtree movement across 9->10, outdent, empty sibling insertion, undo, source/IME/drag suppression");
+                            println!("List controls passed: ordered/unordered/nested and panel-first regions, leading SVG trigger and marker spacing, one whole-list type icon at the upper left clear of item triggers across nested items, hover without reflow/selection changes, focused innermost target, clicked menu, whole-subtree movement across 9->10, outdent, empty sibling insertion, undo, source/IME/drag suppression");
                             println!("Cell controls passed: real region geometry, reserved text space, hover/focus SVG trigger, clicked popup, grouped alignment submenu, keyboard activation and shortcuts, row/column edits with atomic undo, unchanged outside selection, stale frame rejection, source/IME/drag suppression and preedit layout reservation");
                             println!("GUI smoke passed: seven interface languages, persisted selection, system reset and unchanged Unicode/CRLF source, selection, history and IME composition; continuous caret text/strike/code shaping, natural spacing, Unicode/IME hit mapping, inline/code/right-aligned table/source geometry; font-sized caret, IME bounds, wrapped affinity and blink focus/selection/composition/drag lifecycle; typography, semantic spacing, source fonts, resize anchoring and caret mapping; invisible append block, hover menu, viewport positioning, source/IME/drag suppression, stale menu rejection and atomic insertion undo; inline completion, heading, block menu, Mermaid, math, highlighting, table, list and code regressions");
                             cx.quit();

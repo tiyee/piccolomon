@@ -5,8 +5,41 @@ pub(super) struct OpenRecent {
     pub path: PathBuf,
 }
 
-pub(super) fn application_menus(language: Language, paths: &[PathBuf]) -> Vec<Menu> {
+#[derive(Clone, Debug, PartialEq, Action)]
+#[action(namespace = ryne, no_json)]
+pub(super) struct SelectLanguage {
+    pub preference: Preference,
+}
+
+#[derive(Clone, Debug, PartialEq, Action)]
+#[action(namespace = ryne, no_json)]
+pub(super) struct SelectMathFont {
+    pub font: MathFont,
+}
+
+pub(super) fn application_menus(
+    language: Language,
+    preference: Preference,
+    math_font: MathFont,
+    paths: &[PathBuf],
+) -> Vec<Menu> {
     let text = |key| language.text(key);
+    let language_choice = |name: &str, choice: Preference| {
+        MenuItem::action(
+            if preference == choice {
+                format!("✓ {name}")
+            } else {
+                name.to_owned()
+            },
+            SelectLanguage { preference: choice },
+        )
+    };
+    let mut languages = vec![language_choice(text(Text::System), Preference(None))];
+    languages.extend(
+        Language::ALL
+            .into_iter()
+            .map(|language| language_choice(language.native_name(), Preference(Some(language)))),
+    );
     let mut recent = paths
         .iter()
         .map(|path| {
@@ -26,7 +59,26 @@ pub(super) fn application_menus(language: Language, paths: &[PathBuf]) -> Vec<Me
             name: "Ryne".into(),
             items: vec![
                 MenuItem::action(text(Text::About), About),
-                MenuItem::action(text(Text::Settings), Settings),
+                MenuItem::submenu(Menu {
+                    name: text(Text::Language).into(),
+                    items: languages,
+                }),
+                MenuItem::submenu(Menu {
+                    name: text(Text::MathFont).into(),
+                    items: MathFont::ALL
+                        .into_iter()
+                        .map(|font| {
+                            MenuItem::action(
+                                if font == math_font {
+                                    format!("✓ {}", font.name())
+                                } else {
+                                    font.name().to_owned()
+                                },
+                                SelectMathFont { font },
+                            )
+                        })
+                        .collect(),
+                }),
                 MenuItem::action(text(Text::CheckUpdates), CheckUpdates),
                 MenuItem::separator(),
                 MenuItem::action(text(Text::Hide), Hide),
@@ -56,7 +108,12 @@ pub(super) fn application_menus(language: Language, paths: &[PathBuf]) -> Vec<Me
 }
 impl Editor {
     pub(super) fn sync_application_menus(&self, cx: &App) {
-        cx.set_menus(application_menus(self.locale.language, &self.recent.paths));
+        cx.set_menus(application_menus(
+            self.locale.language,
+            self.locale.preference,
+            self.math_font.font,
+            &self.recent.paths,
+        ));
     }
     pub(super) fn remember_file(&mut self, path: &std::path::Path, cx: &mut Context<Self>) {
         self.recent.remember(path);
@@ -87,9 +144,30 @@ impl Editor {
             cx,
         ));
     }
-    pub(super) fn settings(&mut self, _: &Settings, _: &mut Window, cx: &mut Context<Self>) {
-        self.language_menu = true;
-        cx.notify();
+    pub(super) fn change_language(
+        &mut self,
+        action: &SelectLanguage,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.select_language(action.preference, cx);
+    }
+    pub(super) fn change_math_font(
+        &mut self,
+        action: &SelectMathFont,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.top_menu = None;
+        self.top_submenu = None;
+        if let Err(error) = self.math_font.select(action.font) {
+            self.status = self
+                .locale
+                .language
+                .error(Text::MathFontPreferenceFailed, error);
+        }
+        self.refresh(cx);
+        self.sync_application_menus(cx);
     }
     pub(super) fn hide(&mut self, _: &Hide, _: &mut Window, cx: &mut Context<Self>) {
         cx.hide();
@@ -162,7 +240,12 @@ impl Editor {
     /// GPUI 0.2.2 stores app menus on Windows without drawing a native menu bar.
     /// Present the same command tree inside the window on those platforms.
     pub(super) fn window_menu(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
-        let menus = application_menus(self.locale.language, &self.recent.paths);
+        let menus = application_menus(
+            self.locale.language,
+            self.locale.preference,
+            self.math_font.font,
+            &self.recent.paths,
+        );
         let mut bar = div()
             .relative()
             .flex()
@@ -190,7 +273,7 @@ impl Editor {
                             } else {
                                 Some(index)
                             };
-                            this.recent_menu = false;
+                            this.top_submenu = None;
                             cx.notify();
                         }),
                     ),
@@ -200,30 +283,34 @@ impl Editor {
             && let Some(menu) = menus.into_iter().nth(index)
         {
             let mut items = Vec::new();
-            for item in menu.items {
+            for (item_index, item) in menu.items.into_iter().enumerate() {
                 match item {
-                    MenuItem::Submenu(recent) => {
+                    MenuItem::Submenu(submenu) => {
                         items.push(
                             div()
-                                .id("recent-submenu")
+                                .id(("app-submenu", item_index))
                                 .px_3()
                                 .py_2()
                                 .cursor_pointer()
                                 .hover(|s| s.bg(rgb(0xecebe7)))
-                                .child(format!("{} ▸", recent.name))
+                                .child(format!("{} ▸", submenu.name))
                                 .on_mouse_down(
                                     MouseButton::Left,
-                                    cx.listener(|this, _, _, cx| {
+                                    cx.listener(move |this, _, _, cx| {
                                         cx.stop_propagation();
-                                        this.recent_menu = !this.recent_menu;
+                                        this.top_submenu = if this.top_submenu == Some(item_index) {
+                                            None
+                                        } else {
+                                            Some(item_index)
+                                        };
                                         cx.notify();
                                     }),
                                 )
                                 .into_any_element(),
                         );
-                        if self.recent_menu {
+                        if self.top_submenu == Some(item_index) {
                             items.extend(
-                                recent
+                                submenu
                                     .items
                                     .into_iter()
                                     .map(|item| window_menu_item(item, cx)),
@@ -280,6 +367,7 @@ fn window_menu_item(item: MenuItem, cx: &mut Context<Editor>) -> AnyElement {
                         cx.stop_propagation();
                         if enabled {
                             this.top_menu = None;
+                            this.top_submenu = None;
                             window.focus(&this.focus);
                             window.dispatch_action(action.boxed_clone(), cx);
                             cx.notify();
@@ -300,10 +388,90 @@ fn window_menu_item(item: MenuItem, cx: &mut Context<Editor>) -> AnyElement {
 mod tests {
     use super::*;
     #[::core::prelude::v1::test]
+    fn math_font_submenu_localizes_routes_and_marks_exactly_one_choice() {
+        for language in Language::ALL {
+            for selected in MathFont::ALL {
+                let menus = application_menus(language, Preference(None), selected, &[]);
+                let MenuItem::Submenu(menu) = &menus[0].items[2] else {
+                    panic!("math font submenu")
+                };
+                assert_eq!(menu.name.as_ref(), language.text(Text::MathFont));
+                assert_eq!(menu.items.len(), 2);
+                for (item, font) in menu.items.iter().zip(MathFont::ALL) {
+                    let MenuItem::Action { name, action, .. } = item else {
+                        panic!("font action")
+                    };
+                    assert_eq!(
+                        action
+                            .as_any()
+                            .downcast_ref::<SelectMathFont>()
+                            .unwrap()
+                            .font,
+                        font
+                    );
+                    assert_eq!(name.starts_with("✓ "), font == selected);
+                    assert!(name.ends_with(font.name()));
+                }
+            }
+        }
+    }
+    #[::core::prelude::v1::test]
+    fn language_submenu_routes_every_preference_and_marks_current_choice() {
+        let preferences = std::iter::once(Preference(None))
+            .chain(
+                Language::ALL
+                    .into_iter()
+                    .map(|language| Preference(Some(language))),
+            )
+            .collect::<Vec<_>>();
+        for language in Language::ALL {
+            for preference in &preferences {
+                let menus = application_menus(language, *preference, MathFont::default(), &[]);
+                let MenuItem::Submenu(submenu) = &menus[0].items[1] else {
+                    panic!("language submenu must be under Ryne");
+                };
+                assert_eq!(submenu.name.as_ref(), language.text(Text::Language));
+                assert_eq!(submenu.items.len(), preferences.len());
+                for (item, choice) in submenu.items.iter().zip(&preferences) {
+                    let MenuItem::Action { name, action, .. } = item else {
+                        panic!("language choice must dispatch an action");
+                    };
+                    let action = action
+                        .as_any()
+                        .downcast_ref::<SelectLanguage>()
+                        .expect("language action");
+                    assert_eq!(action.preference, *choice);
+                    let label = choice
+                        .0
+                        .map_or(language.text(Text::System), Language::native_name);
+                    assert_eq!(
+                        name.as_ref(),
+                        if choice == preference {
+                            format!("✓ {label}")
+                        } else {
+                            label.to_owned()
+                        }
+                    );
+                }
+                assert!(menus[1].items.iter().any(|item| matches!(item,
+                    MenuItem::Action { name, action, .. }
+                        if name.as_ref() == language.text(Text::Open) && action.as_any().is::<Open>())));
+                assert!(menus[1].items.iter().any(|item| matches!(item,
+                    MenuItem::Action { name, action, .. }
+                        if name.as_ref() == language.text(Text::Save) && action.as_any().is::<Save>())));
+            }
+        }
+    }
+    #[::core::prelude::v1::test]
     fn native_menus_follow_language_and_recent_paths() {
         let path = PathBuf::from("/tmp/中文.md");
         for language in Language::ALL {
-            let menus = application_menus(language, std::slice::from_ref(&path));
+            let menus = application_menus(
+                language,
+                Preference(None),
+                MathFont::default(),
+                std::slice::from_ref(&path),
+            );
             assert_eq!(menus[0].name.as_ref(), "Ryne");
             assert_eq!(menus[1].name.as_ref(), language.text(Text::File));
             for (key, v2) in [(Text::ExportPdf, false), (Text::ExportPdfV2, true)] {

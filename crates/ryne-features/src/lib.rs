@@ -15,19 +15,21 @@ use ryne_extensions::*;
 use ryne_projection::{DiagramViewInput, Display};
 use std::sync::Arc;
 
+#[derive(Clone)]
 pub struct MarkdownFeatures {
     formulas: Arc<dyn FormulaRenderer>,
     registry: Registry,
     previews: Vec<diagrams::FencedPreview>,
     language_detector: Option<Arc<dyn CodeLanguageDetector>>,
     render_actions: RenderActionRegistry,
+    additional: Vec<Arc<dyn BuiltinFeature + Send + Sync>>,
 }
 impl MarkdownFeatures {
     pub fn new(
         formulas: Arc<dyn FormulaRenderer>,
         previews: Vec<diagrams::FencedPreview>,
     ) -> Result<Self, String> {
-        let registry = builtins::registry(&previews)?;
+        let registry = builtins::registry(&previews, &[])?;
         let render_actions = RenderActionRegistry::new(vec![
             Arc::new(table_actions::TableActions {
                 formulas: formulas.clone(),
@@ -42,7 +44,22 @@ impl MarkdownFeatures {
             registry,
             language_detector: None,
             render_actions,
+            additional: Vec::new(),
         })
+    }
+    fn feature_services(&self) -> FeatureServices<'_> {
+        FeatureServices {
+            formulas: self.formulas.as_ref(),
+            language_detector: self.language_detector.as_deref(),
+        }
+    }
+    pub fn with_feature(
+        mut self,
+        feature: Arc<dyn BuiltinFeature + Send + Sync>,
+    ) -> Result<Self, String> {
+        self.additional.push(feature);
+        self.registry = builtins::registry(&self.previews, &self.additional)?;
+        Ok(self)
     }
     pub fn registry(&self) -> &Registry {
         &self.registry
@@ -60,8 +77,16 @@ impl MarkdownFeatures {
     }
 }
 impl FeatureEngine for MarkdownFeatures {
+    fn snapshot(&self) -> Option<Arc<dyn FeatureEngine>> {
+        let mut frozen = self.clone();
+        frozen.formulas = self.formulas.snapshot()?;
+        Some(Arc::new(frozen))
+    }
     fn render_controls(&self, state: &EditingState) -> Result<Vec<RenderControl>, String> {
         self.render_actions.controls(state)
+    }
+    fn render_control_batch(&self, state: &EditingState) -> Result<RenderControlBatch, String> {
+        Ok(self.render_actions.control_batch(state))
     }
     fn plan_render_action(
         &self,
@@ -71,115 +96,9 @@ impl FeatureEngine for MarkdownFeatures {
         self.render_actions.plan(state, request)
     }
     fn plan(&self, intent: EditIntent, state: &EditingState) -> Result<CommandPlan, String> {
-        let base = state.source.id();
-        if state.parse.source().id() != base {
-            return Err("stale semantics".into());
-        }
-        let view = matches!(
-            intent,
-            EditIntent::Normalize
-                | EditIntent::Select { .. }
-                | EditIntent::RevealHeading
-                | EditIntent::ToggleBlockSource
-        );
-        let infer_language = match &intent {
-            EditIntent::Insert { text, origin, .. } => {
-                !text.is_empty()
-                    && (matches!(origin, InputOrigin::Paste) || text.contains(['\r', '\n']))
-            }
-            EditIntent::Replace { text, .. } => text.contains(['\r', '\n']),
-            EditIntent::LineBreak { .. } => true,
-            _ => false,
-        };
-        let mut p = Planner {
-            state: state.clone(),
-            prepared: None,
-            renderer: self.formulas.as_ref(),
-        };
-        let result: Result<bool, editable_markdown_parser::Error> = match intent {
-            EditIntent::RestoreHeading => {
-                p.reveal_heading_input();
-                Ok(true)
-            }
-            EditIntent::Normalize => {
-                p.normalize_heading_caret();
-                Ok(true)
-            }
-            EditIntent::Select {
-                position,
-                extend,
-                frozen,
-            } => {
-                p.select(position, extend, frozen);
-                Ok(true)
-            }
-            EditIntent::RevealHeading => {
-                p.reveal_clicked_heading();
-                Ok(true)
-            }
-            EditIntent::ToggleBlockSource => Ok(p.toggle_block_source()),
-            EditIntent::Insert {
-                range,
-                text,
-                origin,
-            } => p
-                .insert_text(
-                    range
-                        .validate(&state.source)
-                        .map_err(|e| format!("{e:?}"))?,
-                    &text,
-                    origin,
-                )
-                .map(|()| true),
-            EditIntent::Replace { range, text } => p
-                .replace(
-                    range
-                        .validate(&state.source)
-                        .map_err(|e| format!("{e:?}"))?,
-                    &text,
-                )
-                .map(|()| true),
-            EditIntent::LineBreak { hard } => p.line_break(hard).map(|()| true),
-            EditIntent::NavigateTable { backward, next_row } => {
-                p.navigate_table(backward, next_row)
-            }
-            EditIntent::IndentList { outdent } => p.indent_list(outdent),
-            EditIntent::RemoveCodeBoundary { forward } => p.remove_code_boundary(forward),
-            EditIntent::RemoveListBoundary { forward } => p.remove_list_boundary(forward),
-            EditIntent::JoinParagraphs { forward } => p.join_paragraphs(forward),
-            EditIntent::AppendLocalized { template, labels } => {
-                p.append_block(template, &labels)?;
-                Ok(true)
-            }
-            EditIntent::Append { template } => {
-                p.append_block(template, &TemplateLabels::default())?;
-                Ok(true)
-            }
-        };
-        let handled = result.map_err(|e| format!("{e:?}"))?;
-        if infer_language && let Some(detector) = &self.language_detector {
-            p.complete_code_languages(state, detector.as_ref())
-                .map_err(|e| format!("{e:?}"))?;
-        }
-        Ok(if let Some(prepared) = p.prepared {
-            CommandPlan::Edit {
-                prepared,
-                state: p.state,
-                handled,
-            }
-        } else if view {
-            CommandPlan::View {
-                base,
-                state: p.state,
-                handled,
-            }
-        } else {
-            CommandPlan::Select {
-                base,
-                state: p.state,
-                handled,
-            }
-        })
+        self.registry
+            .plan(&intent, state, &self.feature_services())?
+            .ok_or_else(|| "no registered command handler".into())
     }
     fn display(
         &self,
@@ -187,20 +106,10 @@ impl FeatureEngine for MarkdownFeatures {
         highlighter: Option<&mut dyn SyntaxHighlighter>,
         diagrams: &[DiagramViewInput],
     ) -> Display {
-        presentation::PresentationBuilder {
-            renderer: self.formulas.as_ref(),
-        }
-        .build(
-            presentation::PresentationContext {
-                parse: &state.parse,
-                window: state.reveal.as_ref().map(|s| &s.range),
-                source_mode: state.source_mode,
-                heading_window: state.heading_reveal.as_ref().map(|s| &s.range),
-                block_window: self.block_window(state).as_ref(),
-            },
-            highlighter,
-            diagrams,
-        )
+        // The built-in primary presentation is registered together with commands.
+        self.registry
+            .display(state, &self.feature_services(), highlighter, diagrams)
+            .unwrap_or_default()
     }
     fn block_window(&self, state: &EditingState) -> Option<std::ops::Range<usize>> {
         Planner {
@@ -251,6 +160,16 @@ impl FeatureEngine for MarkdownFeatures {
                     command: BlockCommand::Copy,
                     name: "复制块源码",
                     order: 2,
+                },
+                MenuItemSpec {
+                    command: BlockCommand::AddBelow,
+                    name: "在下方添加",
+                    order: 3,
+                },
+                MenuItemSpec {
+                    command: BlockCommand::AddAbove,
+                    name: "在上方添加",
+                    order: 4,
                 },
             ],
         }

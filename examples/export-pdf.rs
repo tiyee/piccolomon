@@ -5,7 +5,7 @@ fn document(text: &str) -> Result<ryne_session::EditorSession, String> {
         text,
         ryne_session::SessionServices {
             features: Arc::new(ryne_features::MarkdownFeatures::new(
-                Arc::new(ryne_services::math::FormularyRenderer),
+                Arc::new(ryne_services::math::FormularyRenderer::default()),
                 vec![ryne_features::diagrams::FencedPreview {
                     id: "mermaid",
                     language: "mermaid",

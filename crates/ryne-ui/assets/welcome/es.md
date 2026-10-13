@@ -2,7 +2,7 @@
 
 Este documento es una guía editable de los formatos disponibles actualmente. Haz clic en el texto para editarlo. Los marcadores Markdown en línea aparecen alrededor del cursor y se pliegan al salir. Pasar el puntero sobre un encabezado no muestra sus marcadores.
 
-El menú Idioma de la barra de herramientas cambia la interfaz y esta guía predeterminada sin editar. Después de editarla o guardarla, pasa a ser tu documento y los cambios de idioma conservan su contenido, al igual que el de los archivos abiertos.
+El menú Ryne → Idioma de la barra de menús cambia la interfaz y esta guía predeterminada sin editar. Después de editarla o guardarla, pasa a ser tu documento y los cambios de idioma conservan su contenido, al igual que el de los archivos abiertos.
 
 ## Párrafos y saltos de línea
 
@@ -53,7 +53,7 @@ Código en línea: `**texto literal**` y ``un `acento grave` dentro del código`
 - [ ] Una tarea pendiente.
 - [x] Una tarea terminada.
 
-Intro continúa un elemento con contenido; en uno vacío sale de un nivel. Tab / Mayús+Tab aumentan o reducen la sangría del elemento y sus hijos; el primer elemento de un nivel no puede aumentar su sangría. Mayús+Intro añade un salto dentro del elemento. Cambia el estado de las tareas editando sus marcadores en el código del bloque.
+Intro continúa un elemento con contenido; en uno vacío sale de un nivel. Tab / Mayús+Tab aumentan o reducen la sangría del elemento y sus hijos; el primer elemento de un nivel no puede aumentar su sangría. Mayús+Intro añade un salto dentro del elemento. Haz clic en la casilla de una tarea para cambiar su estado; puedes deshacer y rehacer el cambio. También puedes editar sus marcadores en el código del bloque.
 
 Pasa el puntero o sitúa el cursor en un elemento para mostrar su menú de tres puntos: insertar, mover, cambiar la sangría o eliminar el elemento y sus hijos. El botón de tipo de la esquina superior derecha selecciona o copia toda la lista. Alt+Intro abre el menú del elemento activo.
 
@@ -128,6 +128,10 @@ El `---` anterior es un separador en su propia línea, rodeado de líneas vacía
 
 Pasa el puntero sobre el botón de tipo de un bloque para editar su código local, seleccionar el bloque o copiar el código. El código de bloques anidados incluye los prefijos del contenedor. Cmd+Mayús+B alterna el código del bloque; Cmd+Mayús+M el código completo. Esc cierra los menús o pliega el código. En modo de código fuente, la entrada y los saltos son literales.
 
+Al final del menú de tipo de bloque, elige «Añadir debajo» o «Añadir encima» y después un tipo de bloque. El primer bloque solo ofrece «Añadir debajo». La inserción se deshace en un paso; Esc vuelve del selector al menú del bloque.
+
 Pasa el puntero debajo del documento para mostrar `+` e insertar estos tipos de bloques. Completa primero las estructuras sin cerrar antes de añadir un bloque.
 
 Cmd+O abre un archivo; Cmd+S guarda; Cmd+Mayús+S guarda como. Cmd+Z / Cmd+Mayús+Z deshacen y rehacen. Cmd+A/C/X/V seleccionan todo, copian el código, cortan y pegan. La selección y el pegado pueden abarcar líneas y bloques. Ver marcadores, menús o código no modifica el documento; al guardar se conservan los bytes originales y los finales de línea. La confirmación del IME se aplica como una sola edición que se puede deshacer.
+
+Pulsa Formatear en la barra de herramientas para dar formato a toda la fuente Markdown en una operación que puedes deshacer. Las reglas añaden los espacios que faltan en títulos aislados y marcadores de tareas, conservando el código, los saltos de párrafo y la sangría de los contenedores. Guardar no aplica formato automáticamente.

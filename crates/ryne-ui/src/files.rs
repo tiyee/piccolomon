@@ -43,9 +43,8 @@ impl Editor {
         cx: &mut Context<Self>,
     ) {
         self.document = document;
-        self.language_menu = false;
         self.top_menu = None;
-        self.recent_menu = false;
+        self.top_submenu = None;
         self.default_document = None;
         self.scroll = px(0.);
         self.geometry = None;

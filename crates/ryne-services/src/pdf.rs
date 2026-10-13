@@ -299,6 +299,20 @@ impl Layout<'_> {
         self.y += 12.;
         Ok(())
     }
+    fn list_marker(&mut self, row: &ryne_projection::ListView, inset: f32, size: f32) {
+        // The editor projection now folds task syntax into its icon; preserve the state in print.
+        let label = row.source.item.task.as_ref().map_or_else(
+            || row.source.item.label.clone(),
+            |task| {
+                format!(
+                    "{} [{}]",
+                    row.source.item.label,
+                    if task.checked { "x" } else { " " }
+                )
+            },
+        );
+        self.page.push_str(&format!(r##"<text x="{}" y="{}" font-family="sans-serif" font-size="{size}" fill="#727780" text-anchor="end">{}</text>"##, MARGIN + inset - 7., self.y + size + 6., escape(&label)));
+    }
     fn document(&mut self) -> Result<(), String> {
         let mut start = 0;
         let mut previous_code = None;
@@ -387,8 +401,17 @@ impl Layout<'_> {
             }
             previous_code = code;
             if start == end {
-                self.room(10.)?;
-                self.y += 10.;
+                if let Some(row) = &list
+                    && row.source.first
+                    && row.source.item.task.is_some()
+                {
+                    self.room(size * 1.65)?;
+                    self.list_marker(row, inset, size);
+                    self.y += size * 1.65;
+                } else {
+                    self.room(10.)?;
+                    self.y += 10.;
+                }
             } else {
                 let lines = self.wrap(
                     start..end,
@@ -405,7 +428,7 @@ impl Layout<'_> {
                         && row.source.first
                         && n == 0
                     {
-                        self.page.push_str(&format!(r##"<text x="{}" y="{}" font-family="sans-serif" font-size="{size}" fill="#727780" text-anchor="end">{}</text>"##, MARGIN + inset - 7., self.y + size + 6., escape(&row.source.item.label)));
+                        self.list_marker(row, inset, size);
                     }
                     self.draw(line, MARGIN + inset, size, height);
                     self.y += height;
@@ -459,6 +482,27 @@ fn encode(pages: &[String]) -> Result<Vec<u8>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn folded_task_states_survive_print_including_empty_items() {
+        use editable_markdown_parser::{ParseSnapshot, Source};
+        for (marker, status) in [("[ ]", "[ ]"), ("[x]", "[x]"), ("[X]", "[x]")] {
+            for body in ["body", ""] {
+                let parse = ParseSnapshot::new(Source::new(&format!("- {marker} {body}\n")));
+                let row = ryne_syntax::list::rows(&parse).remove(0);
+                let display = Display {
+                    text: format!("{body}\n"),
+                    lists: vec![ryne_projection::ListView {
+                        source: row,
+                        start: 0,
+                    }],
+                    ..Default::default()
+                };
+                let pages = layout_pages(&display).unwrap();
+                assert!(pages[0].contains(status), "{marker} {body}");
+                assert!(pages[0].contains(body));
+            }
+        }
+    }
     #[test]
     fn mixed_formulas_reserve_both_maximum_ascent_and_descent() {
         let piece = |ascent, descent| Piece {

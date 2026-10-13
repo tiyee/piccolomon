@@ -43,7 +43,9 @@ impl EditingState {
         self.anchor.min(self.head)..self.anchor.max(self.head)
     }
 }
+#[derive(Clone)]
 pub enum EditIntent {
+    FormatSource,
     Normalize,
     RestoreHeading,
     Select {
@@ -81,6 +83,12 @@ pub enum EditIntent {
     JoinParagraphs {
         forward: bool,
     },
+    InsertAdjacent {
+        block: SourceRange,
+        before: bool,
+        template: InsertBlock,
+        labels: TemplateLabels,
+    },
     AppendLocalized {
         template: InsertBlock,
         labels: TemplateLabels,
@@ -111,6 +119,10 @@ pub enum CommandPlan {
     Consume,
 }
 pub trait FeatureEngine: Send + Sync {
+    /// Freeze presentation settings for a detached background export.
+    fn snapshot(&self) -> Option<Arc<dyn FeatureEngine>> {
+        None
+    }
     fn plan(&self, intent: EditIntent, state: &EditingState) -> Result<CommandPlan, String>;
     fn display(
         &self,
@@ -126,6 +138,13 @@ pub trait FeatureEngine: Send + Sync {
     fn render_controls(&self, _: &EditingState) -> Result<Vec<RenderControl>, String> {
         Ok(Vec::new())
     }
+    fn render_control_batch(&self, state: &EditingState) -> Result<RenderControlBatch, String> {
+        self.render_controls(state)
+            .map(|controls| RenderControlBatch {
+                controls,
+                diagnostics: Vec::new(),
+            })
+    }
     fn plan_render_action(
         &self,
         _: &EditingState,
@@ -134,7 +153,20 @@ pub trait FeatureEngine: Send + Sync {
         Err("render actions are not registered".into())
     }
 }
+mod math_font;
+pub use math_font::MathFont;
 pub trait FormulaRenderer: Send + Sync {
+    fn font(&self) -> MathFont {
+        MathFont::default()
+    }
+    fn set_font(&self, _: MathFont) {}
+    fn snapshot(&self) -> Option<Arc<dyn FormulaRenderer>> {
+        None
+    }
+    /// Resolve a content-addressed asset independently of the current preference.
+    fn render_asset(&self, path: &str) -> Option<Arc<Formula>> {
+        self.render(path.strip_prefix("math:")?)
+    }
     fn render(&self, latex: &str) -> Option<Arc<Formula>>;
 }
 pub struct HighlightSpan {
@@ -157,13 +189,16 @@ pub struct CancelControl {
 }
 impl Default for CancelControl {
     fn default() -> Self {
-        Self {
-            cancelled: Arc::new(AtomicBool::new(false)),
-            deadline: Instant::now() + Duration::from_secs(2),
-        }
+        Self::with_timeout(Duration::from_secs(2))
     }
 }
 impl CancelControl {
+    pub fn with_timeout(timeout: Duration) -> Self {
+        Self {
+            cancelled: Arc::new(AtomicBool::new(false)),
+            deadline: Instant::now() + timeout,
+        }
+    }
     pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::Relaxed)
     }
@@ -211,7 +246,7 @@ pub struct SessionEvent {
     pub origin: &'static str,
     pub kind: EventKind,
 }
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Diagnostic {
     pub feature: String,
     pub message: String,
@@ -224,6 +259,8 @@ impl From<Error> for Diagnostic {
         }
     }
 }
+mod execution;
+pub use execution::*;
 pub mod registry;
 pub use registry::*;
 mod render_actions;

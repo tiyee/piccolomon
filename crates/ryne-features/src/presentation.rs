@@ -498,23 +498,57 @@ impl PresentationBuilder<'_> {
             source_len: text.len(),
             ..Display::default()
         };
+        // Resolve source boundaries once. Consuming ordered events preserves
+        // separator-before-anchor ordering, including empty cells, without
+        // scanning every cell and substitution for every source character.
+        let mut table_bounds = Vec::new();
+        let mut cell_bounds = Vec::new();
+        for (t, table) in display.tables.iter().enumerate() {
+            table_bounds.push((table.source.range.start, t, false));
+            table_bounds.push((table.source.range.end, t, true));
+            for (r, row) in table.source.rows.iter().enumerate() {
+                for (c, cell) in row.cells.iter().enumerate() {
+                    cell_bounds.push((cell.content.start, t, r, c, false));
+                    cell_bounds.push((cell.content.end, t, r, c, true));
+                }
+            }
+        }
+        table_bounds.sort_unstable();
+        cell_bounds.sort_unstable();
+        let mut table_bounds = table_bounds.into_iter().peekable();
+        let mut cell_bounds = cell_bounds.into_iter().peekable();
+        insertions.sort_by_key(|(at, _, _)| *at);
+        let mut insertion_cursor = 0;
+        folded_diagrams.sort_by_key(|(b, _)| b.range.start);
+        let mut folded_diagrams = folded_diagrams.iter().peekable();
+        rendered.sort_by_key(|(range, _)| range.start);
+        let mut rendered = rendered.iter().peekable();
+        let empty_code_anchors = structured
+            .iter()
+            .filter(|b| b.rows.is_empty())
+            .map(|b| b.anchor)
+            .collect::<std::collections::BTreeSet<_>>();
         for (start, ch) in text
             .char_indices()
             .chain(std::iter::once((text.len(), '\0')))
         {
-            for table in &mut display.tables {
-                if table.source.range.start == start {
-                    table.range.start = display.text.len();
-                }
-                if table.source.range.end == start {
-                    table.range.end = display.text.len();
+            while let Some((_, t, end)) = table_bounds.next_if(|e| e.0 == start) {
+                if end {
+                    display.tables[t].range.end = display.text.len();
+                } else {
+                    display.tables[t].range.start = display.text.len();
                 }
             }
-            // Cell separators precede the next cell's anchor; literal substitutions follow it.
-            for (_, source, value) in insertions
-                .iter()
-                .filter(|(at, _, value)| *at == start && *value == "\t")
+            let first_insertion = insertion_cursor;
+            while insertions
+                .get(insertion_cursor)
+                .is_some_and(|e| e.0 == start)
             {
+                insertion_cursor += 1;
+            }
+            let at_insertions = &insertions[first_insertion..insertion_cursor];
+            // Cell separators precede the next cell's anchor; literal substitutions follow it.
+            for (_, source, value) in at_insertions.iter().filter(|e| e.2 == "\t") {
                 let from = display.text.len();
                 display.text.push_str(value);
                 display.spans.push(Span {
@@ -523,21 +557,15 @@ impl PresentationBuilder<'_> {
                     style: Style::default(),
                 });
             }
-            for table in &mut display.tables {
-                for (r, row) in table.source.rows.iter().enumerate() {
-                    for (c, cell) in row.cells.iter().enumerate() {
-                        if cell.content.start == start {
-                            table.rows[r][c].start = display.text.len();
-                        }
-                        if cell.content.end == start {
-                            table.rows[r][c].end = display.text.len();
-                        }
-                    }
+            while let Some((_, t, r, c, end)) = cell_bounds.next_if(|e| e.0 == start) {
+                if end {
+                    display.tables[t].rows[r][c].end = display.text.len();
+                } else {
+                    display.tables[t].rows[r][c].start = display.text.len();
                 }
             }
-            if let Some((block, diagram)) = folded_diagrams
-                .iter()
-                .find(|(block, _)| block.range.start == start)
+            if let Some((block, diagram)) =
+                folded_diagrams.next_if(|(block, _)| block.range.start == start)
             {
                 let from = display.text.len();
                 display.text.push_str(math::OBJECT);
@@ -565,8 +593,7 @@ impl PresentationBuilder<'_> {
                     });
                 }
             }
-            if let Some((source, formula)) = rendered.iter().find(|(range, _)| range.start == start)
-            {
+            if let Some((source, formula)) = rendered.next_if(|(range, _)| range.start == start) {
                 let from = display.text.len();
                 display.text.push_str(math::OBJECT);
                 let range = from..display.text.len();
@@ -586,10 +613,7 @@ impl PresentationBuilder<'_> {
                     formula: formula.clone(),
                 });
             }
-            for (_, source, value) in insertions
-                .iter()
-                .filter(|(at, _, value)| *at == start && *value != "\t")
-            {
+            for (_, source, value) in at_insertions.iter().filter(|e| e.2 != "\t") {
                 let from = display.text.len();
                 display.text.push_str(value);
                 display.spans.push(Span {
@@ -598,10 +622,7 @@ impl PresentationBuilder<'_> {
                     style: styles[start],
                 });
             }
-            if structured
-                .iter()
-                .any(|block| block.rows.is_empty() && block.anchor == start)
-            {
+            if empty_code_anchors.contains(&start) {
                 let from = display.text.len();
                 display.text.push('\n');
                 display.spans.push(Span {
@@ -1318,7 +1339,7 @@ fn build_with_heading(
         source_mode,
         heading,
         block,
-        &ryne_services::math::FormularyRenderer,
+        &ryne_services::math::FormularyRenderer::default(),
     )
 }
 #[cfg(test)]
@@ -1332,7 +1353,7 @@ fn build_with_diagrams(
     diagrams: &[DiagramViewInput],
 ) -> Display {
     PresentationBuilder {
-        renderer: &ryne_services::math::FormularyRenderer,
+        renderer: &ryne_services::math::FormularyRenderer::default(),
     }
     .build(
         PresentationContext {
@@ -1345,4 +1366,36 @@ fn build_with_diagrams(
         highlighter,
         diagrams,
     )
+}
+
+pub(crate) struct MarkdownPresentation;
+impl ryne_extensions::PresentationProvider for MarkdownPresentation {
+    fn display(
+        &self,
+        state: &ryne_extensions::EditingState,
+        services: &ryne_extensions::FeatureServices<'_>,
+        highlighter: Option<&mut dyn SyntaxHighlighter>,
+        diagrams: &[DiagramViewInput],
+    ) -> Display {
+        let block = crate::commands::Planner {
+            state: state.clone(),
+            prepared: None,
+            renderer: services.formulas,
+        }
+        .block_window();
+        PresentationBuilder {
+            renderer: services.formulas,
+        }
+        .build(
+            PresentationContext {
+                parse: &state.parse,
+                window: state.reveal.as_ref().map(|s| &s.range),
+                source_mode: state.source_mode,
+                heading_window: state.heading_reveal.as_ref().map(|s| &s.range),
+                block_window: block.as_ref(),
+            },
+            highlighter,
+            diagrams,
+        )
+    }
 }

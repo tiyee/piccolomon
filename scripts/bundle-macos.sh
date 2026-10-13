@@ -31,12 +31,15 @@ cp "$target/$profile/ryne" "$bundle/Contents/MacOS/Ryne.next"
 mv -f "$bundle/Contents/MacOS/Ryne.next" "$bundle/Contents/MacOS/Ryne"
 cp "$icon_work/Ryne.icns" "$bundle/Contents/Resources/Ryne.icns.next"
 mv -f "$bundle/Contents/Resources/Ryne.icns.next" "$bundle/Contents/Resources/Ryne.icns"
-# STIX Two Math is embedded in the executable; ship its license alongside it.
+# Both math fonts are embedded; ship their license notices alongside them.
 mkdir -p "$bundle/Contents/Resources/stix-two-math"
 for notice in OFL.txt FONTLOG.txt; do
     cp "$root/assets/fonts/stix-two-math/$notice" "$bundle/Contents/Resources/stix-two-math/$notice.next"
     mv -f "$bundle/Contents/Resources/stix-two-math/$notice.next" "$bundle/Contents/Resources/stix-two-math/$notice"
 done
+mkdir -p "$bundle/Contents/Resources/lete-sans-math"
+cp "$root/assets/fonts/lete-sans-math/OFL.txt" "$bundle/Contents/Resources/lete-sans-math/OFL.txt.next"
+mv -f "$bundle/Contents/Resources/lete-sans-math/OFL.txt.next" "$bundle/Contents/Resources/lete-sans-math/OFL.txt"
 cat > "$bundle/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

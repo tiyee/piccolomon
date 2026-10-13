@@ -1,13 +1,19 @@
 //! Disposable inline math views. Markdown bytes remain owned by Document.
 
 use formulary::{Item, MathFont, ast::Node as MathNode};
+use ryne_extensions::MathFont as FontChoice;
 pub use ryne_projection::Formula;
-use std::{
-    collections::HashMap,
-    sync::{Arc, LazyLock, Mutex},
-};
+use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::{Arc, LazyLock, Mutex};
 
-const FONT: &[u8] = include_bytes!("../../../assets/fonts/stix-two-math/STIXTwoMath-Regular.otf");
+const STIX: &[u8] = include_bytes!("../../../assets/fonts/stix-two-math/STIXTwoMath-Regular.otf");
+const LETE: &[u8] = include_bytes!("../../../assets/fonts/lete-sans-math/LeteSansMath.otf");
+fn font_bytes(font: FontChoice) -> &'static [u8] {
+    match font {
+        FontChoice::LeteSans => LETE,
+        FontChoice::StixTwo => STIX,
+    }
+}
 // Layout at the body size, then enlarge the SVG coordinate system before
 // emission: Formulary rounds transforms to three decimals. Metrics stay in em.
 const LAYOUT_EM: f32 = 18.;
@@ -16,14 +22,21 @@ const PAD: f32 = 0.06 * SVG_EM;
 const SVG_MARGIN: f32 = 2.;
 const MAX_BYTES: usize = 4096;
 
-type Cache = HashMap<String, Option<Arc<Formula>>>;
-static CACHE: LazyLock<Mutex<Cache>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+mod cache;
+use cache::Cache;
+static CACHE: LazyLock<Mutex<Cache>> = LazyLock::new(|| Mutex::new(Cache::default()));
 
 pub fn render(latex: &str) -> Option<Arc<Formula>> {
+    render_with_font(latex, FontChoice::default())
+}
+
+pub fn render_with_font(latex: &str, choice: FontChoice) -> Option<Arc<Formula>> {
     if latex.len() > MAX_BYTES || latex.contains(['\r', '\n']) {
         return None;
     }
-    if let Some(value) = CACHE.lock().ok()?.get(latex).cloned() {
+    let key = (choice, latex.to_owned());
+    let bytes = font_bytes(choice);
+    if let Some(value) = CACHE.lock().ok()?.get(&key) {
         return value;
     }
     // Bound recursive input before it can reach the GUI event loop.
@@ -46,7 +59,7 @@ pub fn render(latex: &str) -> Option<Arc<Formula>> {
             .convert_with_local_counter(latex, math_core::MathDisplay::Inline)
             .ok()?;
         let root = formulary::parse(&mathml).ok()?;
-        let face = ttf_parser::Face::parse(FONT, 0).ok()?;
+        let face = ttf_parser::Face::parse(bytes, 0).ok()?;
         // Formulary omits unmapped glyphs from its display list. Inspect the
         // parsed, mathvariant-transformed tokens before any content can vanish.
         // Unsupported structures or variants keep the complete LaTeX source.
@@ -56,7 +69,7 @@ pub fn render(latex: &str) -> Option<Arc<Formula>> {
         {
             return None;
         }
-        let font = MathFont::new(FONT, 0).ok()?;
+        let font = MathFont::new(bytes, 0).ok()?;
         let mut laid = formulary::layout(
             &root,
             &font,
@@ -114,7 +127,7 @@ pub fn render(latex: &str) -> Option<Arc<Formula>> {
             return None;
         }
         Some(Arc::new(Formula {
-            path: format!("math:{latex}"),
+            path: format!("math:{}:{latex}", choice.id()),
             width,
             ascent,
             descent,
@@ -124,10 +137,7 @@ pub fn render(latex: &str) -> Option<Arc<Formula>> {
     .ok()
     .flatten();
     let mut cache = CACHE.lock().ok()?;
-    if cache.len() >= 256 {
-        cache.clear();
-    }
-    cache.insert(latex.into(), value.clone());
+    cache.insert(key, value.clone());
     value
 }
 
@@ -190,10 +200,35 @@ fn supported_node(node: &MathNode, face: &ttf_parser::Face<'_>) -> bool {
 }
 
 #[derive(Default)]
-pub struct FormularyRenderer;
+pub struct FormularyRenderer {
+    font: AtomicU8,
+}
+impl FormularyRenderer {
+    pub fn new(font: FontChoice) -> Self {
+        Self {
+            font: AtomicU8::new(font as u8),
+        }
+    }
+}
 impl ryne_extensions::FormulaRenderer for FormularyRenderer {
     fn render(&self, latex: &str) -> Option<Arc<Formula>> {
-        render(latex)
+        render_with_font(latex, self.font())
+    }
+    fn font(&self) -> FontChoice {
+        match self.font.load(Ordering::Relaxed) {
+            1 => FontChoice::StixTwo,
+            _ => FontChoice::LeteSans,
+        }
+    }
+    fn set_font(&self, font: FontChoice) {
+        self.font.store(font as u8, Ordering::Relaxed);
+    }
+    fn snapshot(&self) -> Option<Arc<dyn ryne_extensions::FormulaRenderer>> {
+        Some(Arc::new(Self::new(self.font())))
+    }
+    fn render_asset(&self, path: &str) -> Option<Arc<Formula>> {
+        let (font, latex) = path.strip_prefix("math:")?.split_once(':')?;
+        render_with_font(latex, FontChoice::parse(font)?)
     }
 }
 
@@ -207,55 +242,61 @@ mod tests {
         assert!(svg.contains("<path"));
         assert!(!svg.contains("<text"));
         assert!(formula.width > 0. && formula.ascent > 0. && formula.descent > 0.);
-        assert!(Arc::ptr_eq(
-            &formula,
-            &render(r"\frac{a_1}{\sqrt{b}} + x^2").expect("cached")
-        ));
+        assert_eq!(
+            formula.svg,
+            render(r"\frac{a_1}{\sqrt{b}} + x^2").expect("cached").svg
+        );
         assert!(render(r"\unsupportedcommand{x}").is_none());
         assert!(render(&"{".repeat(100)).is_none());
     }
 
     #[test]
     fn formulary_svg_metrics_and_rasters_match_at_text_and_zoom_sizes() {
-        for latex in [
-            r"x_i^2 + a_{n+1}",
-            r"\frac{-b \pm \sqrt{b^2-4ac}}{2a}",
-            r"\sqrt[3]{\frac{a}{b}}",
-            r"\begin{pmatrix} a & b \\ c & d \end{pmatrix}",
-            r"\left(\frac{a}{b}\right)^2",
-        ] {
-            let formula = render(latex).expect("valid formula");
-            let tree =
-                resvg::usvg::Tree::from_data(&formula.svg, &Default::default()).expect("SVG");
-            assert!((tree.size().width() / SVG_EM - formula.width).abs() < 0.00001);
-            assert!(
-                (tree.size().height() / SVG_EM - formula.ascent - formula.descent).abs() < 0.00001
-            );
-            // The outer translation is the baseline, including our padding.
-            let svg = std::str::from_utf8(&formula.svg).expect("SVG UTF-8");
-            let baseline = svg
-                .split("<g transform=\"translate(2 ")
-                .nth(1)
-                .and_then(|part| part.split(')').next())
-                .and_then(|value| value.parse::<f32>().ok())
-                .expect("SVG baseline");
-            assert!((baseline / SVG_EM - formula.ascent).abs() < 0.00001);
-            // Script scale must not round to zero as it could at a 1-unit em.
-            assert!(!svg.contains("scale(0 "));
-            for size in [18., 36.] {
-                for density in [1., 2.] {
-                    let scale = size * density / SVG_EM;
-                    let mut pixels = resvg::tiny_skia::Pixmap::new(
-                        (formula.width * size * density).ceil() as u32,
-                        ((formula.ascent + formula.descent) * size * density).ceil() as u32,
-                    )
-                    .expect("pixels");
-                    resvg::render(
-                        &tree,
-                        resvg::tiny_skia::Transform::from_scale(scale, scale),
-                        &mut pixels.as_mut(),
-                    );
-                    assert!(pixels.pixels().iter().any(|pixel| pixel.alpha() > 0));
+        for font in FontChoice::ALL {
+            for latex in [
+                r"\int_0^\infty e^{-x^2}\,dx=\frac{\sqrt{\pi}}{2}",
+                r"\sum_{n=1}^{N} n^2",
+                r"\widehat{abc} + \overrightarrow{AB}",
+                r"x_i^2 + a_{n+1}",
+                r"\frac{-b \pm \sqrt{b^2-4ac}}{2a}",
+                r"\sqrt[3]{\frac{a}{b}}",
+                r"\begin{pmatrix} a & b \\ c & d \end{pmatrix}",
+                r"\left(\frac{a}{b}\right)^2",
+            ] {
+                let formula = render_with_font(latex, font).expect("valid formula");
+                let tree =
+                    resvg::usvg::Tree::from_data(&formula.svg, &Default::default()).expect("SVG");
+                assert!((tree.size().width() / SVG_EM - formula.width).abs() < 0.00001);
+                assert!(
+                    (tree.size().height() / SVG_EM - formula.ascent - formula.descent).abs()
+                        < 0.00001
+                );
+                // The outer translation is the baseline, including our padding.
+                let svg = std::str::from_utf8(&formula.svg).expect("SVG UTF-8");
+                let baseline = svg
+                    .split("<g transform=\"translate(2 ")
+                    .nth(1)
+                    .and_then(|part| part.split(')').next())
+                    .and_then(|value| value.parse::<f32>().ok())
+                    .expect("SVG baseline");
+                assert!((baseline / SVG_EM - formula.ascent).abs() < 0.00001);
+                // Script scale must not round to zero as it could at a 1-unit em.
+                assert!(!svg.contains("scale(0 "));
+                for size in [12., 14., 16., 18., 36.] {
+                    for density in [1., 2.] {
+                        let scale = size * density / SVG_EM;
+                        let mut pixels = resvg::tiny_skia::Pixmap::new(
+                            (formula.width * size * density).ceil() as u32,
+                            ((formula.ascent + formula.descent) * size * density).ceil() as u32,
+                        )
+                        .expect("pixels");
+                        resvg::render(
+                            &tree,
+                            resvg::tiny_skia::Transform::from_scale(scale, scale),
+                            &mut pixels.as_mut(),
+                        );
+                        assert!(pixels.pixels().iter().any(|pixel| pixel.alpha() > 0));
+                    }
                 }
             }
         }
@@ -267,7 +308,6 @@ mod tests {
             r"\frac{\text{距离}}{t}",
             r"x_{\text{中文}}",
             r"\begin{matrix} a & \text{中文} \end{matrix}",
-            r"\mathcal{F}",
             r"\unsupportedcommand{x}",
             r"\frac{1}{",
             "a\nb",
@@ -276,9 +316,37 @@ mod tests {
             assert!(render(latex).is_none(), "{latex}");
         }
         assert!(render(&"x".repeat(MAX_BYTES + 1)).is_none());
-        let face = ttf_parser::Face::parse(FONT, 0).expect("font");
+        assert!(render_with_font(r"\mathcal{F}", FontChoice::StixTwo).is_none());
+        assert!(render_with_font(r"\mathcal{F}", FontChoice::LeteSans).is_some());
+        let face = ttf_parser::Face::parse(LETE, 0).expect("font");
         assert!(supported_text("f\u{2061}x", &face));
         assert!(!supported_text("\u{fe00}", &face));
         assert!(render(r"\mathbb{R} + \mathbf{A}").is_some());
+    }
+
+    #[test]
+    fn font_choice_partitions_metrics_assets_cache_and_frozen_renderer() {
+        use ryne_extensions::FormulaRenderer;
+        let renderer = FormularyRenderer::default();
+        assert_eq!(renderer.font(), FontChoice::LeteSans);
+        let latex = r"\int_0^\infty e^{-x^2}\,dx=\frac{\sqrt{\pi}}{2}";
+        let lete = renderer.render(latex).expect("Lete formula");
+        let frozen = renderer.snapshot().expect("frozen renderer");
+        renderer.set_font(FontChoice::StixTwo);
+        let stix = renderer.render(latex).expect("STIX formula");
+        assert_ne!(lete.svg, stix.svg);
+        assert_ne!(lete.path, stix.path);
+        assert_ne!(lete.width, stix.width);
+        assert_eq!(lete.svg, frozen.render(latex).unwrap().svg);
+        assert_eq!(lete.svg, renderer.render_asset(&lete.path).unwrap().svg);
+        assert_eq!(stix.svg, renderer.render_asset(&stix.path).unwrap().svg);
+        assert!(renderer.render_asset("math:unknown:x").is_none());
+        renderer.set_font(FontChoice::LeteSans);
+        assert_eq!(lete.svg, renderer.render(latex).unwrap().svg);
+        for font in FontChoice::ALL {
+            let face = ttf_parser::Face::parse(font_bytes(font), 0).unwrap();
+            assert!(face.tables().math.is_some());
+            assert!(render_with_font(r"\text{中文}", font).is_none());
+        }
     }
 }

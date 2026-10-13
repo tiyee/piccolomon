@@ -1,5 +1,13 @@
 //! Startup-only registration. Contributions are staged before the registry is published.
-use std::collections::{BTreeMap, BTreeSet};
+use crate::{
+    CommandHandler, CommandPlan, EditIntent, EditingState, FeatureServices, PresentationProvider,
+    SyntaxHighlighter,
+};
+use ryne_projection::{DiagramViewInput, Display};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 pub const INTERNAL_API: u32 = 1;
 #[derive(Clone, Debug)]
 pub struct FeatureManifest {
@@ -42,20 +50,56 @@ pub struct Contribution {
 #[derive(Default)]
 pub struct Registrar {
     staged: Vec<Contribution>,
+    commands: BTreeMap<&'static str, Arc<dyn CommandHandler>>,
+    presentations: BTreeMap<&'static str, Arc<dyn PresentationProvider>>,
 }
 impl Registrar {
     pub fn contribute(&mut self, contribution: Contribution) {
         self.staged.push(contribution)
+    }
+    pub fn command(
+        &mut self,
+        contribution: Contribution,
+        handler: Arc<dyn CommandHandler>,
+    ) -> Result<(), String> {
+        if !matches!(contribution.slot, Slot::Command(_) | Slot::InputRule(_)) {
+            return Err("command handler requires a command or input slot".into());
+        }
+        if self.commands.insert(contribution.id, handler).is_some() {
+            return Err("duplicate executable contribution".into());
+        }
+        self.contribute(contribution);
+        Ok(())
+    }
+    pub fn presentation(
+        &mut self,
+        contribution: Contribution,
+        provider: Arc<dyn PresentationProvider>,
+    ) -> Result<(), String> {
+        if contribution.slot != Slot::PrimaryPresentation("document") || !contribution.exclusive {
+            return Err("document presentation must be exclusive".into());
+        }
+        if self
+            .presentations
+            .insert(contribution.id, provider)
+            .is_some()
+        {
+            return Err("duplicate executable contribution".into());
+        }
+        self.contribute(contribution);
+        Ok(())
     }
 }
 pub trait BuiltinFeature {
     fn manifest(&self) -> FeatureManifest;
     fn register(&self, registrar: &mut Registrar) -> Result<(), String>;
 }
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Registry {
     order: Vec<&'static str>,
     contributions: Vec<(&'static str, Contribution)>,
+    commands: BTreeMap<&'static str, Arc<dyn CommandHandler>>,
+    presentations: BTreeMap<&'static str, Arc<dyn PresentationProvider>>,
 }
 impl Registry {
     pub fn build(features: &[&dyn BuiltinFeature]) -> Result<Self, String> {
@@ -112,11 +156,15 @@ impl Registry {
             order.push(id);
         }
         let mut contributions = Vec::new();
+        let mut commands = BTreeMap::new();
+        let mut presentations = BTreeMap::new();
         let mut ids = BTreeSet::new();
         let mut slots = BTreeMap::new();
         for id in &order {
             let mut registrar = Registrar::default();
             features[manifests[id].0].register(&mut registrar)?;
+            commands.extend(registrar.commands);
+            presentations.extend(registrar.presentations);
             // Nothing is visible to the host until all staged contributions validate.
             for contribution in registrar.staged {
                 if !ids.insert(contribution.id) {
@@ -180,7 +228,40 @@ impl Registry {
         Ok(Self {
             order,
             contributions,
+            commands,
+            presentations,
         })
+    }
+    pub fn plan(
+        &self,
+        intent: &EditIntent,
+        state: &EditingState,
+        services: &FeatureServices<'_>,
+    ) -> Result<Option<CommandPlan>, String> {
+        for (_, contribution) in &self.contributions {
+            if let Some(handler) = self.commands.get(contribution.id) {
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    handler.plan(intent, state, services)
+                }))
+                .map_err(|_| format!("{}: command handler panicked", contribution.id))??;
+                if result.is_some() {
+                    return Ok(result);
+                }
+            }
+        }
+        Ok(None)
+    }
+    pub fn display(
+        &self,
+        state: &EditingState,
+        services: &FeatureServices<'_>,
+        highlighter: Option<&mut dyn SyntaxHighlighter>,
+        diagrams: &[DiagramViewInput],
+    ) -> Option<Display> {
+        self.contributions
+            .iter()
+            .find_map(|(_, contribution)| self.presentations.get(contribution.id))
+            .map(|provider| provider.display(state, services, highlighter, diagrams))
     }
     pub fn feature_order(&self) -> &[&'static str] {
         &self.order
@@ -212,4 +293,6 @@ pub enum BlockCommand {
     Source,
     Select,
     Copy,
+    AddBelow,
+    AddAbove,
 }

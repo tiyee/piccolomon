@@ -2,6 +2,7 @@
 use ryne_extensions::*;
 use ryne_syntax::code_block::CodeBlock;
 use std::sync::Arc;
+#[derive(Clone)]
 pub struct FencedPreview {
     pub id: &'static str,
     pub language: &'static str,

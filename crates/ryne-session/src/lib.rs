@@ -138,6 +138,14 @@ impl EditorSession {
         }
     }
     pub fn dispatch(&mut self, intent: EditIntent) -> Result<bool, String> {
+        if self.composition.is_some()
+            && matches!(
+                intent,
+                EditIntent::InsertAdjacent { .. } | EditIntent::FormatSource
+            )
+        {
+            return Err("structural edits are unavailable during composition".into());
+        }
         if self.state.source.id() != self.core.source().id()
             || self.state.parse.source().id() != self.core.source().id()
         {
@@ -235,10 +243,27 @@ impl EditorSession {
         &self,
         state: &EditingState,
     ) -> Result<Vec<RenderControl>, String> {
+        self.project_render_control_batch(state)
+            .map(|batch| batch.controls)
+    }
+    pub fn project_render_control_batch(
+        &self,
+        state: &EditingState,
+    ) -> Result<RenderControlBatch, String> {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            self.services.features.render_controls(state)
+            self.services.features.render_control_batch(state)
         }))
         .map_err(|_| "render control provider failed".to_string())?
+    }
+    pub fn record_diagnostics(&mut self, diagnostics: Vec<Diagnostic>) {
+        for diagnostic in diagnostics {
+            if !self.diagnostics.contains(&diagnostic) {
+                if self.diagnostics.len() >= 64 {
+                    self.diagnostics.remove(0);
+                }
+                self.diagnostics.push(diagnostic);
+            }
+        }
     }
     pub fn execute_render_action(&mut self, request: &RenderActionRequest) -> Result<bool, String> {
         if self.composition.is_some() || self.state.source_mode {
@@ -511,3 +536,9 @@ mod job_tests;
 mod list_render_action_tests;
 #[cfg(test)]
 mod render_action_tests;
+
+#[cfg(test)]
+mod adjacent_block_tests;
+
+#[cfg(test)]
+mod format_tests;

@@ -69,10 +69,13 @@ pub(super) struct TypesetLine {
 }
 
 pub(super) fn text_runs(display: &Display, runs: &[TextRun], range: Range<usize>) -> Vec<TextRun> {
-    display
+    let start = display
         .spans
+        .partition_point(|span| span.display.end <= range.start);
+    display.spans[start..]
         .iter()
-        .zip(runs)
+        .zip(&runs[start..])
+        .take_while(|(span, _)| span.display.start < range.end)
         .filter_map(|(span, run)| {
             let start = span.display.start.max(range.start);
             let end = span.display.end.min(range.end);
@@ -96,10 +99,12 @@ pub(super) fn shape_inline(
     let (font_size, line_height) = metrics;
     // Text shaping is independent of focus and caret position. Keep each text
     // segment intact so glyph shaping, strike lines and code backgrounds remain continuous.
-    let formulas = display
+    let first_formula = display
         .formulas
+        .partition_point(|f| f.display.start < range.start);
+    let formulas = display.formulas[first_formula..]
         .iter()
-        .filter(|f| range.start <= f.display.start && f.display.end <= range.end)
+        .take_while(|f| f.display.end <= range.end)
         .collect::<Vec<_>>();
     if formulas.is_empty() {
         return window
@@ -254,12 +259,13 @@ pub(super) struct VisualRow {
 pub(super) struct Geometry {
     pub(super) snapshot: SnapshotId,
     pub(super) frame_epoch: u64,
-    pub(super) display: Display,
-    pub(super) rows: Vec<VisualRow>,
+    pub(super) display: std::sync::Arc<Display>,
+    pub(super) rows: std::sync::Arc<Vec<VisualRow>>,
+    pub(super) text_layout: std::sync::Arc<text_layout::TextLayout>,
     pub(super) bounds: Bounds<Pixels>,
     pub(super) page: theme::Page,
     pub(super) source_mode: bool,
-    pub(super) lines: Vec<Line>,
+    pub(super) lines: std::sync::Arc<Vec<Line>>,
     pub(super) scroll: Pixels,
     pub(super) height: Pixels,
     pub(super) math_painted: usize,
@@ -284,7 +290,7 @@ impl Geometry {
         self.snapshot == editor.document.source.id()
             // A cancelled preedit can return to the exact same projection before
             // another draw. Its original geometry is safe to reuse in that case.
-            && (self.frame_epoch == editor.frame_epoch || self.display == editor.display)
+            && (self.frame_epoch == editor.frame_epoch || self.display.as_ref() == &editor.display)
             && self.source_mode == editor.document.source_mode
     }
 
@@ -302,16 +308,6 @@ impl Geometry {
         } else {
             row.line_height
         };
-        if block.is_list() {
-            // The complete list owns one right-hand type control. Item ellipses
-            // stay beside their own markers without changing text layout.
-            return Some(point(
-                (self.bounds.left() + px(self.page.left + self.page.width + 8.))
-                    .min(self.bounds.right() - px(32.)),
-                self.bounds.top() + px(self.page.top) + row.top - self.scroll
-                    + (first_line_height - px(BLOCK_CONTROL_HEIGHT)) / 2.,
-            ));
-        }
         let mut origin = self.bounds.origin
             + point(
                 px(self.page.left) + line.inset,
@@ -364,6 +360,8 @@ impl Geometry {
             );
         for region in &self.render_regions {
             let trigger = region.trigger;
+            // Keep the whole-block type menu to the left of item controls,
+            // using their measured bounds without changing the text layout.
             if origin.y < trigger.bottom()
                 && trigger.top() < origin.y + px(BLOCK_CONTROL_HEIGHT)
                 && origin.x < trigger.right()
@@ -611,7 +609,7 @@ impl Geometry {
     }
     pub(super) fn selection_quads(&self, selection: Range<usize>, color: Hsla) -> Vec<PaintQuad> {
         let mut quads = Vec::new();
-        for row in &self.rows {
+        for row in self.rows.iter() {
             let start = selection.start.max(row.range.start);
             let end = selection.end.min(row.range.end);
             let newline =

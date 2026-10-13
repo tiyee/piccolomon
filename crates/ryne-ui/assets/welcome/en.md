@@ -2,7 +2,7 @@
 
 This document is an editable guide to the formats currently available. Click text to edit it. Inline Markdown markers appear around the caret and fold back when you leave; hovering over a heading does not reveal its markers.
 
-Use Language in the toolbar to change the interface and this untouched default guide. Once you edit or save the guide, it is your document and language changes preserve it. Opened files are preserved too.
+Use Ryne → Language in the top menu bar to change the interface and this untouched default guide. Once you edit or save the guide, it is your document and language changes preserve it. Opened files are preserved too.
 
 ## Paragraphs and line breaks
 
@@ -53,7 +53,7 @@ Inline code: `**literal text**` and ``a `backtick` inside code``. Markdown insid
 - [ ] An unfinished task.
 - [x] A finished task.
 
-Enter continues a nonempty item; Enter on an empty item exits one level. Tab / Shift+Tab indent or outdent the current item and its children; the first sibling cannot indent. Shift+Enter breaks a line inside the item. Edit task markers in block source to change their state.
+Enter continues a nonempty item; Enter on an empty item exits one level. Tab / Shift+Tab indent or outdent the current item and its children; the first sibling cannot indent. Shift+Enter breaks a line inside the item. Click a task checkbox to toggle its state; the change supports undo and redo. You can also edit task markers in block source.
 
 Hover or focus an item to show its three-dot menu: insert, move, indent, outdent or delete the item and its children. The type button at the upper right selects or copies the complete list. Alt+Enter opens the focused item menu.
 
@@ -128,6 +128,10 @@ The `---` above is a separator on its own line, separated from surrounding parag
 
 Hover over a block's type button for local source, select-block and copy-source actions. Nested block source includes its container prefixes. Cmd+Shift+B toggles block source; Cmd+Shift+M toggles full source. Escape closes menus or folds source. In source mode, input and newlines are literal.
 
+At the end of the block type menu, choose “Add below” or “Add above”, then a block type. The first document block only offers “Add below”. Insertion undoes in one step; Escape returns from the type picker to the block menu.
+
 Hover below the document to reveal `+` and insert any of these block types. Unclosed structures must be completed before a new block can be appended.
 
 Cmd+O opens a file; Cmd+S saves; Cmd+Shift+S saves as. Cmd+Z / Cmd+Shift+Z undo and redo. Cmd+A/C/X/V select all, copy source, cut and paste. Selection and paste can span lines and blocks. Viewing markers, menus or source never marks the document as modified; saving preserves original source bytes and line endings. IME text is committed as one undoable edit.
+
+Click Format in the toolbar to format the whole Markdown source in one undoable step. Rules repair missing spaces in standalone headings and task markers while preserving code contents, paragraph line breaks and container indentation. Saving never formats automatically.

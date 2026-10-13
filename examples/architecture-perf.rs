@@ -15,7 +15,7 @@ fn main() -> Result<(), String> {
         });
         let services = ryne_session::SessionServices {
             features: Arc::new(ryne_features::MarkdownFeatures::new(
-                Arc::new(ryne_services::math::FormularyRenderer),
+                Arc::new(ryne_services::math::FormularyRenderer::default()),
                 vec![ryne_features::diagrams::FencedPreview {
                     id: "mermaid",
                     language: "mermaid",
@@ -46,15 +46,53 @@ fn main() -> Result<(), String> {
         );
         return Ok(());
     }
-    let formulas = Arc::new(ryne_services::math::FormularyRenderer);
+    let formulas = Arc::new(ryne_services::math::FormularyRenderer::default());
     let services = ryne_session::SessionServices {
         features: Arc::new(ryne_features::MarkdownFeatures::new(formulas, vec![])?),
         files: Arc::new(ryne_services::files::AtomicFileStore),
     };
+    if std::env::args().nth(1).as_deref() == Some("scaling") {
+        for rows in [100, 200, 400, 800] {
+            let source = format!(
+                "| a | b | c |\n| --- | --- | --- |\n{}\ntail",
+                "| x | y | z |\n".repeat(rows)
+            );
+            let document = ryne_session::EditorSession::new(&source, services.clone());
+            println!(
+                "{{\"table_rows\":{rows},\"fixture_bytes\":{}}}",
+                source.len()
+            );
+            measure(&format!("table_projection_{rows}"), || {
+                black_box(document.display());
+            });
+        }
+        let source = (0..257)
+            .map(|i| format!("$x_{{{i}}}$\n\n"))
+            .collect::<String>();
+        let document = ryne_session::EditorSession::new(&source, services);
+        let first = document.display();
+        let second = document.display();
+        let reused = first
+            .formulas
+            .iter()
+            .zip(&second.formulas)
+            .filter(|(a, b)| Arc::ptr_eq(&a.formula, &b.formula))
+            .count();
+        println!("{{\"formulas\":257,\"reused_resources\":{reused}}}");
+        measure("formula_projection_257_warm", || {
+            black_box(document.display());
+        });
+        return Ok(());
+    }
     let source = corpus();
     println!(
-        "{{\"fixture_bytes\":{},\"profile\":\"debug\",\"warmup\":8}}",
-        source.len()
+        "{{\"fixture_bytes\":{},\"profile\":\"{}\",\"warmup\":8}}",
+        source.len(),
+        if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        }
     );
     let mut document = ryne_session::EditorSession::new(&source, services.clone());
     let end = source.len();

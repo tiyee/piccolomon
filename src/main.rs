@@ -1,6 +1,6 @@
 use std::sync::Arc;
 fn main() {
-    let formulas = Arc::new(ryne_services::math::FormularyRenderer);
+    let formulas = Arc::new(ryne_services::math::FormularyRenderer::default());
     let services = ryne_session::SessionServices {
         features: Arc::new(
             match ryne_features::MarkdownFeatures::new(

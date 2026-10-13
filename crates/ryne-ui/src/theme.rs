@@ -28,6 +28,7 @@ pub fn heading(level: u8) -> (f32, f32) {
     }
 }
 
+#[derive(Clone, PartialEq)]
 pub struct Fonts {
     pub body: Font,
     pub code: Font,

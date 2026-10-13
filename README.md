@@ -34,7 +34,7 @@ Bundling refreshes this app's Launch Services registration after replacing its r
 On Windows, run `pwsh -File scripts/bundle-windows.ps1` (add `-Profile debug`
 for a debug build). The output is `dist/Ryne-windows-x64.zip`; extract it and
 launch `Ryne/Ryne.exe`. The portable package includes the MSVC runtime statically
-and ships the embedded STIX font's license notices. Release builds discover
+and ships the embedded Lete Sans Math and STIX Two Math license notices. Release builds discover
 `fxc.exe` from the installed Windows SDK; `GPUI_FXC_PATH` can override its location.
 Windows packages are unsigned.
 
@@ -76,13 +76,27 @@ settings, commands and signing behavior.
 
 ## Editing
 
-- The top menu bar provides **Ryne → About, Settings, Check for Updates, Hide, Quit**
+- The top menu bar provides **Ryne → About, Language, Check for Updates, Hide, Quit**
   and **File → New, Open, Open Recent, Reload from Disk, Save, Save As, Export PDF, Export PDF v2**.
   macOS uses the native application menu; Windows presents the same commands in the window.
-  Settings exposes the existing language preference. Recent files persist the last ten
+  Language offers all seven languages and Follow System. Open and Save are available
+  from File and their shortcuts. The editor toolbar provides an icon-only **Format** button (`format.svg`, with a localized tooltip) before the mode toggle: eye in
+  preview mode and code in source mode; click to switch. The button has no
+  background and shows the current mode name on hover.
+  Recent files persist the last ten
   successful opens/saves, with a clear-history command. New/open/reload confirm before
   discarding unsaved changes and reject results if editing continued during the operation.
   Update checks query stable releases of `tiyee/ryne` and offer the release page; they do not install updates.
+- **Format** explicitly formats the whole Markdown source in either mode, with one
+  undo step and mapped cursor/selection. Built-in rules normalize recognized ATX spacing,
+  unordered bullets to `-`, emphasis to `*`/`**`, closed fences to safe backticks,
+  table padding/alignment and extra document blank lines. Explicit repair rules turn
+  standalone `#Title` into `# Title` and list-leading `[x]done` into `[x] done`.
+  Code contents, container indentation, soft/hard breaks, HTML and front matter stay intact.
+  Distinct list boundaries are preserved; semantic validation rejects unsafe rewrites. No-op
+  formatting preserves history and dirty state. Formatting is limited to 1 MiB and waits
+  during IME composition/drag selection; saving never formats automatically.
+  See [formatting rules](docs/24_Source_Formatting.md) for policies and limits.
 - PDF export writes a paginated A4 copy from an immutable, folded document snapshot,
   with system font fallback, headings, inline formatting, nested lists, code backgrounds,
   aligned tables, formulas and valid Mermaid previews. Invalid/unsupported structures
@@ -101,7 +115,7 @@ settings, commands and signing behavior.
   accepts `cargo run --locked --example export-pdf -- INPUT.md OUTPUT.pdf --v2`.
 
 - Interface languages: Simplified Chinese, Traditional Chinese, English, Japanese,
-  Korean, French and Spanish. Use **Language** in the toolbar to switch immediately
+  Korean, French and Spanish. Use **Ryne → Language** in the top menu bar to switch immediately
   or follow the system language. Explicit choices survive restarts (macOS:
   `~/Library/Application Support/Ryne/language`); unsupported system languages fall
   back to English. Toolbar, block/insert menus, table and list action menus (including
@@ -114,6 +128,9 @@ settings, commands and signing behavior.
   to translated labels, icons and shortcuts within the window. Technical
   error details from the OS and renderers retain their original text. Native file
   dialog controls follow macOS language settings.
+- The macOS titlebar uses the editor's background color and shows no title text;
+  native window buttons remain available.
+  The editor toolbar leaves 2 px of padding above and below its mode button.
 - The document uses Helvetica Neue with PingFang SC fallback, 18 px body text
   and a centered reading column up to 760 px wide. Headings use a lighter
   semibold hierarchy; paragraph and block spacing follows semantic Markdown
@@ -140,16 +157,24 @@ settings, commands and signing behavior.
   H1–H6, text, ordered/unordered/task lists, code/raw blocks, images and tables.
   Matching outline icons identify quotes (indented text with a vertical bar),
   Mermaid (connected flowchart nodes) and separators (a horizontal rule).
-  Lists show one type control at the upper-right corner of the entire outer list;
+  Lists show one type control at the upper-left corner of the entire outer list;
   individual items, including nested items, show only their own three-dot button.
   The list type menu selects or copies the complete list.
   The menu header uses the same SVG type icon as the block control.
   The control is vertically centered on the block's first text line, including code and table bodies.
   Hover over the control for local source, select-block and
-  copy-source actions; click a menu item to execute it. Moving away, Escape or clicking outside dismisses the menu. The control
+  copy-source actions; click a menu item to execute it. The final entries are
+  “Add below” and “Add above”; the first document block only offers “Add below”.
+  Choose a block type in the shared insert picker, then insert at the target boundary
+  with one-step undo and preserved container prefixes and line endings. Blocks sharing
+  a list marker's first line insert outside the complete container to keep it intact.
+  Escape returns from the picker to the block menu. Moving away, Escape or clicking outside dismisses the menu. The control
   follows nesting, wrapping and scrolling, and hides during drag selection, IME
   composition and whole-document source mode. Showing controls never changes source
   or undo history. Block dragging and type conversion are not implemented.
+- Task lists display `checkbox_checked.svg` / `checkbox_unchecked.svg` from
+  `assets/icons`. Click a checkbox to toggle `[ ]` / `[x]` in the Markdown source,
+  with one-step undo and preserved selection, nesting and line endings.
 - Bold, emphasis, strikethrough, inline code and links have inline previews.
   After typing an opening inline delimiter, the first body character completes
   the closing delimiter after the caret and keeps source editing active. This
@@ -159,8 +184,12 @@ settings, commands and signing behavior.
   changing source. Completion and the body character undo together; IME completion
   happens only after confirmation. Code and local/whole-document source modes stay literal.
 - Single-line `$LaTeX$` formulas render inline with Formulary 0.3.0 and math-core 0.5.5,
-  using embedded STIX Two Math
-  glyph outlines, baseline alignment, wrapping and variable row height. Clicking
+  using embedded Lete Sans Math 0.63 by default. **Ryne → Math font** switches
+  between Lete Sans Math and STIX Two Math; the choice persists across restarts.
+  Both use glyph outlines, baseline alignment, wrapping and variable row height.
+  Switching refreshes formula metrics and assets without editing Markdown or history;
+  pending IME/drag interactions defer reflow. Both PDF exporters freeze the chosen font
+  in the export snapshot. Clicking
   a formula or entering it with an arrow reveals its literal source; leaving folds
   it again. Lists and table cells support the same interaction. Code stays literal.
   Failed, oversized or multiline formulas and `$$...$$` display math stay editable
@@ -170,7 +199,9 @@ settings, commands and signing behavior.
   Formula images are monochrome; two-dimensional formula editing is not included.
   The historical [RaTeX / Formulary comparison](docs/reviews/formulary_renderer/README.md)
   remains available with baseline guides and 1×/2× images. RaTeX is no longer
-  a dependency of the editor. The bundle includes the STIX font license notices.
+  a dependency of the editor. The bundle includes both fonts’ license notices.
+  See [math font integration and comparison](docs/23_Math_Font_Selection.md) for
+  the actual adapter comparison, small-size rasters and remaining layout limitations.
 - H1–H6 and Setext headings have level-specific typography and line heights.
   At a block start, type one to six `#` characters; they remain visible until the
   first non-`#` character, then fold into a heading. A missing separator space is
@@ -238,7 +269,7 @@ settings, commands and signing behavior.
   keeps wrapping stable. Opening the menu preserves the source selection; each
   edit is one undo step. Alt+Enter opens the focused cell menu; arrows, Enter and
   Escape navigate it. Operation shortcuts are shown in the menu.
-- In any content block, hover over its type control and choose local source, click the block-source button or press Cmd+Shift+B to edit
+- In any content block, hover over its type control and choose local source or press Cmd+Shift+B to edit
   columns and alignment, list markers, fences and language information. Toggle again or press Escape to return to preview.
   Nested block source includes its outer container context.
 - Quotes, images and unsupported syntax remain editable source.
@@ -254,7 +285,6 @@ settings, commands and signing behavior.
 | Shortcut | Action |
 | --- | --- |
 | Cmd+N | New blank document |
-| Cmd+, | Settings |
 | Cmd+H | Hide Ryne |
 | Cmd+Shift+R | Reload from disk |
 | Cmd+Shift+E | Export PDF |
@@ -270,7 +300,8 @@ settings, commands and signing behavior.
 | Up / Down, Shift+Up / Down | Move by visual row / extend selection |
 | Home / End or Cmd+Left / Right | Visual row start / end (add Shift to select) |
 
-The demo uses full parsing and layout, with no large-document performance
+Content edits still use full parsing. Unchanged body layout is reused for caret
+blinking and other overlay updates, but there is no large-document performance
 guarantee. Copy currently copies the exact source selection; Markdown fragment
 serialization is a later feature. It does not implement quote
 continuation,
@@ -290,6 +321,14 @@ selection and history together. Input normalization and completion share one dra
 and one undo step. Formula, diagram, highlighting and file implementations are
 injected through ports. The diagram host handles service generations, cancellation,
 resource budgets and rebinding cached content to current source ranges.
+
+The static registry executes command/input handlers and the document presentation
+provider. Render-control failures are isolated per provider and reported without
+discarding healthy controls. Table projection consumes ordered boundary events;
+formula caching uses bounded retention and reuses resources held by live views.
+Diagram timeouts remain cached failures until the content or service changes.
+See the [architecture review fixes](docs/25_Architecture_Review_Fixes.md) for
+regression coverage, measured performance and remaining limits.
 
 See [implementation and validation](docs/18_Ryne_Architecture_Implementation.md)
 for the dependency graph, regression coverage and internal extension limits. This

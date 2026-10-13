@@ -25,6 +25,57 @@ impl Block {
     }
 }
 
+/// Physical sibling insertion boundary and the existing container continuation.
+/// A block sharing a list marker's line uses the full enclosing container so
+/// insertion never separates that marker from its first child.
+pub fn insertion_context(parse: &ParseSnapshot, block: &Block) -> Option<(Range<usize>, String)> {
+    if let Some(view) = crate::parser::normalized(parse) {
+        return insertion_context(&view, block);
+    }
+    if at(parse, block.anchor).as_ref() != Some(block) {
+        return None;
+    }
+    let node = parse
+        .nodes
+        .iter()
+        .filter(|node| {
+            block.range.start <= node.envelope.start
+                && node.envelope.start <= block.anchor
+                && node.envelope.end <= block.range.end
+                && matches!(
+                    node.kind,
+                    NodeKind::Paragraph
+                        | NodeKind::Heading(_)
+                        | NodeKind::List(_)
+                        | NodeKind::BlockQuote
+                        | NodeKind::CodeBlock(_)
+                        | NodeKind::Table(_)
+                        | NodeKind::HtmlBlock
+                        | NodeKind::Rule
+                        | NodeKind::SourceBlock
+                )
+        })
+        .max_by_key(|node| node.envelope.len())?;
+    let text = parse.source().text();
+    let nested = node
+        .parent
+        .is_some_and(|parent| parse.nodes[parent].kind != NodeKind::Document);
+    let prefix = if nested {
+        &text[block.range.start..node.envelope.start]
+    } else {
+        ""
+    };
+    if prefix.chars().any(|ch| !matches!(ch, '>' | ' ' | '\t')) {
+        return Some((block.scope.clone(), String::new()));
+    }
+    Some((block.range.clone(), prefix.into()))
+}
+
+pub fn can_insert_above(parse: &ParseSnapshot, block: &Block) -> bool {
+    insertion_context(parse, block)
+        .is_some_and(|(range, _)| !parse.source().text()[..range.start].trim().is_empty())
+}
+
 pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
     let text = parse.source().text();
     if let Some(view) = crate::parser::normalized(parse) {

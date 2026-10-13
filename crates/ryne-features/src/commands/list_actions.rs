@@ -30,6 +30,18 @@ impl Planner<'_> {
             _ => items.len(),
         };
         match request.command {
+            "list.toggle-task" => {
+                let task = item.task.as_ref().ok_or("not a task item")?;
+                let at = task.marker.start + 1;
+                self.apply_edits(
+                    vec![Edit {
+                        range: at..at + 1,
+                        replacement: if task.checked { " " } else { "x" }.into(),
+                    }],
+                    None,
+                )
+                .map_err(|e| format!("{e:?}"))?;
+            }
             "list.indent" | "list.outdent" => {
                 let mut bounded = item.clone();
                 bounded.range = own;

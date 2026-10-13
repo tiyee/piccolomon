@@ -40,7 +40,7 @@ impl EditorElement {
             for selection in frame.selections.drain(..) {
                 window.paint_quad(selection);
             }
-            for line in &frame.geometry.lines {
+            for line in frame.geometry.lines.iter() {
                 let mut origin = bounds.origin
                     + point(
                         px(frame.geometry.page.left) + line.inset,

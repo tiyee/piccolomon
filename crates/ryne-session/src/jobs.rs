@@ -142,24 +142,29 @@ impl JobHost {
         {
             return false;
         }
-        if result.control.checkpoint().is_err() {
-            return false;
-        }
-        let result_value = result.result.and_then(|resource| {
-            let pixels = u64::from(resource.pixel_width) * u64::from(resource.pixel_height);
-            if pixels == 0
-                || pixels > 2_000_000
-                || pixels * 4 != resource.pixels.len() as u64
-                || resource.bytes != resource.pixels.len()
-                || ![resource.width, resource.height]
-                    .iter()
-                    .all(|v| v.is_finite() && *v > 0. && *v <= 4096.)
-            {
-                Err("图表资源无效，保留源码".into())
-            } else {
-                Ok(resource)
-            }
-        });
+        // A timeout for current content is a terminal, cacheable failure. Only
+        // obsolete/cancelled requests above are discarded. Otherwise refresh
+        // would repeatedly retry the first slow input and starve later jobs.
+        let result_value = result
+            .control
+            .checkpoint()
+            .map_err(str::to_owned)
+            .and(result.result)
+            .and_then(|resource| {
+                let pixels = u64::from(resource.pixel_width) * u64::from(resource.pixel_height);
+                if pixels == 0
+                    || pixels > 2_000_000
+                    || pixels * 4 != resource.pixels.len() as u64
+                    || resource.bytes != resource.pixels.len()
+                    || ![resource.width, resource.height]
+                        .iter()
+                        .all(|v| v.is_finite() && *v > 0. && *v <= 4096.)
+                {
+                    Err("图表资源无效，保留源码".into())
+                } else {
+                    Ok(resource)
+                }
+            });
         // A resource is content-addressed; a later refresh binds it to current ranges.
         let used: usize = self
             .cache

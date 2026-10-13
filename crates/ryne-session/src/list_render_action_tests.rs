@@ -1,12 +1,18 @@
 use super::regression_tests::new_document;
 use super::*;
+use editable_markdown_parser::Affinity;
 fn request(doc: &EditorSession, needle: &str, command: &'static str) -> RenderActionRequest {
     let at = doc.source.text().find(needle).unwrap();
     let c = doc
         .render_controls()
         .unwrap()
         .into_iter()
-        .filter(|c| c.provider == "list" && c.focus.start <= at && at < c.target.owner.end)
+        .filter(|c| {
+            c.provider == "list"
+                && c.placement == RenderControlPlacement::Leading
+                && c.focus.start <= at
+                && at < c.target.owner.end
+        })
         .min_by_key(|c| c.focus.len())
         .unwrap();
     RenderActionRequest {
@@ -30,6 +36,7 @@ fn ordered_unordered_nested_empty_and_task_items_contribute_leading_controls() {
         assert!(
             controls
                 .iter()
+                .filter(|c| c.placement == RenderControlPlacement::Leading)
                 .all(|c| c.placement == RenderControlPlacement::Leading
                     && c.trailing_space == 0.
                     && c.actions.len() == 7)
@@ -330,5 +337,153 @@ fn boundary_commands_and_old_or_source_ime_targets_are_rejected() {
         assert!(doc.execute_render_action(&req).is_err());
         assert_eq!(doc.source.id(), source);
         assert_eq!(doc.history_len(false), undo);
+    }
+}
+
+#[test]
+fn task_toggle_preserves_bytes_selection_and_atomic_history() {
+    for newline in ["\n", "\r\n", "\r"] {
+        for prefix in ["- ", "9) ", "> - ", "- parent\n  - "] {
+            for mark in ["[ ]", "[x]", "[X]"] {
+                let raw = format!("{prefix}{mark} **中😀**\n  continuation\n\nother\n")
+                    .replace('\n', newline);
+                let mut doc = new_document(&raw);
+                let start = raw.find('中').unwrap();
+                let end = raw.find("other").unwrap() + 5;
+                doc.select(end, false, false);
+                doc.select(start, true, false);
+                let selection = (doc.anchor, doc.head);
+                let controls = doc.render_controls().unwrap();
+                let c = controls
+                    .iter()
+                    .find(|c| matches!(c.placement, RenderControlPlacement::Marker { .. }))
+                    .expect("task icon");
+                assert_eq!(
+                    c.placement,
+                    RenderControlPlacement::Marker {
+                        icon: if mark == "[ ]" {
+                            "checkbox_unchecked"
+                        } else {
+                            "checkbox_checked"
+                        }
+                    }
+                );
+                assert!(!doc.display().text.contains(mark));
+                let req = RenderActionRequest {
+                    provider: c.provider,
+                    target: c.target.clone(),
+                    command: "list.toggle-task",
+                };
+                doc.execute_render_action(&req).unwrap();
+                let mut expected = raw.clone();
+                let at = raw.find(mark).unwrap() + 1;
+                expected.replace_range(at..at + 1, if mark == "[ ]" { "x" } else { " " });
+                assert_eq!(doc.source.text(), expected);
+                assert_eq!((doc.anchor, doc.head), selection);
+                assert_eq!(doc.history_len(false), 1);
+                assert!(doc.dirty());
+                doc.undo(false);
+                assert_eq!(doc.source.text(), raw);
+                assert_eq!((doc.anchor, doc.head), selection);
+                assert!(!doc.dirty());
+                doc.undo(true);
+                assert_eq!(doc.source.text(), expected);
+                let path = std::env::temp_dir()
+                    .join(format!("ryne-task-toggle-{}.md", std::process::id()));
+                doc.save(&path).unwrap();
+                assert_eq!(std::fs::read(&path).unwrap(), expected.as_bytes());
+                std::fs::remove_file(path).unwrap();
+            }
+        }
+    }
+}
+
+#[test]
+fn task_toggle_rejects_stale_source_ime_and_plain_list_targets() {
+    for mode in 0..5 {
+        let mut doc = new_document("- [ ] first\n");
+        let req = request(&doc, "first", "list.toggle-task");
+        match mode {
+            0 => doc.set_source_mode(true),
+            1 => doc.set_block_source(Some(req.target.owner.clone())),
+            2 => {
+                doc.composition = Some(Composition {
+                    range: 6..6,
+                    text: "候选".into(),
+                    selection: 0..0,
+                })
+            }
+            3 => {
+                doc.insert_text(0..0, "new\n\n").unwrap();
+            }
+            _ => doc = new_document("- [ ] first\n"),
+        }
+        let source = doc.source.id();
+        let history = doc.history_len(false);
+        assert!(doc.execute_render_action(&req).is_err());
+        assert_eq!(doc.source.id(), source);
+        assert_eq!(doc.history_len(false), history);
+    }
+    for raw in [
+        "- [ ]",
+        "- ordinary\n",
+        "- [z] invalid\n",
+        "- `[ ] literal`\n",
+        "```\n- [ ] literal\n```\n",
+        "    - [ ] literal\n",
+    ] {
+        let doc = new_document(raw);
+        assert!(
+            !doc.render_controls()
+                .unwrap()
+                .iter()
+                .any(|c| matches!(c.placement, RenderControlPlacement::Marker { .. })),
+            "{raw}"
+        );
+    }
+    let mut doc = new_document("- ordinary\n");
+    assert!(
+        doc.execute_render_action(&request(&doc, "ordinary", "list.toggle-task"))
+            .is_err()
+    );
+}
+
+#[test]
+fn task_markers_fold_in_render_mode_and_remain_literal_in_source_mode() {
+    for raw in [
+        "- [ ] ",
+        "- [x] \n",
+        "- [X] \r\n",
+        "- parent\n  - [ ] child\n    continuation\n",
+    ] {
+        let mut doc = new_document(raw);
+        let item = ryne_syntax::list::items(&doc.parse)
+            .into_iter()
+            .find(|i| i.task.is_some())
+            .unwrap_or_else(|| panic!("parsed task: {raw:?}"));
+        let task = item.task.unwrap();
+        let displayed = doc.display();
+        assert!(!displayed.text.contains(&raw[task.marker.clone()]));
+        if let Some(at) = raw.find("child") {
+            let projected = displayed.position_at(at);
+            assert_eq!(displayed.source_at(projected, Affinity::Downstream), at);
+            doc.select(at + 2, false, false);
+            assert!(!doc.display().text.contains("[ ]"));
+        }
+        doc.set_block_source(Some(item.scope.clone()));
+        assert!(
+            doc.render_controls()
+                .unwrap()
+                .iter()
+                .all(|c| !matches!(c.placement, RenderControlPlacement::Marker { .. }))
+        );
+        assert!(doc.display().text.contains(&raw[task.marker.clone()]));
+        doc.set_block_source(None);
+        doc.set_source_mode(true);
+        assert!(doc.display().text.contains(&raw[task.marker]));
+        assert!(doc.render_controls().unwrap().is_empty());
+        assert_eq!(doc.source.text(), raw);
+        assert!(!doc.dirty());
+        assert_eq!(doc.history_len(false), 0);
     }
 }

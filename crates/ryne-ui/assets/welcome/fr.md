@@ -2,7 +2,7 @@
 
 Ce document est un guide modifiable des formats actuellement disponibles. Cliquez sur le texte pour le modifier. Les marqueurs Markdown en ligne apparaissent autour du curseur et se replient quand il s'éloigne. Survoler un titre ne révèle pas ses marqueurs.
 
-Le menu Langue de la barre d'outils change l'interface et ce guide par défaut encore intact. Après modification ou enregistrement, le guide devient votre document et son contenu est conservé lors des changements de langue, tout comme les fichiers ouverts.
+Le menu Ryne → Langue de la barre de menus change l'interface et ce guide par défaut encore intact. Après modification ou enregistrement, le guide devient votre document et son contenu est conservé lors des changements de langue, tout comme les fichiers ouverts.
 
 ## Paragraphes et sauts de ligne
 
@@ -53,7 +53,7 @@ Code en ligne : `**texte littéral**` et ``un `accent grave` dans le code``. Le 
 - [ ] Une tâche à terminer.
 - [x] Une tâche terminée.
 
-Entrée continue un élément non vide ; sur un élément vide, elle quitte un niveau. Tab / Maj+Tab augmentent ou réduisent le retrait de l'élément et de ses enfants ; le premier élément d'un niveau ne peut pas être décalé davantage. Maj+Entrée ajoute un saut dans l'élément. Modifiez les marqueurs des tâches dans la source du bloc pour changer leur état.
+Entrée continue un élément non vide ; sur un élément vide, elle quitte un niveau. Tab / Maj+Tab augmentent ou réduisent le retrait de l'élément et de ses enfants ; le premier élément d'un niveau ne peut pas être décalé davantage. Maj+Entrée ajoute un saut dans l'élément. Cliquez sur la case d'une tâche pour changer son état ; vous pouvez annuler ou rétablir ce changement. Les marqueurs restent modifiables dans la source du bloc.
 
 Survolez un élément ou placez-y le curseur pour afficher le menu à trois points : insérer, déplacer, modifier le retrait ou supprimer l'élément et ses enfants. Le bouton de type en haut à droite sélectionne ou copie toute la liste. Alt+Entrée ouvre le menu de l'élément actif.
 
@@ -128,6 +128,10 @@ Le `---` ci-dessus est un séparateur sur sa propre ligne, entouré de lignes vi
 
 Survolez le bouton de type d'un bloc pour modifier sa source locale, sélectionner le bloc ou copier sa source. La source des blocs imbriqués inclut les préfixes du conteneur. Cmd+Maj+B bascule la source du bloc ; Cmd+Maj+M la source complète. Échap ferme les menus ou replie la source. En mode source, saisie et retours sont littéraux.
 
+À la fin du menu de type de bloc, choisissez « Ajouter en dessous » ou « Ajouter au-dessus », puis un type de bloc. Le premier bloc propose uniquement « Ajouter en dessous ». Une seule annulation retire l’insertion ; Échap revient au menu du bloc.
+
 Survolez le bas du document pour afficher `+` et insérer ces types de blocs. Complétez d'abord les structures non fermées avant d'ajouter un bloc.
 
 Cmd+O ouvre un fichier ; Cmd+S enregistre ; Cmd+Maj+S enregistre sous. Cmd+Z / Cmd+Maj+Z annulent et rétablissent. Cmd+A/C/X/V sélectionnent tout, copient la source, coupent et collent. Sélection et collage peuvent traverser les lignes et les blocs. Afficher les marqueurs, menus ou la source ne modifie pas le document ; l'enregistrement conserve les octets source et les fins de ligne. La validation IME forme une seule modification annulable.
+
+Cliquez sur Formater dans la barre d’outils pour formater toute la source Markdown en une opération annulable. Les règles ajoutent les espaces manquants aux titres isolés et aux marqueurs de tâches, en conservant le code, les retours de paragraphe et l’indentation des conteneurs. L’enregistrement ne formate pas automatiquement.

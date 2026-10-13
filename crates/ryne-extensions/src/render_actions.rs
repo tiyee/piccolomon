@@ -1,5 +1,5 @@
 //! Render-mode controls and executable commands, independent of GPUI.
-use crate::{CommandPlan, EditingState};
+use crate::{CommandPlan, Diagnostic, EditingState};
 use ryne_core::{DocumentKey, SourceRange};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -67,6 +67,10 @@ pub struct RenderControl {
 pub enum RenderControlPlacement {
     Leading,
     Trailing,
+    /// An always-visible icon in the structural marker slot, invoking its sole action.
+    Marker {
+        icon: &'static str,
+    },
 }
 #[derive(Clone, Debug)]
 pub struct RenderActionRequest {
@@ -85,6 +89,11 @@ pub trait RenderActionProvider: Send + Sync {
     ) -> Result<CommandPlan, String>;
 }
 #[derive(Default)]
+pub struct RenderControlBatch {
+    pub controls: Vec<RenderControl>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+#[derive(Default, Clone)]
 pub struct RenderActionRegistry {
     providers: Vec<Arc<dyn RenderActionProvider>>,
     commands: BTreeMap<&'static str, &'static str>,
@@ -116,17 +125,44 @@ impl RenderActionRegistry {
         Self::new(providers)
     }
     pub fn controls(&self, state: &EditingState) -> Result<Vec<RenderControl>, String> {
+        Ok(self.control_batch(state).controls)
+    }
+    /// Publish each provider atomically. One malformed or panicking provider
+    /// cannot remove other providers' controls or their reserved layout space.
+    pub fn control_batch(&self, state: &EditingState) -> RenderControlBatch {
+        let mut batch = RenderControlBatch::default();
+        if state.source_mode {
+            return batch;
+        }
+        for provider in &self.providers {
+            match self.provider_controls(provider.as_ref(), state) {
+                Ok(controls) => batch.controls.extend(controls),
+                Err(message) => batch.diagnostics.push(Diagnostic {
+                    feature: provider.id().into(),
+                    message,
+                }),
+            }
+        }
+        batch
+    }
+    fn provider_controls(
+        &self,
+        provider: &dyn RenderActionProvider,
+        state: &EditingState,
+    ) -> Result<Vec<RenderControl>, String> {
         if state.source_mode {
             return Ok(Vec::new());
         }
-        let mut result = Vec::new();
-        let mut ids = BTreeSet::new();
-        for provider in &self.providers {
-            for control in provider.controls(state)? {
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut controls = provider.controls(state)?;
+            let mut ids = BTreeSet::new();
+            for control in &controls {
                 control.target.validate(state)?;
                 if control.provider != provider.id()
-                    || !ids.insert((control.provider, control.id.clone()))
+                    || !ids.insert(control.id.clone())
                     || control.actions.is_empty()
+                    || (matches!(control.placement, RenderControlPlacement::Marker { .. })
+                        && control.actions.len() != 1)
                     || !control.trailing_space.is_finite()
                     || control.trailing_space < 0.
                     || control.focus.start < control.target.owner.start
@@ -139,16 +175,16 @@ impl RenderActionRegistry {
                 {
                     return Err("invalid render control".into());
                 }
-                if state.block_source.as_ref().is_some_and(|s| {
+            }
+            controls.retain(|control| {
+                !state.block_source.as_ref().is_some_and(|s| {
                     s.range.start < control.target.owner.end
                         && control.target.owner.start < s.range.end
-                }) {
-                    continue;
-                }
-                result.push(control);
-            }
-        }
-        Ok(result)
+                })
+            });
+            Ok(controls)
+        }))
+        .unwrap_or_else(|_| Err("render control provider panicked".into()))
     }
     pub fn plan(
         &self,
@@ -159,20 +195,28 @@ impl RenderActionRegistry {
         if self.commands.get(request.command) != Some(&request.provider) {
             return Err("unknown render command".into());
         }
-        // Re-evaluate current eligibility; a menu's cached enabled flag is insufficient.
-        if !self.controls(state)?.iter().any(|c| {
-            c.provider == request.provider
-                && c.target == request.target
-                && c.actions
-                    .iter()
-                    .any(|a| a.command == request.command && a.enabled)
-        }) {
-            return Err("render action unavailable".into());
-        }
-        self.providers
+        let provider = self
+            .providers
             .iter()
             .find(|p| p.id() == request.provider)
-            .ok_or("missing render provider")?
-            .plan(state, request)
+            .ok_or("missing render provider")?;
+        // Re-evaluate only the requested provider; an unrelated failure cannot
+        // prevent a valid command. Never trust a cached enabled flag.
+        if !self
+            .provider_controls(provider.as_ref(), state)?
+            .iter()
+            .any(|c| {
+                c.target == request.target
+                    && c.actions
+                        .iter()
+                        .any(|a| a.command == request.command && a.enabled)
+            })
+        {
+            return Err("render action unavailable".into());
+        }
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            provider.plan(state, request)
+        }))
+        .unwrap_or_else(|_| Err("render action provider panicked".into()))
     }
 }

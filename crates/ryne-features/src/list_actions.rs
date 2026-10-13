@@ -46,11 +46,12 @@ impl RenderActionProvider for ListActions {
             "list.indent",
             "list.outdent",
             "list.delete",
+            "list.toggle-task",
         ]
     }
     fn controls(&self, state: &EditingState) -> Result<Vec<RenderControl>, String> {
         let items = list::items(&state.parse);
-        Ok(items
+        let mut controls = items
             .iter()
             .map(|item| {
                 let before = items
@@ -112,7 +113,44 @@ impl RenderActionProvider for ListActions {
                     ],
                 }
             })
-            .collect())
+            .collect::<Vec<_>>();
+        for item in &items {
+            let Some(task) = &item.task else {
+                continue;
+            };
+            let owner = extent(state, item);
+            controls.push(RenderControl {
+                provider: "list",
+                id: format!("task-{}", item.marker.start),
+                target: RenderTarget {
+                    document: state.source.id(),
+                    role: "list.item",
+                    owner: owner.clone(),
+                    part: vec![item.marker.start],
+                },
+                focus: item.body..owner.end,
+                placement: RenderControlPlacement::Marker {
+                    icon: if task.checked {
+                        "checkbox_checked"
+                    } else {
+                        "checkbox_unchecked"
+                    },
+                },
+                trailing_space: 0.,
+                actions: vec![RenderAction {
+                    command: "list.toggle-task",
+                    label: "list.toggle-task",
+                    fallback: "Toggle task",
+                    enabled: true,
+                    group: 0,
+                    icon: None,
+                    checked: task.checked,
+                    submenu: None,
+                    shortcut: None,
+                }],
+            });
+        }
+        Ok(controls)
     }
     fn plan(
         &self,
