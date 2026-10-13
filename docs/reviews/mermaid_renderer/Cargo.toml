@@ -1,0 +1,11 @@
+[package]
+name = "ryne-mermaid-eval"
+version = "0.1.0"
+edition = "2024"
+publish = false
+[workspace]
+[dependencies]
+mermaid-rs-renderer = { version = "=0.3.1", default-features = false }
+rusty-mermaid = { version = "=0.2.0", features = ["svg"] }
+merman = { version = "=0.8.0", default-features = false, features = ["svg", "diagram-flowchart", "diagram-sequence", "diagram-class", "diagram-state", "diagram-er", "diagram-gantt", "diagram-mindmap", "layout-cytoscape"] }
+resvg = "=0.45.1"

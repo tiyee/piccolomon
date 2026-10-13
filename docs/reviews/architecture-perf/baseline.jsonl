@@ -1,0 +1,6 @@
+{"fixture_bytes":1624,"profile":"debug","warmup":8}
+{"metric":"input_publish_and_undo","samples":96,"p50_ms":762.4068,"p95_ms":969.5331,"p99_ms":1036.5298}
+{"metric":"parse_and_new_session","samples":96,"p50_ms":1.2918,"p95_ms":1.3811,"p99_ms":1.5241}
+{"metric":"projection","samples":96,"p50_ms":280.4282,"p95_ms":381.7586,"p99_ms":548.1840}
+{"metric":"projection_warm_highlight","samples":96,"p50_ms":259.6807,"p95_ms":318.4014,"p99_ms":412.6646}
+{"metric":"selection_without_content_edit","samples":96,"p50_ms":564.8318,"p95_ms":918.6970,"p99_ms":1007.1070}

@@ -1,0 +1,57 @@
+use super::*;
+fn edit(range: Range<usize>, text: &str) -> Edit {
+    Edit {
+        range,
+        replacement: text.into(),
+    }
+}
+#[test]
+fn invalid_and_stale_candidates_never_publish_or_change_history() {
+    let mut core = DocumentCore::new("中😀\r\nend");
+    let old = core.source().clone();
+    for edits in [
+        vec![edit(1..2, "x")],
+        vec![edit(8..8, "x")],
+        vec![edit(0..3, "x"), edit(2..7, "y")],
+    ] {
+        assert!(PreparedEdit::prepare(core.source(), edits).is_err());
+        assert_eq!(core.source().id(), old.id());
+        assert_eq!(core.history_len(false), 0)
+    }
+    let stale = PreparedEdit::prepare(core.source(), vec![edit(0..3, "文")]).unwrap();
+    let live = PreparedEdit::prepare(core.source(), vec![edit(0..3, "字")]).unwrap();
+    core.publish(live, 1).unwrap();
+    assert_eq!(core.publish(stale, 2), Err(Error::StaleSnapshot));
+    assert_eq!(core.history_len(false), 1);
+    assert_eq!(core.source().text(), "字😀\r\nend");
+    let other = Source::new(core.source().text());
+    assert_eq!(core.mark_saved(&other), Err(Error::StaleSnapshot));
+}
+#[test]
+fn multi_edit_history_and_written_snapshot_baseline_are_atomic() {
+    let mut core = DocumentCore::new("a\r\nb\r\nc");
+    let plan =
+        PreparedEdit::prepare(core.source(), vec![edit(0..1, "中"), edit(3..4, "😀")]).unwrap();
+    core.publish(plan, 42).unwrap();
+    let written = core.source().clone();
+    core.mark_saved(&written).unwrap();
+    assert!(!core.dirty());
+    let plan = PreparedEdit::prepare(core.source(), vec![edit(0..3, "新")]).unwrap();
+    core.publish(plan, 7).unwrap();
+    core.mark_saved(&written).unwrap();
+    assert!(core.dirty());
+    let (undo, checkpoint) = core.prepare_history(false).unwrap().unwrap();
+    assert_eq!(checkpoint, 7);
+    core.publish_history(undo, false, 8).unwrap();
+    assert!(!core.dirty());
+    let (undo, checkpoint) = core.prepare_history(false).unwrap().unwrap();
+    assert_eq!(checkpoint, 42);
+    core.publish_history(undo, false, 9).unwrap();
+    assert_eq!(core.source().text(), "a\r\nb\r\nc");
+    assert!(core.dirty());
+    let (redo, checkpoint) = core.prepare_history(true).unwrap().unwrap();
+    assert_eq!(checkpoint, 9);
+    core.publish_history(redo, true, 10).unwrap();
+    assert_eq!(core.source().text(), written.text());
+    assert!(!core.dirty());
+}

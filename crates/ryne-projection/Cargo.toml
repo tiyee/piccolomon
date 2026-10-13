@@ -1,0 +1,12 @@
+[package]
+name = "ryne-projection"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+ryne-core.workspace = true
+ryne-syntax.workspace = true
+editable_markdown_parser.workspace = true
+unicode-segmentation.workspace = true

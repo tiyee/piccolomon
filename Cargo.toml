@@ -1,0 +1,62 @@
+[workspace]
+resolver = "3"
+members = [".", "crates/*"]
+default-members = [".", "crates/*"]
+exclude = ["docs/reviews/mermaid_renderer", "docs/reviews/formulary_renderer"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT"
+
+[workspace.dependencies]
+gpui = { version = "=0.2.2", features = ["runtime_shaders"] }
+editable_markdown_parser = "=0.0.4"
+unicode-segmentation = "=1.12.0"
+tree-sitter-highlight = "=0.27.1"
+tree-sitter = "=0.27.1"
+tree-sitter-rust = "=0.24.2"
+tree-sitter-python = "=0.25.0"
+tree-sitter-javascript = "=0.25.0"
+tree-sitter-typescript = "=0.23.2"
+tree-sitter-json = "=0.24.8"
+tree-sitter-bash = "=0.25.1"
+formulary = "=0.3.0"
+math-core = "=0.5.5"
+ttf-parser = "=0.25.1"
+merman = { version = "=0.7.0", default-features = false, features = ["render"] }
+resvg = "=0.45.1"
+image = { version = "=0.25.10", default-features = false }
+
+
+ryne-core = { path = "crates/ryne-core" }
+ryne-syntax = { path = "crates/ryne-syntax" }
+ryne-projection = { path = "crates/ryne-projection" }
+ryne-extensions = { path = "crates/ryne-extensions" }
+ryne-features = { path = "crates/ryne-features" }
+ryne-services = { path = "crates/ryne-services" }
+ryne-session = { path = "crates/ryne-session" }
+ryne-ui = { path = "crates/ryne-ui" }
+
+[package]
+name = "ryne-app"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+default-run = "ryne"
+description = "A native single-document Markdown editor"
+
+[[bin]]
+name = "ryne"
+path = "src/main.rs"
+
+[dependencies]
+ryne-ui.workspace = true
+ryne-session.workspace = true
+ryne-features.workspace = true
+ryne-services.workspace = true
+
+[dev-dependencies]
+resvg.workspace = true

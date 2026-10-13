@@ -1,0 +1,135 @@
+name: Publish to Microsoft Store
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "MSIX version (major.minor.build.0, higher than the published version)"
+        required: true
+        type: string
+        default: "1.0.0.0"
+      submit:
+        description: "Submit the built package to Microsoft Store certification"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Store submissions must not race or interrupt an upload already in progress.
+concurrency:
+  group: windows-store
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  package:
+    name: Build Store MSIX (x64)
+    runs-on: windows-2022
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      STORE_VERSION: ${{ inputs.version }}
+      STORE_IDENTITY_NAME: ${{ vars.STORE_IDENTITY_NAME }}
+      STORE_PUBLISHER: ${{ vars.STORE_PUBLISHER }}
+      STORE_PUBLISHER_DISPLAY_NAME: ${{ vars.STORE_PUBLISHER_DISPLAY_NAME }}
+      CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: "-C target-feature=+crt-static"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Validate Store configuration
+        run: |
+          foreach ($key in @('STORE_IDENTITY_NAME', 'STORE_PUBLISHER', 'STORE_PUBLISHER_DISPLAY_NAME')) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($key))) {
+              throw "Configure repository variable $key using Partner Center > Product identity."
+            }
+          }
+          if ($env:STORE_VERSION -notmatch '^\d{1,5}\.\d{1,5}\.\d{1,5}\.0$' -or
+              @($env:STORE_VERSION.Split('.') | Where-Object { [int]$_ -gt 65535 }).Count) {
+            throw 'MSIX version must be major.minor.build.0 with each component between 0 and 65535.'
+          }
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: windows-2022-store-x64
+      - name: Check workspace
+        run: |
+          python scripts/check-architecture.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fmt --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build MSIX
+        run: |
+          ./scripts/bundle-windows-store.ps1 -Version $env:STORE_VERSION `
+            -IdentityName $env:STORE_IDENTITY_NAME -Publisher $env:STORE_PUBLISHER `
+            -PublisherDisplayName $env:STORE_PUBLISHER_DISPLAY_NAME
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Ryne-windows-store
+          path: |
+            dist/store/*.msix
+            dist/store/*.sha256
+            dist/store/AppxManifest.xml
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  publish:
+    name: Submit to Microsoft Store
+    if: ${{ inputs.submit }}
+    needs: package
+    runs-on: windows-2022
+    timeout-minutes: 60
+    environment: microsoft-store
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      STORE_PRODUCT_ID: ${{ vars.STORE_PRODUCT_ID }}
+      AZURE_AD_TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+      AZURE_AD_APPLICATION_CLIENT_ID: ${{ secrets.AZURE_AD_APPLICATION_CLIENT_ID }}
+      AZURE_AD_APPLICATION_SECRET: ${{ secrets.AZURE_AD_APPLICATION_SECRET }}
+      SELLER_ID: ${{ secrets.SELLER_ID }}
+    steps:
+      - name: Validate submission credentials
+        run: |
+          foreach ($key in @('STORE_PRODUCT_ID', 'AZURE_AD_TENANT_ID', 'AZURE_AD_APPLICATION_CLIENT_ID', 'AZURE_AD_APPLICATION_SECRET', 'SELLER_ID')) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($key))) {
+              throw "Missing Store submission setting: $key. See docs/19_Windows_Store_Publishing.md."
+            }
+          }
+      - uses: actions/download-artifact@v8
+        with:
+          name: Ryne-windows-store
+          path: store-package
+      - name: Verify package checksum
+        run: |
+          $packages = @(Get-ChildItem store-package -Filter '*.msix' -File)
+          if ($packages.Count -ne 1) { throw 'Expected exactly one MSIX package.' }
+          $package = $packages[0]
+          $expected = (Get-Content -Raw ($package.FullName + '.sha256')).Split(' ')[0].Trim()
+          if ((Get-FileHash $package.FullName -Algorithm SHA256).Hash -ne $expected) {
+            throw 'MSIX checksum mismatch.'
+          }
+      - uses: microsoft/microsoft-store-apppublisher@v1.4
+      - name: Authenticate to Partner Center
+        run: |
+          msstore reconfigure --tenantId $env:AZURE_AD_TENANT_ID --sellerId $env:SELLER_ID `
+            --clientId $env:AZURE_AD_APPLICATION_CLIENT_ID --clientSecret $env:AZURE_AD_APPLICATION_SECRET
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Submit package and wait for Store result
+        run: |
+          $package = Get-ChildItem store-package -Filter '*.msix' -File | Select-Object -First 1
+          msstore publish $package.FullName --appId $env:STORE_PRODUCT_ID
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          msstore submission poll $env:STORE_PRODUCT_ID
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

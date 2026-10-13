@@ -1,0 +1,14 @@
+{
+  "description": "Pre-refactor Rust source copied before implementation; GUI profiling scopes added only to temporary editor.rs.",
+  "sha256": {
+    "Cargo.lock": "ee14618685bdc4539876e1a5492deb23baa176cf3fb1ee210b4909e8253fb909",
+    "src/document.rs": "c2db33fdcb5eba3c2bbba92ac0b06d3cdc266d8ccd9b61694bca39c419f3ad99",
+    "src/presentation.rs": "383f71ed26a8df35bc08ab80db5ee07af12503425df925b61eb2405fb5abed62",
+    "src/table.rs": "c790124a94aa6fdbdb2f673e0b66755d5c9dbf0a07893e3ebeeb50140f43afe5",
+    "src/list.rs": "880f2926346ce3d58f73e11dd79ddc61ee71d338e4f275448ef809cdf1d1bca0",
+    "src/code_block.rs": "2c214c22896f3fb4dc36c13ea7048063f87ea270a4af14ad17c24591858f4d06",
+    "src/math.rs": "37013974c5b5e8c5db08c7f5bcf9758ced5b869659edce3b411dfd0d69b693a1",
+    "src/highlight.rs": "e3d89b3f60d29dc3dd755c1c28d6a4fcb3506c8313a417c4253e982a5636c5d0",
+    "src/mermaid.rs": "a95fa67e7d2864648f84911c01906968f36d53539b00da37569c16d5b4be8d34"
+  }
+}

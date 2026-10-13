@@ -1,0 +1,121 @@
+name: Package desktop apps
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  macos:
+    name: macOS ${{ matrix.version }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            version: "15"
+            arch: arm64
+          - runner: macos-15-intel
+            version: "15"
+            arch: x86_64
+          - runner: macos-26
+            version: "26"
+            arch: arm64
+          - runner: macos-26-intel
+            version: "26"
+            arch: x86_64
+    env:
+      # Keep the binary deployment target consistent with Info.plist.
+      MACOSX_DEPLOYMENT_TARGET: "12.0"
+      PACKAGE_NAME: Ryne-macos-${{ matrix.version }}-${{ matrix.arch }}
+      EXPECTED_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: macos-${{ matrix.version }}-${{ matrix.arch }}
+      - name: Check workspace
+        run: |
+          python3 scripts/check-architecture.py
+          cargo fmt --check
+      - name: Build app bundle
+        run: sh scripts/bundle-macos.sh release
+      - name: Verify and archive app bundle
+        run: |
+          test "$(lipo -archs target/Ryne.app/Contents/MacOS/Ryne)" = "$EXPECTED_ARCH"
+          plutil -lint target/Ryne.app/Contents/Info.plist
+          codesign --verify --deep --strict target/Ryne.app
+          test -s target/Ryne.app/Contents/Resources/Ryne.icns
+          test -s target/Ryne.app/Contents/Resources/stix-two-math/OFL.txt
+          test -s target/Ryne.app/Contents/Resources/stix-two-math/FONTLOG.txt
+          mkdir -p dist
+          # Archive before upload to preserve executable bits and bundle metadata.
+          ditto -c -k --sequesterRsrc --keepParent target/Ryne.app "dist/$PACKAGE_NAME.zip"
+          (cd dist && shasum -a 256 "$PACKAGE_NAME.zip" > "$PACKAGE_NAME.zip.sha256")
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  windows:
+    name: Windows (${{ matrix.runner }}, x64)
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-2022, windows-2025]
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PACKAGE_NAME: Ryne-${{ matrix.runner }}-x64
+      # The portable executable carries the MSVC runtime with it.
+      CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: "-C target-feature=+crt-static"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.runner }}-x64
+      - name: Check workspace
+        run: |
+          python scripts/check-architecture.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fmt --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build portable package
+        run: ./scripts/bundle-windows.ps1 -Profile release -PackageName $env:PACKAGE_NAME
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          path: dist/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

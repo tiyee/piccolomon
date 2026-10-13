@@ -1,0 +1,40 @@
+backend	fixture	result	detail
+mmdr	flow	ok	421.4x145.8; painted=246156
+rusty	flow	ok	440.8x156.4; painted=55333
+merman	flow	ok	625.9x187.0; painted=430800
+mmdr	chinese	ok	476.3x147.5; painted=281135
+rusty	chinese	ok	485.5x182.2; painted=71654
+merman	chinese	ok	605.0x187.0; painted=445200
+mmdr	nested	ok	188.5x313.5; painted=236379
+rusty	nested	ok	207.8x338.4; painted=202377
+merman	nested	ok	772.0x171.0; painted=319200
+mmdr	styles	ok	237.4x75.0; painted=71250
+rusty	styles	ok	214.2x72.8; painted=18134
+merman	styles	ok	370.0x61.0; painted=90280
+mmdr	sequence	ok	450.0x403.0; painted=725400
+rusty	sequence	ok	275.8x361.6; painted=158517
+merman	sequence	ok	450.0x427.0; painted=768600
+mmdr	class	ok	140.3x256.0; painted=143872
+rusty	class	ok	140.8x213.2; painted=50435
+merman	class	ok	104.5x300.0; painted=125400
+mmdr	state	ok	114.6x204.9; painted=94300
+rusty	state	ok	132.2x304.4; painted=30267
+merman	state	ok	152.0x289.0; painted=175712
+mmdr	er	ok	192.1x255.2; painted=196735
+rusty	er	ok	152.4x225.0; painted=58995
+merman	er	ok	170.8x317.2; painted=217170
+mmdr	gantt	ok	575.4x112.8; painted=260126
+rusty	gantt	ok	840.0x200.0; painted=138302
+merman	gantt	ok	800.0x148.0; painted=266400
+mmdr	mindmap	ok	172.1x96.3; painted=66585
+rusty	mindmap	ok	523.4x437.9; painted=67679
+merman	mindmap	ok	334.0x328.0; painted=438208
+mmdr	html	ok	303.0x96.0; painted=116352
+rusty	html	ok	240.0x89.6; painted=27529
+merman	html	ok	370.0x82.0; painted=121360
+mmdr	invalid	ok	16.0x16.0; painted=1024
+rusty	invalid	ok	80.6x72.8; painted=5865
+merman	invalid	error	Diagram parse error (flowchart-v2): Unterminated node label (missing `]`)
+mmdr	unknown	error	unexpected token 'notADiagram' at 1:1; expected unknown or missing Mermaid diagram header
+rusty	unknown	error	unexpected token at byte 0: "notADiagram  A-->B"
+merman	unknown	error	No Mermaid diagram type detected

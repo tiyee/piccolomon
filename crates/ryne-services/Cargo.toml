@@ -1,0 +1,25 @@
+[package]
+name = "ryne-services"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+ryne-extensions.workspace = true
+ryne-projection.workspace = true
+ryne-syntax.workspace = true
+editable_markdown_parser.workspace = true
+tree-sitter-highlight.workspace = true
+tree-sitter.workspace = true
+tree-sitter-rust.workspace = true
+tree-sitter-python.workspace = true
+tree-sitter-javascript.workspace = true
+tree-sitter-typescript.workspace = true
+tree-sitter-json.workspace = true
+tree-sitter-bash.workspace = true
+formulary.workspace = true
+math-core.workspace = true
+ttf-parser.workspace = true
+merman.workspace = true
+resvg.workspace = true

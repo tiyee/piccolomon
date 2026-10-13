@@ -1,0 +1,69 @@
+fixture	backend	font_px	status	width	ascent	descent	detail
+simple	ratex	18	ok	71.279	15.734	1.080	
+simple	formulary	18	ok	67.726	16.935	2.216	
+simple	ratex	36	ok	142.558	31.468	2.160	
+simple	formulary	36	ok	131.453	31.869	2.432	
+scripts	ratex	18	ok	151.982	15.924	5.736	
+scripts	formulary	18	ok	151.810	17.539	7.033	
+scripts	ratex	36	ok	303.964	31.848	11.472	
+scripts	formulary	36	ok	299.619	33.079	12.066	
+fraction	ratex	18	ok	81.008	19.961	7.290	
+fraction	formulary	18	ok	99.283	32.823	12.706	
+fraction	ratex	36	ok	162.017	39.922	14.580	
+fraction	formulary	36	ok	194.565	63.646	23.413	
+nested-fraction	ratex	18	ok	30.748	16.292	12.633	
+nested-fraction	formulary	18	ok	32.393	20.934	20.874	
+nested-fraction	ratex	36	ok	61.496	32.584	25.266	
+nested-fraction	formulary	36	ok	60.787	39.868	39.748	
+roots	ratex	18	ok	132.699	18.321	7.916	
+roots	formulary	18	ok	121.204	24.642	14.134	
+roots	ratex	36	ok	265.397	36.642	15.833	
+roots	formulary	36	ok	238.408	47.284	26.268	
+integral	ratex	18	ok	131.454	19.877	7.485	
+integral	formulary	18	ok	130.335	25.155	12.530	
+integral	ratex	36	ok	262.907	39.755	14.970	
+integral	formulary	36	ok	256.671	48.310	23.060	
+sum	ratex	18	ok	127.400	19.260	7.290	
+sum	formulary	18	ok	129.741	22.446	12.530	
+sum	ratex	36	ok	254.799	38.520	14.580	
+sum	formulary	36	ok	255.483	42.892	23.060	
+matrix	ratex	18	ok	65.543	27.180	18.181	
+matrix	formulary	18	ok	70.654	28.100	18.812	
+matrix	ratex	36	ok	131.087	54.360	36.361	
+matrix	formulary	36	ok	137.308	54.200	35.624	
+delimiters	ratex	18	ok	130.128	20.052	7.380	
+delimiters	formulary	18	ok	125.104	28.113	14.510	
+delimiters	ratex	36	ok	260.257	40.104	14.760	
+delimiters	formulary	36	ok	246.208	54.225	27.020	
+accents	ratex	18	ok	93.875	16.980	2.580	
+accents	formulary	18	ok	87.986	17.174	2.720	
+accents	ratex	36	ok	187.749	33.960	5.160	
+accents	formulary	36	ok	171.972	32.348	3.440	
+alphabets	ratex	18	ok	93.382	13.680	2.580	
+alphabets	formulary	18	warning	85.358	14.312	2.720	font has no variation mapping for ℱ U+FE01; default glyph may be used
+alphabets	ratex	36	ok	186.764	27.360	5.160	
+alphabets	formulary	36	warning	166.716	26.624	3.440	font has no variation mapping for ℱ U+FE01; default glyph may be used
+mathcal	ratex	18	ok	16.885	13.380	1.080	
+mathcal	formulary	18	warning	16.834	14.312	2.288	font has no variation mapping for ℱ U+FE00; default glyph may be used
+mathcal	ratex	36	ok	33.770	26.760	2.160	
+mathcal	formulary	36	warning	29.668	26.624	2.576	font has no variation mapping for ℱ U+FE00; default glyph may be used
+text	ratex	18	ok	80.139	16.922	7.290	
+text	formulary	18	ok	77.803	21.930	12.643	
+text	ratex	36	ok	160.277	33.844	14.580	
+text	formulary	36	ok	151.606	41.859	23.287	
+chinese	ratex	18	ok	91.680	21.746	11.234	
+chinese	formulary	18	error				STIX Two Math missing glyphs: 度 (U+5EA6), 时 (U+65F6), 离 (U+79BB), 距 (U+8DDD), 速 (U+901F), 间 (U+95F4); source retained
+chinese	ratex	36	ok	183.360	43.492	22.468	
+chinese	formulary	36	error				STIX Two Math missing glyphs: 度 (U+5EA6), 时 (U+65F6), 离 (U+79BB), 距 (U+8DDD), 速 (U+901F), 间 (U+95F4); source retained
+color	ratex	18	ok	43.918	11.580	4.580	
+color	formulary	18	ok	44.202	12.044	5.960	
+color	ratex	36	ok	87.837	23.160	9.160	
+color	formulary	36	ok	84.404	22.088	9.920	
+unsupported	ratex	18	error				RaTeX: ParseError at position 0: Undefined control sequence: \unsupportedcommand
+unsupported	formulary	18	error				LaTeX → MathML: Unknown command "\unsupportedcommand".
+unsupported	ratex	36	error				RaTeX: ParseError at position 0: Undefined control sequence: \unsupportedcommand
+unsupported	formulary	36	error				LaTeX → MathML: Unknown command "\unsupportedcommand".
+incomplete	ratex	18	error				RaTeX: ParseError at position 9: Unexpected end of input in a macro argument
+incomplete	formulary	18	error				LaTeX → MathML: Expected token "}", but not found.
+incomplete	ratex	36	error				RaTeX: ParseError at position 9: Unexpected end of input in a macro argument
+incomplete	formulary	36	error				LaTeX → MathML: Expected token "}", but not found.

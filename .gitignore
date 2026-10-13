@@ -17,3 +17,5 @@ CMakeLists.txt.user
 /build
 CMakeLists.txt.user
 .DS_Store
+/target/
+/dist/
