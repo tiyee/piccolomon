@@ -5,12 +5,21 @@ default-members = [".", "crates/*"]
 exclude = ["docs/reviews/mermaid_renderer", "docs/reviews/formulary_renderer"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 publish = false
 license = "MIT"
 
 [workspace.dependencies]
+svg2pdf = "=0.13.0"
+pdf-writer = "=0.12.1"
+krilla = "=0.8.2"
+krilla-svg = "=0.8.1"
+usvg-pdf = { package = "usvg", version = "=0.47.0" }
+ureq = { version = "=3.4.2", default-features = false, features = ["rustls"] }
+serde_json = "=1.0.154"
+semver = "=1.0.28"
+base64 = "=0.22.1"
 gpui = { version = "=0.2.2", features = ["runtime_shaders"] }
 editable_markdown_parser = "=0.0.4"
 unicode-segmentation = "=1.12.0"

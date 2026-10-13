@@ -1,4 +1,4 @@
-//! UI text is presentation state, never document content or history.
+//! Localized interface text and the bundled default document catalog.
 use std::{
     io,
     path::{Path, PathBuf},
@@ -125,6 +125,38 @@ impl Status {
 }
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Text {
+    About,
+    Settings,
+    CheckUpdates,
+    Hide,
+    Quit,
+    File,
+    New,
+    Recent,
+    NoRecent,
+    ClearRecent,
+    Reload,
+    ExportPdf,
+    ExportPdfV2,
+    SaveAs,
+    Ok,
+    Close,
+    AboutDetail,
+    NewCreated,
+    Reloaded,
+    ReloadUnavailable,
+    Exporting,
+    Exported,
+    ExportFailed,
+    ExportSameFile,
+    CheckingUpdates,
+    UpToDate,
+    NoRelease,
+    UpdateAvailable,
+    ViewRelease,
+    UpdateFailed,
+    RecentFailed,
+
     Open,
     Save,
     Cancel,
@@ -173,6 +205,9 @@ pub(crate) enum Text {
     Added,
     Copied,
     PlaceCaret,
+    OperationWait,
+    OverwriteFile,
+    ReplaceFile,
     SavingWait,
     Saving,
     Saved,
@@ -216,7 +251,38 @@ pub(crate) enum Text {
 }
 impl Text {
     #[cfg(test)]
-    const ALL: [Self; 88] = [
+    const ALL: [Self; 122] = [
+        Self::About,
+        Self::Settings,
+        Self::CheckUpdates,
+        Self::Hide,
+        Self::Quit,
+        Self::File,
+        Self::New,
+        Self::Recent,
+        Self::NoRecent,
+        Self::ClearRecent,
+        Self::Reload,
+        Self::ExportPdf,
+        Self::ExportPdfV2,
+        Self::SaveAs,
+        Self::Ok,
+        Self::Close,
+        Self::AboutDetail,
+        Self::NewCreated,
+        Self::Reloaded,
+        Self::ReloadUnavailable,
+        Self::Exporting,
+        Self::Exported,
+        Self::ExportFailed,
+        Self::ExportSameFile,
+        Self::CheckingUpdates,
+        Self::UpToDate,
+        Self::NoRelease,
+        Self::UpdateAvailable,
+        Self::ViewRelease,
+        Self::UpdateFailed,
+        Self::RecentFailed,
         Self::Open,
         Self::Save,
         Self::Cancel,
@@ -265,6 +331,9 @@ impl Text {
         Self::Added,
         Self::Copied,
         Self::PlaceCaret,
+        Self::OperationWait,
+        Self::OverwriteFile,
+        Self::ReplaceFile,
         Self::SavingWait,
         Self::Saving,
         Self::Saved,
@@ -309,6 +378,270 @@ impl Text {
 
     fn translations(self) -> [&'static str; 7] {
         match self {
+            Self::About => [
+                "关于 Ryne",
+                "關於 Ryne",
+                "About Ryne",
+                "Ryne について",
+                "Ryne 정보",
+                "À propos de Ryne",
+                "Acerca de Ryne",
+            ],
+            Self::Settings => [
+                "设置…",
+                "設定…",
+                "Settings…",
+                "設定…",
+                "설정…",
+                "Réglages…",
+                "Ajustes…",
+            ],
+            Self::CheckUpdates => [
+                "检查更新…",
+                "檢查更新…",
+                "Check for Updates…",
+                "アップデートを確認…",
+                "업데이트 확인…",
+                "Rechercher des mises à jour…",
+                "Buscar actualizaciones…",
+            ],
+            Self::Hide => [
+                "隐藏 Ryne",
+                "隱藏 Ryne",
+                "Hide Ryne",
+                "Ryne を隠す",
+                "Ryne 숨기기",
+                "Masquer Ryne",
+                "Ocultar Ryne",
+            ],
+            Self::Quit => [
+                "退出 Ryne",
+                "結束 Ryne",
+                "Quit Ryne",
+                "Ryne を終了",
+                "Ryne 종료",
+                "Quitter Ryne",
+                "Salir de Ryne",
+            ],
+            Self::File => [
+                "文件",
+                "檔案",
+                "File",
+                "ファイル",
+                "파일",
+                "Fichier",
+                "Archivo",
+            ],
+            Self::New => ["新建", "新增", "New", "新規", "새 문서", "Nouveau", "Nuevo"],
+            Self::Recent => [
+                "打开最近",
+                "打開最近使用",
+                "Open Recent",
+                "最近使ったファイルを開く",
+                "최근 파일 열기",
+                "Ouvrir un fichier récent",
+                "Abrir reciente",
+            ],
+            Self::NoRecent => [
+                "没有最近文件",
+                "沒有最近檔案",
+                "No Recent Files",
+                "最近使ったファイルはありません",
+                "최근 파일 없음",
+                "Aucun fichier récent",
+                "No hay archivos recientes",
+            ],
+            Self::ClearRecent => [
+                "清除最近记录",
+                "清除最近記錄",
+                "Clear Recent Files",
+                "履歴を消去",
+                "최근 기록 지우기",
+                "Effacer les fichiers récents",
+                "Borrar archivos recientes",
+            ],
+            Self::Reload => [
+                "重新加载",
+                "重新載入",
+                "Reload from Disk",
+                "ディスクから再読み込み",
+                "디스크에서 다시 불러오기",
+                "Recharger depuis le disque",
+                "Recargar desde el disco",
+            ],
+            Self::ExportPdf => [
+                "导出 PDF…",
+                "匯出 PDF…",
+                "Export PDF…",
+                "PDF を書き出す…",
+                "PDF 내보내기…",
+                "Exporter en PDF…",
+                "Exportar PDF…",
+            ],
+            Self::ExportPdfV2 => [
+                "导出 PDF v2…",
+                "匯出 PDF v2…",
+                "Export PDF v2…",
+                "PDF v2 を書き出す…",
+                "PDF v2 내보내기…",
+                "Exporter en PDF v2…",
+                "Exportar PDF v2…",
+            ],
+            Self::SaveAs => [
+                "另存为…",
+                "另存新檔…",
+                "Save As…",
+                "別名で保存…",
+                "다른 이름으로 저장…",
+                "Enregistrer sous…",
+                "Guardar como…",
+            ],
+            Self::Ok => ["好", "好", "OK", "OK", "확인", "OK", "Aceptar"],
+            Self::Close => [
+                "关闭",
+                "關閉",
+                "Close",
+                "閉じる",
+                "닫기",
+                "Fermer",
+                "Cerrar",
+            ],
+            Self::AboutDetail => [
+                "原生 Markdown 编辑器 · 版本",
+                "原生 Markdown 編輯器 · 版本",
+                "Native Markdown editor · Version",
+                "ネイティブ Markdown エディタ · バージョン",
+                "네이티브 Markdown 편집기 · 버전",
+                "Éditeur Markdown natif · Version",
+                "Editor Markdown nativo · Versión",
+            ],
+            Self::NewCreated => [
+                "已新建空白文档",
+                "已新增空白文件",
+                "Created a blank document",
+                "空の文書を作成しました",
+                "빈 문서를 만들었습니다",
+                "Document vierge créé",
+                "Documento en blanco creado",
+            ],
+            Self::Reloaded => [
+                "已从磁盘重新加载",
+                "已從磁碟重新載入",
+                "Reloaded from disk",
+                "ディスクから再読み込みしました",
+                "디스크에서 다시 불러왔습니다",
+                "Rechargé depuis le disque",
+                "Recargado desde el disco",
+            ],
+            Self::ReloadUnavailable => [
+                "请先打开或保存文件",
+                "請先開啟或儲存檔案",
+                "Open or save a file first",
+                "先にファイルを開くか保存してください",
+                "먼저 파일을 열거나 저장하세요",
+                "Ouvrez ou enregistrez d’abord un fichier",
+                "Abre o guarda un archivo primero",
+            ],
+            Self::Exporting => [
+                "正在导出 PDF…",
+                "正在匯出 PDF…",
+                "Exporting PDF…",
+                "PDF を書き出しています…",
+                "PDF 내보내는 중…",
+                "Exportation du PDF…",
+                "Exportando PDF…",
+            ],
+            Self::Exported => [
+                "PDF 已导出",
+                "PDF 已匯出",
+                "PDF exported",
+                "PDF を書き出しました",
+                "PDF를 내보냈습니다",
+                "PDF exporté",
+                "PDF exportado",
+            ],
+            Self::ExportFailed => [
+                "PDF 导出失败",
+                "PDF 匯出失敗",
+                "PDF export failed",
+                "PDF の書き出しに失敗しました",
+                "PDF 내보내기 실패",
+                "Échec de l’exportation PDF",
+                "Error al exportar PDF",
+            ],
+            Self::ExportSameFile => [
+                "请选择与 Markdown 原文件不同的 PDF 路径",
+                "請選擇與 Markdown 原檔案不同的 PDF 路徑",
+                "Choose a PDF path different from the Markdown file",
+                "Markdown ファイルとは別の PDF 保存先を選択してください",
+                "Markdown 파일과 다른 PDF 경로를 선택하세요",
+                "Choisissez un chemin PDF différent du fichier Markdown",
+                "Elige una ruta PDF diferente del archivo Markdown",
+            ],
+            Self::CheckingUpdates => [
+                "正在检查更新…",
+                "正在檢查更新…",
+                "Checking for updates…",
+                "アップデートを確認しています…",
+                "업데이트 확인 중…",
+                "Recherche de mises à jour…",
+                "Buscando actualizaciones…",
+            ],
+            Self::UpToDate => [
+                "当前已是最新版本",
+                "目前已是最新版本",
+                "You are up to date",
+                "最新バージョンです",
+                "최신 버전입니다",
+                "Vous êtes à jour",
+                "Tienes la última versión",
+            ],
+            Self::NoRelease => [
+                "尚无正式发布版本",
+                "尚無正式發佈版本",
+                "No stable release has been published yet",
+                "正式リリースはまだありません",
+                "아직 정식 출시 버전이 없습니다",
+                "Aucune version stable n’a encore été publiée",
+                "Aún no hay una versión estable publicada",
+            ],
+            Self::UpdateAvailable => [
+                "发现新版本",
+                "發現新版本",
+                "Update available",
+                "新しいバージョンがあります",
+                "새 버전이 있습니다",
+                "Mise à jour disponible",
+                "Actualización disponible",
+            ],
+            Self::ViewRelease => [
+                "查看发布版本",
+                "查看發佈版本",
+                "View Release",
+                "リリースを見る",
+                "출시 버전 보기",
+                "Voir la version",
+                "Ver versión",
+            ],
+            Self::UpdateFailed => [
+                "检查更新失败",
+                "檢查更新失敗",
+                "Update check failed",
+                "アップデートの確認に失敗しました",
+                "업데이트 확인 실패",
+                "Échec de la recherche de mises à jour",
+                "Error al buscar actualizaciones",
+            ],
+            Self::RecentFailed => [
+                "无法保存最近文件记录",
+                "無法儲存最近檔案記錄",
+                "Could not save recent files",
+                "最近のファイル履歴を保存できません",
+                "최근 파일 기록을 저장할 수 없습니다",
+                "Impossible d’enregistrer les fichiers récents",
+                "No se pudieron guardar los archivos recientes",
+            ],
+
             Self::InsertItemAfter => [
                 "在后面添加条目",
                 "在後面新增項目",
@@ -727,6 +1060,33 @@ impl Text {
                 "Placez le curseur dans un bloc pour modifier sa source",
                 "Coloca el cursor en un bloque para editar su código",
             ],
+            Self::OperationWait => [
+                "文件操作正在进行，请稍候",
+                "檔案操作正在進行，請稍候",
+                "A file operation is in progress; please wait",
+                "ファイル操作中です。お待ちください",
+                "파일 작업 중입니다. 기다려 주세요",
+                "Une opération est en cours, veuillez patienter",
+                "Hay una operación de archivo en curso; espera",
+            ],
+            Self::OverwriteFile => [
+                "替换已有文件？",
+                "取代現有檔案？",
+                "Replace the existing file?",
+                "既存のファイルを置き換えますか？",
+                "기존 파일을 바꾸시겠습니까?",
+                "Remplacer le fichier existant ?",
+                "¿Reemplazar el archivo existente?",
+            ],
+            Self::ReplaceFile => [
+                "替换",
+                "取代",
+                "Replace",
+                "置き換える",
+                "바꾸기",
+                "Remplacer",
+                "Reemplazar",
+            ],
             Self::SavingWait => [
                 "正在保存，请等待保存完成",
                 "正在儲存，請等待完成",
@@ -1079,13 +1439,16 @@ impl Preference {
     }
 }
 pub(crate) fn preference_path() -> Option<PathBuf> {
-    let home = std::env::var_os("HOME")?;
+    #[cfg(target_os = "windows")]
+    let base = std::env::var_os("APPDATA").map(PathBuf::from).or_else(|| {
+        std::env::var_os("USERPROFILE").map(|home| PathBuf::from(home).join("AppData/Roaming"))
+    })?;
     #[cfg(target_os = "macos")]
-    let base = PathBuf::from(home).join("Library/Application Support");
-    #[cfg(not(target_os = "macos"))]
+    let base = PathBuf::from(std::env::var_os("HOME")?).join("Library/Application Support");
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     let base = std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(home).join(".config"));
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))?;
     Some(base.join("Ryne/language"))
 }
 pub(crate) fn system_language() -> Language {
@@ -1203,23 +1566,16 @@ impl Language {
             image_url: self.text(ImageUrl),
         }
     }
-    pub fn sample(self) -> String {
-        let t = |key| self.text(key);
-        format!(
-            "# Ryne\n\n{}\n\n**{}** · *{}* · ~~{}~~ · `inline code` · [{}](https://example.org)\n\n- {}\n  - {}\n\n1. {}\n2. Tab / Shift+Tab\n\n| {} | {} |\n| :--- | ---: |\n| Markdown | 123 |\n\n```rust\nfn main() {{\n    println!(\"Hello, Markdown\");\n}}\n```\n\n```mermaid\nflowchart LR\n    A[{}] --> B[Markdown] --> C[{}]\n```\n\n$E = mc^2$ · $\\frac{{a_1}}{{\\sqrt{{b}}}}$\n\nCmd+O · Cmd+S · Cmd+Z · Cmd+Shift+M\n\n",
-            t(Text::Help),
-            t(Text::Body),
-            t(Text::Body),
-            t(Text::Body),
-            t(Text::Body),
-            t(Text::ListItem),
-            t(Text::ListItem),
-            t(Text::ListItem),
-            t(Text::ColumnOne),
-            t(Text::ColumnTwo),
-            t(Text::Open),
-            t(Text::Save)
-        )
+    pub fn sample(self) -> &'static str {
+        match self {
+            Self::ZhHans => include_str!("../assets/welcome/zh-Hans.md"),
+            Self::ZhHant => include_str!("../assets/welcome/zh-Hant.md"),
+            Self::En => include_str!("../assets/welcome/en.md"),
+            Self::Ja => include_str!("../assets/welcome/ja.md"),
+            Self::Ko => include_str!("../assets/welcome/ko.md"),
+            Self::Fr => include_str!("../assets/welcome/fr.md"),
+            Self::Es => include_str!("../assets/welcome/es.md"),
+        }
     }
 }
 
@@ -1273,7 +1629,6 @@ mod tests {
                     "{language:?}: {key:?}"
                 );
             }
-            assert!(language.sample().contains(language.text(Text::Help)));
             assert!(
                 language
                     .insert_label(ryne_extensions::InsertBlock::Heading(6))

@@ -76,15 +76,42 @@ settings, commands and signing behavior.
 
 ## Editing
 
+- The top menu bar provides **Ryne → About, Settings, Check for Updates, Hide, Quit**
+  and **File → New, Open, Open Recent, Reload from Disk, Save, Save As, Export PDF, Export PDF v2**.
+  macOS uses the native application menu; Windows presents the same commands in the window.
+  Settings exposes the existing language preference. Recent files persist the last ten
+  successful opens/saves, with a clear-history command. New/open/reload confirm before
+  discarding unsaved changes and reject results if editing continued during the operation.
+  Update checks query stable releases of `tiyee/ryne` and offer the release page; they do not install updates.
+- PDF export writes a paginated A4 copy from an immutable, folded document snapshot,
+  with system font fallback, headings, inline formatting, nested lists, code backgrounds,
+  aligned tables, formulas and valid Mermaid previews. Invalid/unsupported structures
+  retain their current source fallback. Export does not change the document path, dirty
+  flag, selection, history or source mode; pending IME text is committed before export.
+  Quotes, images and raw HTML follow the editor's current source-only support.
+  PDF export is limited to 4 MiB of source and 500 pages, with the existing bounded
+  diagram renderer; unavailable font glyphs report an error instead of silently disappearing.
+  Long code and table content wrap and continue across pages. PDF layout is independent
+  of the window's size; code uses plain styling and links have visual styling only.
+  **Export PDF** keeps the existing svg2pdf backend; **Export PDF v2** uses krilla
+  and suggests `name-v2.pdf`. Both share the same A4 pagination, styles and snapshot
+  protections. V2 embeds selectable body text and vector formulas; Mermaid retains
+  its current bitmap preview. It does not yet add a new paragraph layout engine,
+  publication-quality pagination or tagged PDF. The headless export example also
+  accepts `cargo run --locked --example export-pdf -- INPUT.md OUTPUT.pdf --v2`.
+
 - Interface languages: Simplified Chinese, Traditional Chinese, English, Japanese,
   Korean, French and Spanish. Use **Language** in the toolbar to switch immediately
   or follow the system language. Explicit choices survive restarts (macOS:
   `~/Library/Application Support/Ryne/language`); unsupported system languages fall
   back to English. Toolbar, block/insert menus, table and list action menus (including
   the alignment submenu), file prompts, status messages,
-  welcome examples and newly inserted placeholders are localized. Menu widths adapt
-  to translated labels, icons and shortcuts within the window. Switching keeps
-  the current document, selection, undo/redo and IME composition intact. Technical
+  default guides and newly inserted placeholders are localized. Each language has a
+  bundled editable guide covering all available formats, operations and source-only
+  limitations (`crates/ryne-ui/assets/welcome`). Changing language also replaces the
+  untouched, unsaved default guide. Opened files, edited or saved guides, undo/redo
+  history and pending IME input are preserved. Menu widths adapt
+  to translated labels, icons and shortcuts within the window. Technical
   error details from the OS and renderers retain their original text. Native file
   dialog controls follow macOS language settings.
 - The document uses Helvetica Neue with PingFang SC fallback, 18 px body text
@@ -226,6 +253,11 @@ settings, commands and signing behavior.
 
 | Shortcut | Action |
 | --- | --- |
+| Cmd+N | New blank document |
+| Cmd+, | Settings |
+| Cmd+H | Hide Ryne |
+| Cmd+Shift+R | Reload from disk |
+| Cmd+Shift+E | Export PDF |
 | Cmd+O | Open a file |
 | Cmd+S / Cmd+Shift+S | Save / Save As |
 | Cmd+Z / Cmd+Shift+Z | Undo / Redo |

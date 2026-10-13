@@ -24,6 +24,11 @@ fn main() {
     };
     ryne_ui::run(
         services,
+        ryne_ui::DesktopServices {
+            pdf: Arc::new(ryne_services::pdf::PdfExporter),
+            pdf_v2: Arc::new(ryne_services::pdf_v2::KrillaPdfExporter),
+            updates: Arc::new(ryne_services::updates::GithubUpdates),
+        },
         formulas,
         Box::new(ryne_services::highlight::CodeHighlighter::default()),
     );

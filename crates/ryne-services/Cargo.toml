@@ -23,3 +23,14 @@ math-core.workspace = true
 ttf-parser.workspace = true
 merman.workspace = true
 resvg.workspace = true
+
+svg2pdf.workspace = true
+pdf-writer.workspace = true
+krilla.workspace = true
+krilla-svg.workspace = true
+usvg-pdf.workspace = true
+ureq.workspace = true
+serde_json.workspace = true
+semver.workspace = true
+base64.workspace = true
+unicode-segmentation.workspace = true

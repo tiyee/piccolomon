@@ -213,10 +213,11 @@ impl Render for Editor {
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|editor, _, _, cx| {
+                    let top = editor.top_menu.take().is_some();
                     let language = std::mem::take(&mut editor.language_menu);
                     let append = editor.append_menu.take().is_some();
                     let render = editor.render_menu.take().is_some();
-                    if editor.block_menu.take().is_some() || append || language || render {
+                    if editor.block_menu.take().is_some() || append || language || render || top {
                         cx.notify();
                     }
                 }),
@@ -245,6 +246,16 @@ impl Render for Editor {
             .on_action(cx.listener(Self::paste))
             .on_action(cx.listener(Self::undo))
             .on_action(cx.listener(Self::redo))
+            .on_action(cx.listener(Self::about))
+            .on_action(cx.listener(Self::settings))
+            .on_action(cx.listener(Self::check_updates))
+            .on_action(cx.listener(Self::hide))
+            .on_action(cx.listener(Self::new_document))
+            .on_action(cx.listener(Self::open_recent))
+            .on_action(cx.listener(Self::clear_recent))
+            .on_action(cx.listener(Self::reload))
+            .on_action(cx.listener(Self::export_pdf))
+            .on_action(cx.listener(Self::export_pdf_v2))
             .on_action(cx.listener(Self::open))
             .on_action(cx.listener(Self::save))
             .on_action(cx.listener(Self::save_as))
@@ -252,6 +263,9 @@ impl Render for Editor {
             .on_action(cx.listener(Self::toggle_block_source))
             .on_action(cx.listener(Self::escape))
             .on_action(cx.listener(Self::quit))
+            .when(!cfg!(target_os = "macos"), |view| {
+                view.child(self.window_menu(window, cx))
+            })
             .child(
                 div()
                     .flex()
@@ -333,6 +347,18 @@ impl Render for Editor {
                         .gap_2()
                         .px_5()
                         .py_2()
+                        .child(self.locale.language.text(Text::Settings))
+                        .child(self.locale.language.text(Text::Language))
+                        .child(
+                            button(self.locale.language.text(Text::Close)).on_mouse_down(
+                                MouseButton::Left,
+                                cx.listener(|this, _, _, cx| {
+                                    cx.stop_propagation();
+                                    this.language_menu = false;
+                                    cx.notify();
+                                }),
+                            ),
+                        )
                         .child(
                             button(self.locale.language.text(Text::System))
                                 .when(self.locale.preference.0.is_none(), |s| s.bg(rgb(0xdde8ef)))

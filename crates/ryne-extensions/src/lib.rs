@@ -240,3 +240,23 @@ mod registry_tests;
 
 pub mod input;
 pub use input::{InputDraft, InputOrigin};
+
+/// Desktop operations consume immutable values, independently of document saves.
+pub trait PdfExporter: Send + Sync {
+    fn export(&self, display: &Display) -> Result<Vec<u8>, String>;
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum UpdateStatus {
+    Current,
+    NoRelease,
+    Available { version: String, url: String },
+}
+pub trait UpdateChecker: Send + Sync {
+    fn check(&self, current: &str) -> Result<UpdateStatus, String>;
+}
+#[derive(Clone)]
+pub struct DesktopServices {
+    pub pdf: Arc<dyn PdfExporter>,
+    pub pdf_v2: Arc<dyn PdfExporter>,
+    pub updates: Arc<dyn UpdateChecker>,
+}

@@ -11,7 +11,9 @@ use std::{
 pub mod basic;
 pub mod composition;
 pub use composition::Composition;
+mod export;
 pub mod jobs;
+pub use export::ExportSnapshot;
 
 #[derive(Clone)]
 struct Checkpoint {

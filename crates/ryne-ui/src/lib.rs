@@ -2,22 +2,28 @@
 pub use ryne_syntax::{block, code_block, list, table};
 mod assets;
 mod element;
+mod export;
 mod files;
 mod i18n;
 mod input;
 mod layout;
 mod layout_frame;
+mod menus;
 mod paint;
 mod profile;
+mod recent;
 mod render_controls;
 mod smoke;
 mod theme;
+mod welcome;
 use editable_markdown_parser::{Affinity, ParseSnapshot, Session, SnapshotId, Source};
 use element::*;
 use gpui::{prelude::*, *};
 use i18n::{Language, Localization, Preference, Status, Text};
 use layout::*;
+use menus::OpenRecent;
 use render_controls::*;
+pub use ryne_extensions::DesktopServices;
 use ryne_extensions::{FormulaRenderer, SyntaxHighlighter};
 use ryne_projection::{self as presentation, Display};
 use ryne_session::{Composition, EditorSession as Document, SessionServices};
@@ -51,6 +57,16 @@ actions!(
         Paste,
         Undo,
         Redo,
+        About,
+        Settings,
+        CheckUpdates,
+        Hide,
+        New,
+        Reload,
+        ExportPdf,
+        ExportPdfV2,
+        ClearRecent,
+        NoRecent,
         Open,
         Save,
         SaveAs,
@@ -72,6 +88,12 @@ fn heading_metrics(level: u8) -> (f32, f32) {
 
 struct Editor {
     document: Document,
+    desktop: DesktopServices,
+    recent: recent::RecentFiles,
+    file_operation_pending: bool,
+    exporting: bool,
+    checking_updates: bool,
+    default_document: Option<welcome::DefaultDocument>,
     highlighter: Box<dyn SyntaxHighlighter>,
     fonts: theme::Fonts,
     diagram_images: Vec<std::sync::Arc<RenderImage>>,
@@ -85,6 +107,8 @@ struct Editor {
     status: Status,
     locale: Localization,
     language_menu: bool,
+    top_menu: Option<usize>,
+    recent_menu: bool,
     allow_close: bool,
     close_prompt: bool,
     close_after_save: bool,
@@ -106,13 +130,29 @@ struct Editor {
 impl Editor {
     fn select_language(&mut self, preference: Preference, cx: &mut Context<Self>) {
         self.language_menu = false;
+        self.top_menu = None;
         self.block_menu = None;
         self.append_menu = None;
         self.render_menu = None;
         if let Err(error) = self.locale.select(preference) {
             self.status = self.locale.language.error(Text::PreferenceFailed, error);
         }
-        // Only interface text changes. Preserve IME, document, selection and layout.
+        if !self.dragging
+            && self
+                .default_document
+                .as_mut()
+                .is_some_and(|guide| guide.switch(&mut self.document, self.locale.language))
+        {
+            self.scroll = px(0.);
+            self.geometry = None;
+            self.preferred_x = None;
+            self.caret_affinity = Affinity::Downstream;
+            self.ensure_caret = true;
+            self.hovered_render = None;
+            self.refresh(cx);
+        }
+        self.sync_application_menus(cx);
+        // User-owned documents and pending IME input retain their exact state.
         cx.notify();
     }
 
@@ -287,6 +327,7 @@ impl Editor {
     }
     fn new(
         mut document: Document,
+        desktop: DesktopServices,
         mut highlighter: Box<dyn SyntaxHighlighter>,
         locale: Localization,
         cx: &mut Context<Self>,
@@ -295,6 +336,12 @@ impl Editor {
         let display = document.highlighted_display(highlighter.as_mut());
         let mut editor = Self {
             document,
+            desktop,
+            recent: recent::RecentFiles::default(),
+            file_operation_pending: false,
+            exporting: false,
+            checking_updates: false,
+            default_document: None,
             highlighter,
             fonts: theme::Fonts::new(cx.text_system()),
             diagram_images: Vec::new(),
@@ -308,6 +355,8 @@ impl Editor {
             status: Text::Help.into(),
             locale,
             language_menu: false,
+            top_menu: None,
+            recent_menu: false,
             allow_close: false,
             close_prompt: false,
             close_after_save: false,
@@ -919,6 +968,10 @@ impl Editor {
         }
     }
     fn escape(&mut self, _: &Escape, _: &mut Window, cx: &mut Context<Self>) {
+        if self.top_menu.take().is_some() {
+            cx.notify();
+            return;
+        }
         if let Some(menu) = &mut self.render_menu {
             if menu.submenu.take().is_none() {
                 self.render_menu = None;
@@ -1192,6 +1245,7 @@ impl Editor {
 
 pub fn run(
     services: SessionServices,
+    desktop: DesktopServices,
     formulas: std::sync::Arc<dyn FormulaRenderer>,
     highlighter: Box<dyn SyntaxHighlighter>,
 ) {
@@ -1236,6 +1290,11 @@ pub fn run(
                 KeyBinding::new("cmd-v", Paste, Some("MarkdownEditor")),
                 KeyBinding::new("cmd-z", Undo, Some("MarkdownEditor")),
                 KeyBinding::new("cmd-shift-z", Redo, Some("MarkdownEditor")),
+                KeyBinding::new("cmd-n", New, Some("MarkdownEditor")),
+                KeyBinding::new("cmd-,", Settings, Some("MarkdownEditor")),
+                KeyBinding::new("cmd-h", Hide, Some("MarkdownEditor")),
+                KeyBinding::new("cmd-shift-r", Reload, Some("MarkdownEditor")),
+                KeyBinding::new("cmd-shift-e", ExportPdf, Some("MarkdownEditor")),
                 KeyBinding::new("cmd-o", Open, Some("MarkdownEditor")),
                 KeyBinding::new("cmd-s", Save, Some("MarkdownEditor")),
                 KeyBinding::new("cmd-shift-s", SaveAs, Some("MarkdownEditor")),
@@ -1253,7 +1312,7 @@ pub fn run(
                 },
                 move |window, cx| {
                     let sample = if smoke {
-                        smoke::SAMPLE.to_owned()
+                        smoke::SAMPLE
                     } else {
                         locale.language.sample()
                     };
@@ -1261,13 +1320,28 @@ pub fn run(
                         match path.as_ref().map(|p| Document::open(p, services.clone())) {
                             Some(Ok(document)) => (document, None),
                             Some(Err(error)) => (
-                                Document::new(&sample, services.clone()),
+                                Document::new(sample, services.clone()),
                                 Some(error.to_string()),
                             ),
-                            None => (Document::new(&sample, services.clone()), None),
+                            None => (Document::new(sample, services.clone()), None),
                         };
                     let editor = cx.new(|cx| {
-                        let mut editor = Editor::new(document, highlighter, locale, cx);
+                        let mut editor = Editor::new(document, desktop, highlighter, locale, cx);
+                        if !smoke {
+                            editor.recent = recent::RecentFiles::load(
+                                i18n::preference_path().map(|p| p.with_file_name("recent.json")),
+                            );
+                            if let Some(path) = editor.document.files.path.clone() {
+                                editor.remember_file(&path, cx);
+                            }
+                        }
+                        editor.sync_application_menus(cx);
+                        if !smoke && editor.document.files.path.is_none() {
+                            editor.default_document = Some(welcome::DefaultDocument::new(
+                                &editor.document,
+                                editor.locale.language,
+                            ));
+                        }
                         if let Some(error) = error {
                             editor.status = editor.locale.language.error(Text::OpenFailed, error);
                         }

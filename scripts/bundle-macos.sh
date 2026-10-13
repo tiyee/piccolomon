@@ -52,7 +52,7 @@ cat > "$bundle/Contents/Info.plist" <<'PLIST'
 <string>ja</string><string>ko</string><string>fr</string><string>es</string>
 </array>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.1.0</string>
+<key>CFBundleShortVersionString</key><string>0.2.0</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>LSMinimumSystemVersion</key><string>12.0</string>
 <key>NSHighResolutionCapable</key><true/>

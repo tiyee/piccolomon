@@ -75,7 +75,7 @@ impl Editor {
         cx.spawn_in(window, async move |this, cx| {
             let _blink_observer = blink_observer;
             let mut typography_anchor: Option<(usize, Pixels)> = None;
-            for stage in 0..196 {
+            for stage in 0..213 {
                 cx.background_executor()
                     .timer(std::time::Duration::from_millis(500))
                     .await;
@@ -1874,6 +1874,128 @@ impl Editor {
                             editor.select_language(Preference(None), cx);
                             std::fs::remove_file(std::env::temp_dir().join(format!("ryne-language-smoke-{}", std::process::id()))).map_err(|e| e.to_string())?;
                             println!("Menu localization passed: block titles/actions, list/table provider labels and alignment submenu in all seven languages; measured translated text, icons and shortcut space; unchanged source, selection, dirty state and undo/redo");
+                        }
+                        194..=200 => {
+                            if stage - 1 == 194 {
+                                editor.document = editor.document.fork(Language::En.sample());
+                                editor.default_document = Some(welcome::DefaultDocument::new(&editor.document, Language::En));
+                            } else {
+                                check_eq!(geometry.display.code_blocks.len() + geometry.display.diagrams.len(), 5);
+                                check_eq!(geometry.display.diagrams.len(), 1);
+                                check_eq!(geometry.display.tables.len(), 1);
+                            }
+                            let language = Language::ALL[(stage - 1 - 194) as usize];
+                            editor.select_language(Preference(Some(language)), cx);
+                            check_eq!(editor.document.source.text(), language.sample());
+                            check!(!editor.document.dirty());
+                            check_eq!(editor.document.history_len(false), 0);
+                            check_eq!(editor.document.history_len(true), 0);
+                            check!(editor.geometry.is_none(), "guide change must invalidate native geometry");
+                            check_eq!(editor.scroll, px(0.));
+                        }
+                        201 => {
+                            check_eq!(editor.document.source.text(), Language::Es.sample());
+                            check_eq!(geometry.display.code_blocks.len() + geometry.display.diagrams.len(), 5);
+                            check_eq!(geometry.display.diagrams.len(), 1);
+                            check_eq!(geometry.display.tables.len(), 1);
+                            editor.document.set_source_mode(true);
+                            editor.select_language(Preference(None), cx);
+                            check_eq!(editor.document.source.text(), Language::En.sample());
+                            check!(editor.document.source_mode);
+                        }
+                        202 => {
+                            check_eq!(geometry.display.text, Language::En.sample());
+                            editor.document.insert_text(0..0, "中😀\r\n").map_err(|e| e.to_string())?;
+                            let source = editor.document.source.clone();
+                            let selection = editor.document.selection();
+                            editor.select_language(Preference(Some(Language::Ja)), cx);
+                            check_eq!(editor.document.source.id(), source.id());
+                            check_eq!(editor.document.selection(), selection);
+                            check!(editor.document.dirty());
+                            check_eq!(editor.document.history_len(false), 1);
+                            editor.document.undo(false);
+                            check_eq!(editor.document.source.text(), Language::En.sample());
+                            editor.select_language(Preference(Some(Language::Fr)), cx);
+                            check_eq!(editor.document.source.text(), Language::En.sample());
+                            check_eq!(editor.document.history_len(true), 1);
+                            editor.refresh(cx);
+                        }
+                        203 => {
+                            editor.select_language(Preference(None), cx);
+                            check_eq!(editor.document.source.text(), Language::En.sample());
+                            check_eq!(editor.document.history_len(true), 1);
+                            std::fs::remove_file(std::env::temp_dir().join(format!("ryne-language-smoke-{}", std::process::id()))).map_err(|e| e.to_string())?;
+                            println!("Default guides passed: native layout in all seven languages, format panels, language/system switching, source-mode preservation, fresh geometry, clean history and protection of edited guides and redo");
+                        }
+                        204 => {
+                            let snapshot = editor.document.source.id();
+                            let selection = editor.document.selection();
+                            let undo = editor.document.history_len(false);
+                            editor.settings(&Settings, window, cx);
+                            check!(editor.language_menu);
+                            check_eq!(editor.document.source.id(), snapshot);
+                            check_eq!(editor.document.selection(), selection);
+                            check_eq!(editor.document.history_len(false), undo);
+                            let menus = cx.get_menus().ok_or("missing native app menus")?;
+                            check_eq!(menus.len(), 2);
+                            check_eq!(menus[0].name.as_ref(), "Ryne");
+                            check_eq!(menus[1].name.as_ref(), editor.locale.language.text(Text::File));
+                            check!(menus[1].items.iter().any(|item| matches!(item,
+                                OwnedMenuItem::Action { name, action, .. }
+                                    if name.as_str() == editor.locale.language.text(Text::ExportPdf)
+                                        && action.as_any().is::<ExportPdf>())));
+                            check!(menus[1].items.iter().any(|item| matches!(item,
+                                OwnedMenuItem::Action { name, action, .. }
+                                    if name.as_str() == editor.locale.language.text(Text::ExportPdfV2)
+                                        && action.as_any().is::<ExportPdfV2>())));
+                            editor.escape(&Escape, window, cx);
+                            editor.install_document(editor.document.fork("clean document"), Text::Opened, window, cx);
+                            editor.new_document(&New, window, cx);
+                        }
+                        205 => {
+                            check!(!editor.file_operation_pending);
+                            check_eq!(editor.document.source.text(), "");
+                            check!(!editor.document.dirty());
+                            check!(editor.document.files.path.is_none());
+                            check!(editor.default_document.is_none());
+                            let path = std::env::temp_dir().join(format!("ryne-menu-smoke-{}.md", std::process::id()));
+                            std::fs::write(&path, "# 原始\r\n\r\n```text\r\n**literal**\r\n```\r\n").map_err(|e| e.to_string())?;
+                            editor.open_recent(&OpenRecent { path }, window, cx);
+                        }
+                        206 => {
+                            check!(!editor.file_operation_pending);
+                            check_eq!(editor.document.source.text(), "# 原始\r\n\r\n```text\r\n**literal**\r\n```\r\n");
+                            let path = editor.document.files.path.clone().ok_or("missing opened recent path")?;
+                            check_eq!(editor.recent.paths.first(), Some(&std::fs::canonicalize(&path).map_err(|e| e.to_string())?));
+                            std::fs::write(&path, "# Reloaded 中文\r\n\r\n- item\r\n").map_err(|e| e.to_string())?;
+                            editor.reload(&Reload, window, cx);
+                        }
+                        207 => {
+                            check!(!editor.file_operation_pending);
+                            check_eq!(editor.document.source.text(), "# Reloaded 中文\r\n\r\n- item\r\n");
+                            check!(!editor.document.dirty());
+                            check_eq!(editor.document.history_len(false), 0);
+                            let path = editor.document.files.path.clone().ok_or("missing reload path")?;
+                            editor.open_recent(&OpenRecent { path }, window, cx);
+                            editor.replace_text_in_range(None, "new edit", window, cx);
+                        }
+                        208 => {
+                            check!(!editor.file_operation_pending);
+                            check!(editor.document.source.text().contains("new edit"));
+                            check!(editor.document.dirty());
+                            let current = editor.document.source.id();
+                            check!(editor.can_replace(current));
+                            editor.document.composition = Some(Composition { range: 0..0, text: "预编辑".into(), selection: 0..0 });
+                            check!(!editor.can_replace(current));
+                            editor.document.composition = None;
+                            editor.document.files.saving = true;
+                            check!(!editor.can_replace(current));
+                            editor.document.files.saving = false;
+                            let path = editor.document.files.path.clone().ok_or("missing smoke cleanup path")?;
+                            std::fs::remove_file(path).map_err(|e| e.to_string())?;
+                            editor.clear_recent(&ClearRecent, window, cx);
+                            check!(editor.recent.paths.is_empty());
+                            println!("Application menus passed: localized native menus, settings without document changes, blank new document, recent open, CRLF reload, concurrent-edit rejection, IME/save guards and clear history");
                         }
                         _ => {
                             if window.is_window_active() {

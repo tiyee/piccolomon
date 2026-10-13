@@ -1,88 +1,209 @@
 use super::*;
+#[derive(Clone)]
+pub(super) enum Replacement {
+    New,
+    Picker,
+    Path(PathBuf),
+    Reload(PathBuf),
+}
 impl Editor {
+    pub(super) fn new_document(&mut self, _: &New, window: &mut Window, cx: &mut Context<Self>) {
+        self.replace_document(Replacement::New, window, cx);
+    }
     pub(super) fn open(&mut self, _: &Open, window: &mut Window, cx: &mut Context<Self>) {
+        self.replace_document(Replacement::Picker, window, cx);
+    }
+    pub(super) fn open_recent(
+        &mut self,
+        action: &OpenRecent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.replace_document(Replacement::Path(action.path.clone()), window, cx);
+    }
+    pub(super) fn reload(&mut self, _: &Reload, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(path) = self.document.files.path.clone() {
+            self.replace_document(Replacement::Reload(path), window, cx);
+        } else {
+            self.status = Text::ReloadUnavailable.into();
+            cx.notify();
+        }
+    }
+    pub(super) fn can_replace(&self, snapshot: SnapshotId) -> bool {
+        self.document.source.id() == snapshot
+            && self.document.composition.is_none()
+            && !self.document.files.saving
+            && !self.close_prompt
+    }
+    pub(super) fn install_document(
+        &mut self,
+        document: Document,
+        status: Text,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.document = document;
+        self.language_menu = false;
+        self.top_menu = None;
+        self.recent_menu = false;
+        self.default_document = None;
+        self.scroll = px(0.);
+        self.geometry = None;
+        self.dragging = false;
+        self.preferred_x = None;
+        self.caret_affinity = Affinity::Downstream;
+        self.ensure_caret = true;
+        self.allow_close = false;
+        self.close_after_save = false;
+        self.hovered_block = None;
+        self.hovered_render = None;
+        self.status = status.into();
+        if let Some(path) = self.document.files.path.clone() {
+            self.remember_file(&path, cx);
+        }
+        window.focus(&self.focus);
+        self.refresh(cx);
+    }
+    fn replace_document(
+        &mut self,
+        action: Replacement,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.commit_composition(cx);
         if self.document.files.saving {
             self.status = Text::SavingWait.into();
             cx.notify();
             return;
         }
+        if self.file_operation_pending || self.close_prompt || self.exporting {
+            return;
+        }
+        self.file_operation_pending = true;
+        let snapshot = self.document.source.id();
         let services = self.document.services();
-        let opening_key = self.document.source.id();
+        let title = match action {
+            Replacement::New => Text::New,
+            Replacement::Reload(_) => Text::Reload,
+            _ => Text::OpenOther,
+        };
         let confirmation = self.document.dirty().then(|| {
             window.prompt(
                 PromptLevel::Warning,
-                self.locale.language.text(Text::OpenOther),
+                self.locale.language.text(title),
                 Some(self.locale.language.text(Text::Unsaved)),
                 &[
                     self.locale.language.text(Text::Cancel),
-                    self.locale.language.text(Text::DiscardOpen),
+                    self.locale.language.text(
+                        if matches!(action, Replacement::Picker | Replacement::Path(_)) {
+                            Text::DiscardOpen
+                        } else {
+                            Text::Discard
+                        },
+                    ),
                 ],
                 cx,
             )
         });
         cx.spawn_in(window, async move |this, cx| {
-            if let Some(confirmation) = confirmation
-                && confirmation.await.ok() != Some(1)
-            {
-                return;
-            }
-            let picker = this.update_in(cx, |this, _, cx| {
-                cx.prompt_for_paths(PathPromptOptions {
-                    files: true,
-                    directories: false,
-                    multiple: false,
-                    prompt: Some(this.locale.language.text(Text::OpenMarkdown).into()),
-                })
-            });
-            let Ok(picker) = picker else {
-                return;
+            let confirmed = if let Some(confirmation) = confirmation {
+                confirmation.await.ok() == Some(1)
+            } else {
+                true
             };
-            match picker.await {
-                Ok(Ok(Some(paths))) => {
-                    if let Some(path) = paths.first() {
-                        let path = path.clone();
-                        let services = services.clone();
+            let mut cancelled = !confirmed;
+            if confirmed {
+                let ready = this
+                    .update_in(cx, |this, _, _| this.can_replace(snapshot))
+                    .unwrap_or(false);
+                if ready {
+                    let reload = matches!(action, Replacement::Reload(_));
+                    let path = match action {
+                        Replacement::New => None,
+                        Replacement::Path(path) | Replacement::Reload(path) => Some(path),
+                        Replacement::Picker => {
+                            let picker = this
+                                .update_in(cx, |this, _, cx| {
+                                    cx.prompt_for_paths(PathPromptOptions {
+                                        files: true,
+                                        directories: false,
+                                        multiple: false,
+                                        prompt: Some(
+                                            this.locale.language.text(Text::OpenMarkdown).into(),
+                                        ),
+                                    })
+                                })
+                                .ok();
+                            match picker {
+                                Some(picker) => match picker.await {
+                                    Ok(Ok(Some(paths))) => paths.into_iter().next(),
+                                    Ok(Err(error)) => {
+                                        let _ = this.update_in(cx, |this, _, cx| {
+                                            this.status =
+                                                this.locale.language.error(Text::OpenFailed, error);
+                                            cx.notify();
+                                        });
+                                        cancelled = true;
+                                        None
+                                    }
+                                    _ => {
+                                        cancelled = true;
+                                        None
+                                    }
+                                },
+                                None => {
+                                    cancelled = true;
+                                    None
+                                }
+                            }
+                        }
+                    };
+                    if !cancelled {
                         let document = cx
                             .background_executor()
-                            .spawn(async move { Document::open(&path, services) })
+                            .spawn(async move {
+                                match path {
+                                    Some(path) => Document::open(&path, services),
+                                    None => Ok(Document::new("", services)),
+                                }
+                            })
                             .await;
                         let _ = this.update_in(cx, |this, window, cx| {
-                            if this.document.source.id() != opening_key
-                                || this.document.composition.is_some()
-                                || this.document.files.saving
-                            {
+                            if !this.can_replace(snapshot) {
                                 this.status = Text::ChangedWhileOpening.into();
                                 cx.notify();
                                 return;
                             }
                             match document {
                                 Ok(document) => {
-                                    this.document = document;
-                                    this.scroll = px(0.);
-                                    this.preferred_x = None;
-                                    this.caret_affinity = Affinity::Downstream;
-                                    this.ensure_caret = true;
-                                    this.status = Text::Opened.into();
+                                    let status = if reload {
+                                        Text::Reloaded
+                                    } else if document.files.path.is_none() {
+                                        Text::NewCreated
+                                    } else {
+                                        Text::Opened
+                                    };
+                                    this.install_document(document, status, window, cx);
                                 }
                                 Err(error) => {
                                     this.status =
-                                        this.locale.language.error(Text::OpenFailed, error)
+                                        this.locale.language.error(Text::OpenFailed, error);
+                                    cx.notify();
                                 }
                             }
-                            window.focus(&this.focus);
-                            this.refresh(cx);
                         });
                     }
-                }
-                Ok(Err(error)) => {
+                } else {
                     let _ = this.update_in(cx, |this, _, cx| {
-                        this.status = this.locale.language.error(Text::OpenFailed, error);
+                        this.status = Text::ChangedWhileOpening.into();
                         cx.notify();
                     });
                 }
-                _ => (),
             }
+            let _ = this.update_in(cx, |this, _, cx| {
+                this.file_operation_pending = false;
+                cx.notify();
+            });
         })
         .detach();
     }
@@ -124,6 +245,11 @@ impl Editor {
                     },
                     |e| editor.locale.language.error(Text::SaveFailed, e),
                 );
+                if completion.error.is_none()
+                    && let Some(path) = editor.document.files.path.clone()
+                {
+                    editor.remember_file(&path, cx);
+                }
                 if let Some(request) = completion.next {
                     editor.run_save(request, window, cx)
                 } else if editor.close_after_save {
@@ -151,6 +277,11 @@ impl Editor {
     }
     pub(super) fn save_as(&mut self, _: &SaveAs, window: &mut Window, cx: &mut Context<Self>) {
         self.commit_composition(cx);
+        if self.exporting {
+            self.status = Text::OperationWait.into();
+            cx.notify();
+            return;
+        }
         let directory = self
             .document
             .files
@@ -183,6 +314,11 @@ impl Editor {
     }
     pub(super) fn request_close(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         self.commit_composition(cx);
+        if self.exporting || self.file_operation_pending {
+            self.status = Text::OperationWait.into();
+            cx.notify();
+            return false;
+        }
         if self.document.files.saving {
             self.status = Text::SavingWait.into();
             cx.notify();

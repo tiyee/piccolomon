@@ -33,9 +33,9 @@ for name, package in packages.items():
         errors.append(f"Reverse dependency: {name} -> {sorted(reverse)}")
     if name != "ryne-ui" and "gpui" in normal:
         errors.append(f"GPUI outside UI: {name}")
-    algorithms = {"formulary", "math-core", "merman", "tree-sitter", "tree-sitter-highlight"}
+    algorithms = {"formulary", "math-core", "merman", "tree-sitter", "tree-sitter-highlight", "svg2pdf", "pdf-writer", "krilla", "krilla-svg", "usvg", "ureq"}
     if name != "ryne-services" and normal.intersection(algorithms):
-        errors.append(f"Concrete renderer outside services: {name}")
+        errors.append(f"Concrete service outside services: {name}")
 if packages.keys() != allowed.keys():
     errors.append("Missing workspace packages")
 if errors:
