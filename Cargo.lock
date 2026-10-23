@@ -5588,7 +5588,7 @@ dependencies = [
 
 [[package]]
 name = "ryne-app"
-version = "0.2.0"
+version = "0.1.1"
 dependencies = [
  "resvg 0.45.1",
  "ryne-features",
@@ -5599,14 +5599,14 @@ dependencies = [
 
 [[package]]
 name = "ryne-core"
-version = "0.2.0"
+version = "0.1.1"
 dependencies = [
  "editable_markdown_parser",
 ]
 
 [[package]]
 name = "ryne-extensions"
-version = "0.2.0"
+version = "0.1.1"
 dependencies = [
  "editable_markdown_parser",
  "ryne-core",
@@ -5616,7 +5616,7 @@ dependencies = [
 
 [[package]]
 name = "ryne-features"
-version = "0.2.0"
+version = "0.1.1"
 dependencies = [
  "editable_markdown_parser",
  "ryne-core",
@@ -5629,7 +5629,7 @@ dependencies = [
 
 [[package]]
 name = "ryne-projection"
-version = "0.2.0"
+version = "0.1.1"
 dependencies = [
  "editable_markdown_parser",
  "ryne-core",
@@ -5639,7 +5639,7 @@ dependencies = [
 
 [[package]]
 name = "ryne-services"
-version = "0.2.0"
+version = "0.1.1"
 dependencies = [
  "base64 0.22.1",
  "editable_markdown_parser",
@@ -5672,7 +5672,7 @@ dependencies = [
 
 [[package]]
 name = "ryne-session"
-version = "0.2.0"
+version = "0.1.1"
 dependencies = [
  "editable_markdown_parser",
  "ryne-core",
@@ -5685,14 +5685,14 @@ dependencies = [
 
 [[package]]
 name = "ryne-syntax"
-version = "0.2.0"
+version = "0.1.1"
 dependencies = [
  "editable_markdown_parser",
 ]
 
 [[package]]
 name = "ryne-ui"
-version = "0.2.0"
+version = "0.1.1"
 dependencies = [
  "editable_markdown_parser",
  "gpui",

@@ -3,6 +3,9 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 profile=${1:-release}
+release_version=${RYNE_RELEASE_VERSION:-0.1.1}
+release_version=${release_version#v}
+release_version=${release_version%%-*}
 case "$profile" in
     debug) release_flag= ;;
     release) release_flag=--release ;;
@@ -40,7 +43,7 @@ done
 mkdir -p "$bundle/Contents/Resources/lete-sans-math"
 cp "$root/assets/fonts/lete-sans-math/OFL.txt" "$bundle/Contents/Resources/lete-sans-math/OFL.txt.next"
 mv -f "$bundle/Contents/Resources/lete-sans-math/OFL.txt.next" "$bundle/Contents/Resources/lete-sans-math/OFL.txt"
-cat > "$bundle/Contents/Info.plist" <<'PLIST'
+cat > "$bundle/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
@@ -55,7 +58,7 @@ cat > "$bundle/Contents/Info.plist" <<'PLIST'
 <string>ja</string><string>ko</string><string>fr</string><string>es</string>
 </array>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.2.0</string>
+<key>CFBundleShortVersionString</key><string>$release_version</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>LSMinimumSystemVersion</key><string>12.0</string>
 <key>NSHighResolutionCapable</key><true/>
