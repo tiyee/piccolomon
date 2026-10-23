@@ -2,6 +2,7 @@
 """Prepare, package and publish a manually dispatched Ryne release."""
 
 import argparse
+from glob import has_magic
 import hashlib
 import json
 import os
@@ -41,7 +42,10 @@ def prepare(version, platform):
     workspace = tomllib.loads(source)["workspace"]
     names = set()
     for member in workspace["members"]:
-        for directory in ROOT.glob(member):
+        # pathlib rejects the literal ``.`` pattern on Windows. Resolve
+        # non-glob workspace members directly and reserve glob() for patterns.
+        directories = ROOT.glob(member) if has_magic(member) else (ROOT / member,)
+        for directory in directories:
             package = tomllib.loads((directory / "Cargo.toml").read_text(encoding="utf-8"))["package"]
             if package.get("version") == {"workspace": True}:
                 names.add(package["name"])
