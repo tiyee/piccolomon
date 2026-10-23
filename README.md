@@ -39,6 +39,10 @@ and ships the embedded Lete Sans Math and STIX Two Math license notices. Release
 `fxc.exe` from the installed Windows SDK; `GPUI_FXC_PATH` can override its location.
 Release builds start without opening a console window; debug builds retain the console.
 Windows packages are unsigned.
+Windows builds generate a multi-size ICO from `assets/logo.svg` and embed it as
+resource 1 in the executable for Explorer and GPUI's window/taskbar icon.
+Packaging verifies that Windows can load the embedded icon before creating the ZIP;
+MSIX builds reuse the same executable and retain their separate manifest logos.
 
 If a registry mirror has not synchronized `editable_markdown_parser` 0.0.4,
 use the official crates.io registry or wait for the mirror to synchronize.

@@ -33,6 +33,9 @@ Windows 使用 `pwsh -File scripts/bundle-windows.ps1`（调试版加 `-Profile 
 已安装的 Windows SDK 中寻找 `fxc.exe`，也可通过 `GPUI_FXC_PATH` 指定位置。
 发布版启动时不会弹出控制台窗口；调试版仍保留控制台。
 Windows 包尚未签名。
+Windows 编译时从 `assets/logo.svg` 生成多尺寸 ICO，以资源编号 1 嵌入 EXE，
+供资源管理器及 GPUI 的窗口和任务栏读取。打包前检查 Windows 能否加载内嵌图标；
+MSIX 复用同一 EXE，并保留独立的清单图标。
 
 如果 Cargo 镜像尚未同步 editable_markdown_parser 0.0.4，使用官方 crates.io
 源或等待镜像同步。

@@ -63,6 +63,11 @@ description = "A native single-document Markdown editor"
 name = "ryne"
 path = "src/main.rs"
 
+[[example]]
+name = "windows-icon"
+path = "examples/windows-icon.rs"
+test = true
+
 [dependencies]
 ryne-ui.workspace = true
 ryne-session.workspace = true
@@ -70,4 +75,8 @@ ryne-features.workspace = true
 ryne-services.workspace = true
 
 [dev-dependencies]
+resvg.workspace = true
+
+[build-dependencies]
+embed-resource = "=3.0.12"
 resvg.workspace = true

@@ -5676,6 +5676,7 @@ dependencies = [
 name = "ryne-app"
 version = "0.2.5"
 dependencies = [
+ "embed-resource",
  "resvg 0.45.1",
  "ryne-features",
  "ryne-services",

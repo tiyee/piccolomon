@@ -63,6 +63,7 @@ $binary = Join-Path $targetDir "$target/$Profile/ryne.exe"
 if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) {
     throw "Missing executable: $binary"
 }
+& (Join-Path $PSScriptRoot 'check-windows-icon.ps1') -Binary $binary
 
 $dist = Join-Path $root 'dist'
 $staging = Join-Path $targetDir ('.ryne-package-' + [guid]::NewGuid())

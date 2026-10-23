@@ -284,6 +284,10 @@
 - `assets/logo.svg`：应用图标源文件；`examples/app-icon.rs`：使用现有 resvg 依赖生成
   标准及 Retina 图标尺寸，打包脚本转换为 ICNS 并配置 `CFBundleIconFile`。
   原地打包后仅刷新此应用的 Launch Services 注册信息。
+  Windows 的 `build.rs` 复用现有 resvg 0.45.1，从同一 SVG 生成 16–256 px 的九种尺寸 ICO，
+  通过 embed-resource 3.0.12 与 `packaging/windows/ryne.rc` 嵌入 EXE 的图标组 1，供 GPUI 和系统读取。
+  缺少资源编译器或嵌入失败会终止构建；`scripts/check-windows-icon.ps1` 在便携包压缩前验证实际
+  EXE 的图标加载，MSIX 复用此 EXE，清单 PNG 保持独立。`examples/windows-icon.rs` 可跨平台生成和测试 ICO。
 - `README.md`、`README.zh-CN.md` 描述可用功能；功能变化时同步维护两份说明。
 - `docs/11_GPUI_Typora_Hybrid_View_Spec.md` 提供块级呈现与结构编辑的详细规格；
   用户后续明确指令优先，尤其保留标题仅点击显示标记、悬停不展开的要求。
