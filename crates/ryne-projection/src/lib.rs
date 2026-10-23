@@ -3,7 +3,12 @@ use editable_markdown_parser::Affinity;
 use ryne_syntax::{code_block::CodeBlock, list, table};
 use std::{ops::Range, sync::Arc};
 use unicode_segmentation::UnicodeSegmentation;
+mod code_row_index;
+mod indexed;
+pub use indexed::{IndexedDisplay, MappingIndex};
 mod resources;
+mod validation;
+pub use code_row_index::CodeRowIndex;
 pub use resources::*;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Style {
@@ -34,6 +39,7 @@ pub struct Display {
     pub spans: Vec<Span>,
     pub code_blocks: Vec<CodeView>,
     pub lists: Vec<ListView>,
+    pub quotes: Vec<QuoteView>,
     pub tables: Vec<TableView>,
     pub formulas: Vec<MathView>,
     pub diagrams: Vec<DiagramView>,
@@ -90,6 +96,14 @@ impl FlowSpacing {
         let Some(next) = display.flow_at(offset) else {
             return 0.;
         };
+        self.enter_resolved(display, next)
+    }
+    pub fn enter_indexed(&mut self, display: &IndexedDisplay, offset: usize) -> f32 {
+        display
+            .flow_at(offset)
+            .map_or(0., |next| self.enter_resolved(display, next))
+    }
+    fn enter_resolved(&mut self, display: &Display, next: usize) -> f32 {
         if self.previous == Some(next) {
             return 0.;
         }
@@ -108,6 +122,18 @@ impl FlowSpacing {
         gap
     }
 
+    pub fn empty_height_indexed(&mut self, display: &IndexedDisplay, offset: usize) -> f32 {
+        if display.flow_at(offset).is_none()
+            && self.previous.is_some()
+            && display.has_flow_after(offset)
+        {
+            let height = if self.separator == 0. { 14. } else { 30. };
+            self.separator += height;
+            height
+        } else {
+            30.
+        }
+    }
     pub fn empty_height(&mut self, display: &Display, offset: usize) -> f32 {
         if display.flow_at(offset).is_none()
             && self.previous.is_some()
@@ -152,6 +178,17 @@ pub struct ListView {
     pub start: usize,
 }
 
+/// A quote decorates the same editable source projection, including its children.
+#[derive(Clone, Debug, PartialEq)]
+pub struct QuoteView {
+    pub source: Range<usize>,
+    pub display: Range<usize>,
+    pub depth: usize,
+    pub inset: usize,
+    /// An empty last physical row has no visible byte, but still belongs to the quote.
+    pub empty_tail: Option<usize>,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct TableView {
     pub source: table::Table,
@@ -175,6 +212,15 @@ impl PartialEq for DiagramView {
 }
 
 impl Display {
+    pub fn quote_at(&self, offset: usize) -> Option<&QuoteView> {
+        self.quotes
+            .iter()
+            .filter(|quote| {
+                quote.display.contains(&offset)
+                    || (quote.empty_tail.is_some() && offset == quote.display.end)
+            })
+            .max_by_key(|quote| quote.depth)
+    }
     pub fn source_byte_at(
         &self,
         position: ryne_core::DisplayByte,
@@ -201,7 +247,19 @@ impl Display {
             .iter()
             .position(|block| block.rows.iter().any(|row| row.start == start))
     }
+    /// Build once per layout, then query code ownership without scanning block rows.
+    pub fn code_row_index(&self) -> CodeRowIndex<'_> {
+        CodeRowIndex::new(self)
+    }
     pub fn source_at(&self, position: usize, affinity: Affinity) -> usize {
+        if let Some(source) = self
+            .quotes
+            .iter()
+            .filter(|quote| quote.display.end == position)
+            .find_map(|quote| quote.empty_tail)
+        {
+            return source;
+        }
         for table in &self.tables {
             for (r, row) in table.rows.iter().enumerate() {
                 for (c, cell) in row.iter().enumerate() {
@@ -219,15 +277,21 @@ impl Display {
                 }
             }
         }
+        self.span_source_at(position, affinity)
+    }
+    fn span_source_at(&self, position: usize, affinity: Affinity) -> usize {
         let span = if affinity == Affinity::Upstream {
             self.spans
-                .iter()
-                .rev()
-                .find(|s| s.display.start < position && position <= s.display.end)
+                .get(
+                    self.spans
+                        .partition_point(|s| s.display.start < position)
+                        .wrapping_sub(1),
+                )
+                .filter(|s| position <= s.display.end)
         } else {
             self.spans
-                .iter()
-                .find(|s| s.display.start <= position && position < s.display.end)
+                .get(self.spans.partition_point(|s| s.display.end <= position))
+                .filter(|s| s.display.start <= position)
         };
         span.map_or(if position == 0 { 0 } else { self.source_len }, |s| {
             if s.source.len() == s.display.len() && !s.style.math && !s.style.diagram {
@@ -253,30 +317,89 @@ impl Display {
                 }
             }
         }
-        for span in &self.spans {
+        self.span_position_at(source)
+    }
+    fn span_position_at(&self, source: usize) -> usize {
+        let i = self
+            .spans
+            .partition_point(|s| s.source.start < source && s.source.end <= source);
+        self.spans.get(i).map_or(self.text.len(), |span| {
             if source <= span.source.start {
-                return span.display.start;
+                span.display.start
+            } else if span.source.len() == span.display.len()
+                && !span.style.math
+                && !span.style.diagram
+            {
+                span.display.start + source - span.source.start
+            } else {
+                span.display.start
             }
-            if source < span.source.end {
-                return if span.source.len() == span.display.len()
-                    && !span.style.math
-                    && !span.style.diagram
-                {
-                    span.display.start + source - span.source.start
-                } else {
-                    span.display.start
-                };
-            }
-        }
-        self.text.len()
+        })
     }
 
+    /// Resolve one visible grapheme without consuming hidden markers at either edge.
+    pub fn deletion_range(&self, caret: usize, forward: bool) -> Option<Range<usize>> {
+        let position = self.position_at(caret);
+        let adjacent = grapheme_edge(&self.text, position, forward, true)?;
+        let start = self.source_at(position.min(adjacent), Affinity::Downstream);
+        let end = self.source_at(position.max(adjacent), Affinity::Upstream);
+        (start < end).then_some(start..end)
+    }
     pub fn snap(&self, offset: usize) -> usize {
-        self.text
-            .grapheme_indices(true)
-            .map(|(p, _)| p)
-            .chain(std::iter::once(self.text.len()))
-            .min_by_key(|p| p.abs_diff(offset))
-            .unwrap_or(0)
+        let left = grapheme_edge(&self.text, offset, false, false).unwrap_or(0);
+        let right = grapheme_edge(&self.text, offset, true, false).unwrap_or(self.text.len());
+        if right.abs_diff(offset) < left.abs_diff(offset) {
+            right
+        } else {
+            left
+        }
+    }
+}
+
+/// Complete text is available to GraphemeCursor; any requested Unicode context is supplied.
+fn grapheme_edge(text: &str, position: usize, forward: bool, strict: bool) -> Option<usize> {
+    if position > text.len() {
+        return (!forward).then_some(text.len());
+    }
+    let mut at = position;
+    while !text.is_char_boundary(at) {
+        at -= 1;
+    }
+    let mut cursor = unicode_segmentation::GraphemeCursor::new(at, text.len(), true);
+    let result = loop {
+        match cursor.is_boundary(text, 0) {
+            Err(unicode_segmentation::GraphemeIncomplete::PreContext(end)) => {
+                cursor.provide_context(&text[..end], 0)
+            }
+            value => break value,
+        }
+    };
+    if matches!(result, Ok(true))
+        && ((!strict && (!forward || at == position)) || (!forward && at < position))
+    {
+        return Some(at);
+    }
+    loop {
+        let result = if forward {
+            cursor.next_boundary(text, 0)
+        } else {
+            cursor.prev_boundary(text, 0)
+        };
+        match result {
+            Ok(value) => return value,
+            Err(unicode_segmentation::GraphemeIncomplete::PreContext(end)) => {
+                cursor.provide_context(&text[..end], 0)
+            }
+            Err(_) => break,
+        }
+    }
+    let mut boundaries = text
+        .grapheme_indices(true)
+        .map(|(p, _)| p)
+        .chain(std::iter::once(text.len()));
+    if forward {
+        boundaries.find(|&p| if strict { p > position } else { p >= position })
+    } else {
+        boundaries.rfind(|&p| if strict { p < position } else { p <= position })
     }
 }

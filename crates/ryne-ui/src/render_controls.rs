@@ -27,10 +27,10 @@ impl RenderViewState {
     pub fn new(editor: &Editor, window: &Window) -> Self {
         Self {
             available: editor.render_available(),
-            hovered: editor.hovered_render.clone(),
+            hovered: editor.menus.hovered_render.clone(),
             focused: editor.focus.is_focused(window),
             selection: editor.document.selection(),
-            menu: editor.render_menu.clone(),
+            menu: editor.menus.render_menu.clone(),
         }
     }
 }
@@ -141,13 +141,15 @@ fn rows(controls: &[RenderControl]) -> Vec<RenderMenuRow> {
 }
 impl Editor {
     fn render_available(&self) -> bool {
-        !self.dragging && self.document.composition.is_none() && !self.document.source_mode
+        !self.viewport.dragging
+            && self.document.composition().is_none()
+            && !self.document.source_mode
     }
     fn render_key_current(&self, key: &RenderFrameKey, window: &Window) -> bool {
         self.render_available()
-            && self.geometry.as_ref().is_some_and(|g| {
+            && self.viewport.geometry.as_ref().is_some_and(|g| {
                 g.is_current(self)
-                    && g.scroll == self.scroll
+                    && g.scroll == self.viewport.scroll
                     && g.render_key(window.viewport_size()) == *key
             })
     }
@@ -162,6 +164,7 @@ impl Editor {
             return;
         }
         let Some(target) = self
+            .viewport
             .geometry
             .as_ref()
             .and_then(|g| g.render_regions.iter().find(|r| r.key() == region))
@@ -170,7 +173,7 @@ impl Editor {
         };
         let rows = rows(&target.controls);
         let selected = rows.iter().position(RenderMenuRow::enabled).unwrap_or(0);
-        self.render_menu = Some(RenderMenu {
+        self.menus.render_menu = Some(RenderMenu {
             key,
             region,
             rows,
@@ -178,10 +181,10 @@ impl Editor {
             submenu: None,
             child_selected: 0,
         });
-        self.block_menu = None;
-        self.append_menu = None;
-        self.top_menu = None;
-        self.top_submenu = None;
+        self.menus.block_menu = None;
+        self.menus.append_menu = None;
+        self.menus.top_menu = None;
+        self.menus.top_submenu = None;
         window.focus(&self.focus);
         cx.notify();
     }
@@ -192,7 +195,7 @@ impl Editor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.render_menu = None;
+        self.menus.render_menu = None;
         if !self.render_key_current(&key, window) {
             cx.notify();
             return;
@@ -204,8 +207,8 @@ impl Editor {
         if let Err(error) = self.document.execute_render_action(&item.request) {
             self.status = self.locale.language.error(Text::RenderActionFailed, error);
         }
-        self.preferred_x = None;
-        self.ensure_caret = true;
+        self.caret_state.preferred_x = None;
+        self.viewport.ensure_caret = true;
         window.focus(&self.focus);
         self.refresh(cx);
     }
@@ -219,7 +222,7 @@ impl Editor {
         if !self.render_key_current(&key, window) {
             return;
         }
-        let item = self.geometry.as_ref().and_then(|g| {
+        let item = self.viewport.geometry.as_ref().and_then(|g| {
             let region = g.render_regions.iter().find(|r| r.key() == region)?;
             let control = region.controls.first()?;
             if !matches!(
@@ -240,7 +243,7 @@ impl Editor {
         if let Some(item) = item {
             self.run_render_item(key, item, window, cx);
             // A structural toggle preserves the selection; do not scroll to a distant caret.
-            self.ensure_caret = false;
+            self.viewport.ensure_caret = false;
         }
     }
     pub(super) fn update_render_hover(
@@ -251,13 +254,13 @@ impl Editor {
         if !self.render_available() {
             return false;
         }
-        let Some(g) = &self.geometry else {
+        let Some(g) = &self.viewport.geometry else {
             return false;
         };
         if !g.is_current(self) {
             return false;
         }
-        if self.render_menu.is_some() {
+        if self.menus.render_menu.is_some() {
             return true;
         } // Click/Escape dismiss; moving away does not close a clicked popup.
         let hovered = g
@@ -266,14 +269,14 @@ impl Editor {
             .filter(|r| r.bounds.contains(&point) || r.trigger.contains(&point))
             .min_by_key(|r| r.specificity())
             .map(RenderRegion::key);
-        if self.hovered_render != hovered {
-            self.hovered_render = hovered;
+        if self.menus.hovered_render != hovered {
+            self.menus.hovered_render = hovered;
             cx.notify();
         }
         false
     }
     pub(super) fn render_menu_vertical(&mut self, down: bool, cx: &mut Context<Self>) -> bool {
-        let Some(menu) = &mut self.render_menu else {
+        let Some(menu) = &mut self.menus.render_menu else {
             return false;
         };
         if let Some(row) = menu.submenu.and_then(|i| menu.rows.get(i)) {
@@ -302,7 +305,7 @@ impl Editor {
         true
     }
     pub(super) fn render_menu_horizontal(&mut self, right: bool, cx: &mut Context<Self>) -> bool {
-        let Some(menu) = &mut self.render_menu else {
+        let Some(menu) = &mut self.menus.render_menu else {
             return false;
         };
         if right
@@ -325,10 +328,10 @@ impl Editor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {
-        if self.document.composition.is_some() {
+        if self.document.composition().is_some() {
             return false;
         }
-        let Some(menu) = self.render_menu.clone() else {
+        let Some(menu) = self.menus.render_menu.clone() else {
             return false;
         };
         if let Some(RenderMenuRow::Submenu { children, .. }) =
@@ -351,7 +354,7 @@ impl Editor {
         true
     }
     fn hover_render_row(&mut self, index: usize, child: bool, cx: &mut Context<Self>) {
-        if let Some(menu) = &mut self.render_menu {
+        if let Some(menu) = &mut self.menus.render_menu {
             if child {
                 menu.child_selected = index;
             } else {
@@ -379,6 +382,7 @@ impl Editor {
             && !stroke.modifiers.shift
         {
             let target = self
+                .viewport
                 .geometry
                 .as_ref()
                 .filter(|g| g.is_current(self))
@@ -395,7 +399,7 @@ impl Editor {
             }
             return;
         }
-        let item = if let Some(menu) = &self.render_menu {
+        let item = if let Some(menu) = &self.menus.render_menu {
             menu.rows
                 .iter()
                 .flat_map(|row| match row {
@@ -410,7 +414,8 @@ impl Editor {
                 .cloned()
                 .map(|i| (menu.key.clone(), i))
         } else {
-            self.geometry
+            self.viewport
+                .geometry
                 .as_ref()
                 .filter(|g| g.is_current(self))
                 .and_then(|g| {
@@ -656,14 +661,12 @@ pub(super) fn prepaint_render_controls(
     if !editor.available {
         return;
     }
-    let language = entity.read(cx).locale.language;
     let focused = geometry
         .render_regions
         .iter()
         .filter(|r| r.contains_selection(&editor.selection))
         .min_by_key(|r| r.specificity())
         .map(RenderRegion::key);
-    let mut menu_anchor = None;
     for region in &geometry.render_regions {
         if region.controls.iter().any(|c| {
             matches!(
@@ -674,7 +677,12 @@ pub(super) fn prepaint_render_controls(
             continue;
         }
         let id = region.key();
-        let active = editor.hovered.as_ref() == Some(&id)
+        let header = region.controls.iter().find_map(|c| match &c.placement {
+            ryne_extensions::RenderControlPlacement::Header { label } => Some(label.clone()),
+            _ => None,
+        });
+        let active = header.is_some()
+            || editor.hovered.as_ref() == Some(&id)
             || (editor.focused && focused.as_ref() == Some(&id))
             || editor
                 .menu
@@ -692,25 +700,37 @@ pub(super) fn prepaint_render_controls(
             continue;
         }
         geometry.render_buttons.push(trigger);
-        if editor
-            .menu
-            .as_ref()
-            .is_some_and(|m| m.region == id && m.key == key)
-        {
-            menu_anchor = Some(trigger);
-        }
         let entity = entity.clone();
         let key = key.clone();
         let mut button = div()
             .id(SharedString::from(format!("render-trigger-{id}")))
-            .size(px(24.))
+            .w(trigger.size.width)
+            .h(trigger.size.height)
             .flex()
             .items_center()
             .justify_center()
             .rounded_sm()
+            .overflow_hidden()
             .cursor_pointer()
             .hover(|s| s.bg(rgb(0xe1e3e6)))
-            .child(icon("more_vertical", 0x8b8f94))
+            .child(match header {
+                Some(label) => div()
+                    .flex()
+                    .gap_1()
+                    .items_center()
+                    .text_size(px(12.))
+                    .text_color(rgb(theme::MUTED))
+                    .child(label)
+                    .child(
+                        svg()
+                            .path("icon:chevron_down")
+                            .size(px(12.))
+                            .flex_shrink_0()
+                            .text_color(rgb(theme::MUTED)),
+                    )
+                    .into_any_element(),
+                None => icon("more_vertical", 0x8b8f94),
+            })
             .on_mouse_down(MouseButton::Left, move |_, window, cx| {
                 cx.stop_propagation();
                 entity.update(cx, |e, cx| {
@@ -721,18 +741,38 @@ pub(super) fn prepaint_render_controls(
             .into_any_element();
         button.prepaint_as_root(
             trigger.origin,
-            size(px(24.).into(), px(24.).into()),
+            size(trigger.size.width.into(), trigger.size.height.into()),
             window,
             cx,
         );
         controls.push(button);
     }
-    let Some(anchor) = menu_anchor else {
+}
+/// Popups are prepainted after every content control, matching paint and hit-test order.
+pub(super) fn prepaint_render_menu(
+    editor: &RenderViewState,
+    entity: &Entity<Editor>,
+    geometry: &mut Geometry,
+    controls: &mut Vec<AnyElement>,
+    window: &mut Window,
+    cx: &mut App,
+) {
+    if !editor.available {
         return;
-    };
+    }
+    let key = geometry.render_key(window.viewport_size());
     let Some(menu) = editor.menu.as_ref().filter(|m| m.key == key) else {
         return;
     };
+    let Some(anchor) = geometry
+        .render_regions
+        .iter()
+        .find(|r| r.key() == menu.region && geometry.render_buttons.contains(&r.trigger))
+        .map(|r| r.trigger)
+    else {
+        return;
+    };
+    let language = entity.read(cx).locale.language;
     let width = menu
         .rows
         .iter()

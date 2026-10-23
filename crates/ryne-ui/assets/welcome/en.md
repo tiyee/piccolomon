@@ -38,6 +38,8 @@ Click an inline format or enter it with arrow keys to edit its source, including
 
 Inline code: `**literal text**` and ``a `backtick` inside code``. Markdown inside code is not interpreted. Escapes keep punctuation literal: \*not italic\* and \[not a link\].
 
+Links can include a title: [Ryne](https://example.org "Ryne website"). Autolinks: <https://example.org> and <mailto:hello@example.org>.
+
 ## Lists and tasks
 
 - Unordered item with **bold text**.
@@ -52,6 +54,16 @@ Inline code: `**literal text**` and ``a `backtick` inside code``. Markdown insid
 
 - [ ] An unfinished task.
 - [x] A finished task.
+
+The unordered markers `+` and `*` also work:
+
++ Another unordered marker.
+* And another one.
+
+Ordered lists can start at a number other than 1:
+
+7. First item, numbered from seven.
+8. Next item.
 
 Enter continues a nonempty item; Enter on an empty item exits one level. Tab / Shift+Tab indent or outdent the current item and its children; the first sibling cannot indent. Shift+Enter breaks a line inside the item. Click a task checkbox to toggle its state; the change supports undo and redo. You can also edit task markers in block source.
 
@@ -80,7 +92,7 @@ def greet(name):
   {"editor": "Ryne", "ready": true}
   ```
 
-Syntax highlighting supports Rust, Python, JavaScript/JSX, TypeScript/TSX, JSON and Bash, with aliases such as `rs`, `py`, `js`, `ts` and `sh`. Pasting distinctive valid code or inserting a code newline can fill an empty language field. Unknown languages and ambiguous code remain plain code; an existing language is preserved.
+Syntax highlighting supports Rust, Python, JavaScript/JSX, TypeScript/TSX, JSON and Bash, with aliases such as `rs`, `py`, `js`, `ts` and `sh`. Use the language dropdown at the upper left of fenced code to choose a common language or default `auto`. Choosing `auto` clears the fence info string; detection affects highlighting without changing source. Language changes can be undone. Other listed languages and ambiguous code keep plain styling.
 
 ## Mermaid diagrams
 
@@ -111,14 +123,19 @@ The cell's three-dot menu changes alignment and inserts, moves or deletes rows a
 
 ## Quotes, images, separators and raw text
 
-These forms can be inserted and edited as Markdown source; they currently retain their visible source markers. Quotes do not yet have a rendered bar or automatic continuation. Images do not yet show an image preview. Enter inserts a literal newline in these source blocks.
+Quotes hide `>` and show a quote icon before the text on a pale block background. Edit the body and inline formatting directly; use block source to change structural markers. Nested quotes retain indentation. Enter continues a nonempty quote; the empty new row retains its background and indentation. Enter on an empty quote row exits one level; Shift+Enter adds a hard break within the quote. Source mode keeps literal newlines. Empty quote drafts, images and raw text retain editable source. Images do not yet show an image preview.
 
 > A quote with **inline emphasis**.
+>
+> A second paragraph in the same quote block.
 > > A nested quote.
 
 ![Image description](https://example.org/image.png)
 
 ---
+
+Other thematic break markers such as `***` and `___` are also recognized.
+***
 
 <div>Raw HTML stays editable source.</div>
 

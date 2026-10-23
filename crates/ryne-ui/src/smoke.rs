@@ -7,12 +7,17 @@ impl Editor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Result<(), String> {
-        let geometry = self.geometry.as_ref().ok_or("missing pointer layout")?;
+        let geometry = self
+            .viewport
+            .geometry
+            .as_ref()
+            .ok_or("missing pointer layout")?;
         let position = match target {
             0 => geometry.position(0) + point(px(5.), px(15.)),
             1 => {
                 geometry.position(
-                    self.display
+                    self.viewport
+                        .display
                         .text
                         .find('\n')
                         .ok_or("missing paragraph boundary")?
@@ -68,7 +73,7 @@ impl Editor {
         let blink_seen = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let observed = blink_seen.clone();
         let blink_observer = cx.observe_self(move |editor, _| {
-            if !editor.caret_visible {
+            if !editor.caret_state.caret_visible {
                 observed.store(true, std::sync::atomic::Ordering::Relaxed);
             }
         });
@@ -76,7 +81,19 @@ impl Editor {
             let _blink_observer = blink_observer;
             let mut typography_anchor: Option<(usize, Pixels)> = None;
             let mut cached_layout: Option<std::sync::Arc<text_layout::TextLayout>> = None;
-            for stage in 0..246 {
+            let mut cached_projection: Option<std::sync::Arc<ryne_projection::IndexedDisplay>> = None;
+            let mut cached_controls: Option<std::sync::Arc<Vec<ryne_extensions::RenderControl>>> = None;
+            let mut quote_control: Option<Bounds<Pixels>> = None;
+            let code_language_only = std::env::var_os("RYNE_SMOKE_CODE_LANGUAGE_ONLY").is_some();
+            let performance_only=std::env::var_os("RYNE_SMOKE_PERFORMANCE_ONLY").is_some();
+            let stages: Vec<u16> = if performance_only {
+                std::iter::once(0).chain(266..272).collect()
+            } else if code_language_only {
+                std::iter::once(0).chain(259..267).collect()
+            } else {
+                (0..272).collect()
+            };
+            for stage in stages {
                 cx.background_executor()
                     .timer(std::time::Duration::from_millis(500))
                     .await;
@@ -100,11 +117,11 @@ impl Editor {
                         std::process::exit(1);
                     }
                     let ready = this.update_in(cx, |editor, window, cx| {
-                        let ready = editor.geometry.as_ref().is_some_and(|geometry| {
+                        let ready = editor.viewport.geometry.as_ref().is_some_and(|geometry| {
                             geometry.snapshot == editor.document.source.id()
-                                && geometry.display.text == editor.display.text
-                                && geometry.display.spans == editor.display.spans
-                                && geometry.display.formulas == editor.display.formulas
+                                && geometry.display.text == editor.viewport.display.text
+                                && geometry.display.spans == editor.viewport.display.spans
+                                && geometry.display.formulas == editor.viewport.display.formulas
                                 && geometry.source_mode == editor.document.source_mode
                                 && geometry.bounds.size.width == window.viewport_size().width
                         });
@@ -118,9 +135,9 @@ impl Editor {
                     if stage % 10 == 0 || stage >= 80 {
                         eprintln!("GUI smoke stage {stage}");
                     }
-                    let geometry = editor.geometry.as_ref().ok_or("native frame was not laid out")?.clone();
+                    let geometry = editor.viewport.geometry.as_ref().ok_or("native frame was not laid out")?.clone();
                     check_eq!(geometry.snapshot, editor.document.source.id());
-                    check_eq!(geometry.display.text, editor.display.text);
+                    check_eq!(geometry.display.text, editor.viewport.display.text);
                     check!(!geometry.lines.is_empty());
                     if stage == 0 {
                         check!(!force_failure, "injected smoke failure");
@@ -133,11 +150,11 @@ impl Editor {
                         0 => {
                             check_eq!(geometry.lines[0].shaped.unwrapped_layout.font_size, px(32.));
                             check!(geometry.lines[0].line_height >= px(44.));
-                            check!(editor.display.text.starts_with("Ryne（如言）\n"));
+                            check!(editor.viewport.display.text.starts_with("Ryne（如言）\n"));
                             check_eq!(editor.document.head, 2);
-                            check!(!editor.display.text.contains("**粗体**"));
+                            check!(!editor.viewport.display.text.contains("**粗体**"));
                             let source = editor.document.source.text().find("粗体").ok_or("missing bold sample")?;
-                            let position = geometry.position(editor.display.position_at(source));
+                            let position = geometry.position(editor.viewport.display.position_at(source));
                             editor.mouse_down(
                                 &MouseDownEvent {
                                     button: MouseButton::Left,
@@ -148,15 +165,15 @@ impl Editor {
                                 window,
                                 cx,
                             );
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             check_eq!(editor.document.head, source);
-                            check!(editor.display.text.contains("**粗体**"));
+                            check!(editor.viewport.display.text.contains("**粗体**"));
                             check_eq!(editor.document.source.text(), SAMPLE);
                         }
                         1 => {
                             let offset = editor.document.head;
-                            let position = geometry.position(editor.display.position_at(offset));
-                            check_eq!(geometry.hit_caret(position).0, editor.display.position_at(offset));
+                            let position = geometry.position(editor.viewport.display.position_at(offset));
+                            check_eq!(geometry.hit_caret(position).0, editor.viewport.display.position_at(offset));
                             editor.move_to(2, false, cx);
                             editor.replace_text_in_range(None, "新", window, cx);
                             check!(editor.document.source.text().starts_with("# 新Ryne"));
@@ -180,10 +197,10 @@ impl Editor {
                         }
                         2 => {
                             editor.move_to(0, false, cx);
-                            check!(!editor.display.text.contains("**粗体**"));
+                            check!(!editor.viewport.display.text.contains("**粗体**"));
                             let revision = editor.document.source.revision();
                             editor.toggle_source(&ToggleSource, window, cx);
-                            check_eq!(editor.display.text, SAMPLE);
+                            check_eq!(editor.viewport.display.text, SAMPLE);
                             editor.toggle_source(&ToggleSource, window, cx);
                             check_eq!(editor.document.source.revision(), revision);
                             let path = std::env::temp_dir().join(format!("ryne-smoke-{}.md", std::process::id()));
@@ -222,24 +239,24 @@ impl Editor {
                                 button: MouseButton::Left, position: position + point(px(1.), px(15.)),
                                 click_count: 1, ..Default::default()
                             }, window, cx);
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             check_eq!(editor.document.head, editor.document.source.text().find("标题").ok_or("missing heading sample")?);
-                            check!(editor.display.text.starts_with("# **标题** #\n"));
+                            check!(editor.viewport.display.text.starts_with("# **标题** #\n"));
                             editor.toggle_source(&ToggleSource, window, cx);
                         }
                         5 => {
                             check_eq!(geometry.lines[0].shaped.unwrapped_layout.font_size, px(theme::CODE.0));
                             check!(geometry.lines[0].line_height >= px(theme::CODE.1));
-                            check!(editor.display.text.starts_with("# **标题** #\n"));
+                            check!(editor.viewport.display.text.starts_with("# **标题** #\n"));
                             editor.toggle_source(&ToggleSource, window, cx);
-                            check!(editor.display.text.starts_with("**标题**\n"));
+                            check!(editor.viewport.display.text.starts_with("**标题**\n"));
                             editor.document = editor.document.fork("# 标题 #\r\n\r\n正文");
                             editor.move_to(0, false, cx);
                         }
                         6 => {
                             editor.smoke_pointer(0, window, cx)?;
                             check!(editor.document.heading_reveal.is_none(), "hover must keep heading markers folded");
-                            check!(editor.display.text.starts_with("标题\n"));
+                            check!(editor.viewport.display.text.starts_with("标题\n"));
                             check_eq!(editor.document.head, 2);
                             check!(!editor.document.dirty());
                         }
@@ -248,17 +265,17 @@ impl Editor {
                             editor.mouse_down(&MouseDownEvent {
                                 button: MouseButton::Left, position, click_count: 1, ..Default::default()
                             }, window, cx);
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             check_eq!(editor.document.head, 2, "click resolves against the folded heading");
                             check!(editor.document.heading_reveal.is_some(), "click reveals heading markers");
-                            check!(editor.display.text.starts_with("# 标题 #\n"));
+                            check!(editor.viewport.display.text.starts_with("# 标题 #\n"));
                         }
                         8 => {
                             let position = geometry.position(0) + point(px(1.), px(15.));
                             editor.mouse_down(&MouseDownEvent {
                                 button: MouseButton::Left, position, click_count: 1, ..Default::default()
                             }, window, cx);
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             check_eq!(editor.document.head, 0, "revealed heading marker can be selected");
                             editor.smoke_pointer(1, window, cx)?;
                             check!(editor.document.heading_reveal.is_some(), "moving the pointer away keeps clicked heading editable");
@@ -266,13 +283,13 @@ impl Editor {
                         }
                         9 => {
                             check!(editor.document.heading_reveal.is_some(), "leaving editor must not fold a clicked heading");
-                            let position = geometry.position(editor.display.position_at(editor.document.source.text().find("正文").ok_or("missing body")?)) + point(px(1.), px(8.));
+                            let position = geometry.position(editor.viewport.display.position_at(editor.document.source.text().find("正文").ok_or("missing body")?)) + point(px(1.), px(8.));
                             editor.mouse_down(&MouseDownEvent {
                                 button: MouseButton::Left, position, click_count: 1, ..Default::default()
                             }, window, cx);
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             check!(editor.document.heading_reveal.is_none(), "clicking another block folds heading markers");
-                            check!(editor.display.text.starts_with("标题\n"));
+                            check!(editor.viewport.display.text.starts_with("标题\n"));
                             check_eq!(editor.document.source.text(), "# 标题 #\r\n\r\n正文");
                             check!(!editor.document.dirty());
                             editor.document = editor.document.fork("abcd\r\n\r\ntail");
@@ -345,7 +362,7 @@ impl Editor {
                             editor.move_to(boundary, false, cx);
                             editor.end(&End, window, cx);
                             check_eq!(editor.document.head, second.range.end);
-                            check_eq!(editor.caret_affinity, Affinity::Upstream);
+                            check_eq!(editor.caret_state.caret_affinity, Affinity::Upstream);
                             editor.home(&Home, window, cx);
                             check_eq!(editor.document.head, second.range.start);
                             editor.select_end(&SelectEnd, window, cx);
@@ -357,13 +374,13 @@ impl Editor {
                             editor.move_to(editor.document.source.text().find("第一行").ok_or("missing inline sample")?, false, cx);
                         }
                         13 => {
-                            check!(editor.display.text.contains("**第一行\n第二行**"));
+                            check!(editor.viewport.display.text.contains("**第一行\n第二行**"));
                             let start = editor.document.head;
                             let end = editor.document.source.text().find("** 后记").ok_or("missing inline end")?;
                             let point = geometry.position(geometry.display.position_at(end)) + point(px(0.), px(8.));
-                            editor.dragging = true;
+                            editor.viewport.dragging = true;
                             editor.mouse_move(&MouseMoveEvent { position: point, ..Default::default() }, window, cx);
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             check_eq!(editor.document.selection(), start..end);
                             check_eq!(geometry.selection_quads(geometry.display.position_at(start)..geometry.display.position_at(end), rgb(0xabcdef).into()).len(), 2);
                             editor.replace_text_in_range(None, "替换\r\n多行😀", window, cx);
@@ -378,7 +395,7 @@ impl Editor {
                             std::fs::remove_file(path).map_err(|error| error.to_string())?;
                         }
                         14 => {
-                            check_eq!(geometry.display.text, editor.display.text);
+                            check_eq!(geometry.display.text, editor.viewport.display.text);
                             editor.document = editor.document.fork("before\n\n```rust\r\n  **中😀**\r\n  second\r\n```\r\n\r\nafter");
                             editor.move_to(0, false, cx);
                         }
@@ -395,7 +412,7 @@ impl Editor {
                             let offset = editor.document.source.text().find("中😀").ok_or("missing code body")?;
                             let position = geometry.position(geometry.display.position_at(offset)) + point(px(0.), px(8.));
                             editor.mouse_down(&MouseDownEvent { button: MouseButton::Left, position, click_count: 1, ..Default::default() }, window, cx);
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             check_eq!(editor.document.head, offset);
                             let original = editor.document.source.text().to_owned();
                             editor.replace_and_mark_text_in_range(None, "文", Some(1..1), window, cx);
@@ -403,7 +420,7 @@ impl Editor {
                             check!(editor.document.source.text().contains("**文中😀**"));
                             editor.undo(&Undo, window, cx);
                             check_eq!(editor.document.source.text(), original);
-                            let anchor = editor.display.code_blocks[0].source.anchor;
+                            let anchor = editor.viewport.display.code_blocks[0].source.anchor;
                             editor.move_to(anchor, false, cx);
                             editor.backspace(&Backspace, window, cx);
                             check_eq!(editor.document.source.text(), original);
@@ -431,7 +448,7 @@ impl Editor {
                             check_eq!(geometry.display.code_blocks[0].source.language, "python");
                             check!(!geometry.display.text.contains("```"));
                             editor.undo(&Undo, window, cx);
-                            check_eq!(editor.display.code_blocks[0].source.language, "rust");
+                            check_eq!(editor.viewport.display.code_blocks[0].source.language, "rust");
                             editor.document = editor.document.fork("```rust\n```");
                             editor.move_to(0, false, cx);
                         }
@@ -440,7 +457,7 @@ impl Editor {
                             check_eq!(geometry.lines[0].code, Some(0));
                             let position = geometry.position(0) + point(px(0.), px(8.));
                             editor.mouse_down(&MouseDownEvent { button: MouseButton::Left, position, click_count: 1, ..Default::default() }, window, cx);
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             check_eq!(editor.document.head, "```rust\n".len());
                             editor.replace_text_in_range(None, "😀", window, cx);
                             check_eq!(editor.document.source.text(), "```rust\n😀\n```");
@@ -482,7 +499,7 @@ impl Editor {
                             // Click in the marker column: the caret still belongs to the editable body.
                             let position = geometry.position(first.start) + point(px(-12.), px(8.));
                             editor.mouse_down(&MouseDownEvent { button: MouseButton::Left, position, click_count: 1, ..Default::default() }, window, cx);
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             check_eq!(editor.document.head, 3);
                             let original = editor.document.source.text().to_owned();
                             editor.replace_and_mark_text_in_range(None, "文", Some(1..1), window, cx);
@@ -548,7 +565,7 @@ impl Editor {
                             check_eq!(geometry.lines[0].inset, px(32.));
                             let position = geometry.position(0) + point(px(0.), px(8.));
                             editor.mouse_down(&MouseDownEvent { button: MouseButton::Left, position, click_count: 1, ..Default::default() }, window, cx);
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             check_eq!(editor.document.head, 2);
                             editor.replace_text_in_range(None, "😀", window, cx);
                             editor.enter(&Enter, window, cx);
@@ -578,7 +595,7 @@ impl Editor {
                             check!(right.align_offset > px(0.));
                             let position = geometry.position(table.rows[1][2].start) + point(px(0.), px(8.));
                             editor.mouse_down(&MouseDownEvent { button: MouseButton::Left, position, click_count: 1, ..Default::default() }, window, cx);
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             check_eq!(editor.document.head, table.source.rows[1].cells[2].content.start);
                             // Header padding must select its column even above the first text baseline.
                             let header = geometry.row_for(table.rows[0][2].start, Affinity::Downstream).ok_or("missing header cell")?;
@@ -604,33 +621,33 @@ impl Editor {
                             let caret = original.find('😀').ok_or("missing table Unicode")?;
                             let position = geometry.position(geometry.display.position_at(caret)) + point(px(0.), px(8.));
                             editor.mouse_down(&MouseDownEvent { button: MouseButton::Left, position, click_count: 1, ..Default::default() }, window, cx);
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             if editor.document.head != caret {
                                 return Err(format!("table click expected {caret}, got {}, point {position:?}, hit {:?}", editor.document.head, geometry.hit_caret(position)));
                             }
                             editor.replace_and_mark_text_in_range(None, "文", Some(1..1), window, cx);
                             editor.enter(&Enter, window, cx);
                             check!(editor.document.source.text().contains("中文😀"));
-                            check_eq!(editor.display.tables[0].rows.len(), 3);
+                            check_eq!(editor.viewport.display.tables[0].rows.len(), 3);
                             editor.undo(&Undo, window, cx);
                             check_eq!(editor.document.source.text(), original);
                             editor.replace_text_in_range(None, "|", window, cx);
                             check!(editor.document.source.text().contains("中\\|😀"));
-                            check_eq!(editor.display.tables.len(), 1);
+                            check_eq!(editor.viewport.display.tables.len(), 1);
                             editor.undo(&Undo, window, cx);
                             editor.hard_break(&HardBreak, window, cx);
                             check!(editor.document.source.text().contains("中<br>😀"));
-                            check!(editor.display.text.contains("中\n😀"));
+                            check!(editor.viewport.display.text.contains("中\n😀"));
                             editor.undo(&Undo, window, cx);
-                            let table = &editor.display.tables[0];
+                            let table = &editor.viewport.display.tables[0];
                             let anchor = table.source.rows[2].cells[1].content.start;
                             editor.move_to(anchor, false, cx);
                             editor.enter(&Enter, window, cx);
-                            check_eq!(editor.display.tables[0].rows.len(), 4);
+                            check_eq!(editor.viewport.display.tables[0].rows.len(), 4);
                             editor.undo(&Undo, window, cx);
                             check_eq!(editor.document.source.text(), original);
                             editor.redo(&Redo, window, cx);
-                            check_eq!(editor.display.tables[0].rows.len(), 4);
+                            check_eq!(editor.viewport.display.tables[0].rows.len(), 4);
                             editor.undo(&Undo, window, cx);
                             let revision = editor.document.source.revision();
                             editor.toggle_block_source(&ToggleBlockSource, window, cx);
@@ -651,7 +668,7 @@ impl Editor {
                             let row = geometry.row_for(offset, Affinity::Downstream).ok_or("missing aligned table row")?;
                             check_eq!(geometry.lines[row.line].align, TextAlign::Right);
                             editor.undo(&Undo, window, cx);
-                            check_eq!(editor.display.tables[0].source.align[1], editable_markdown_parser::Alignment::Center);
+                            check_eq!(editor.viewport.display.tables[0].source.align[1], editable_markdown_parser::Alignment::Center);
                             editor.document = editor.document.fork("| | |\n| --- | --- |\n| | |\n");
                             editor.move_to(0, false, cx);
                         }
@@ -661,18 +678,18 @@ impl Editor {
                             let anchor = table.source.rows[0].cells[1].content.start;
                             let position = geometry.position(table.rows[0][1].start) + point(px(0.), px(8.));
                             editor.mouse_down(&MouseDownEvent { button: MouseButton::Left, position, click_count: 1, ..Default::default() }, window, cx);
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             check_eq!(editor.document.head, anchor);
                             let original = editor.document.source.text().to_owned();
                             editor.replace_text_in_range(None, "😀", window, cx);
-                            check!(editor.display.text.starts_with("\t😀\n"));
-                            check_eq!(editor.display.tables.len(), 1);
+                            check!(editor.viewport.display.text.starts_with("\t😀\n"));
+                            check_eq!(editor.viewport.display.tables.len(), 1);
                             editor.undo(&Undo, window, cx);
                             check_eq!(editor.document.source.text(), original);
-                            let anchor = editor.display.tables[0].source.rows[1].cells[1].content.start;
+                            let anchor = editor.viewport.display.tables[0].source.rows[1].cells[1].content.start;
                             editor.move_to(anchor, false, cx);
                             editor.tab(&Tab, window, cx);
-                            check_eq!(editor.display.tables[0].rows.len(), 3);
+                            check_eq!(editor.viewport.display.tables[0].rows.len(), 3);
                             editor.undo(&Undo, window, cx);
                             check_eq!(editor.document.source.text(), original);
                             editor.document = editor.document.fork("> - | A | B |\n>   | --- | --- |\n>   | x | y |\n");
@@ -690,7 +707,7 @@ impl Editor {
                             check_eq!(editor.document.source.text(), format!("{original}>   |  |  |\n"));
                             editor.replace_text_in_range(None, "中\n文|😀", window, cx);
                             check!(editor.document.source.text().contains("中<br>文\\|😀"));
-                            check_eq!(editor.display.tables.len(), 1);
+                            check_eq!(editor.viewport.display.tables.len(), 1);
                             let path = std::env::temp_dir().join(format!("ryne-table-smoke-{}.md", std::process::id()));
                             editor.document.save(&path).map_err(|e| e.to_string())?;
                             check_eq!(editor.document.open_with(&path).map_err(|e| e.to_string())?.source.text(), editor.document.source.text());
@@ -704,11 +721,11 @@ impl Editor {
                         }
                         33 => {
                             if !geometry.display.tables.is_empty() {
-                                return Err(format!("table source frame stale: source_mode={}, document_tables={}, geometry_tables={}, source_equal={}", editor.document.source_mode, editor.display.tables.len(), geometry.display.tables.len(), geometry.display.text == editor.display.text));
+                                return Err(format!("table source frame stale: source_mode={}, document_tables={}, geometry_tables={}, source_equal={}", editor.document.source_mode, editor.viewport.display.tables.len(), geometry.display.tables.len(), geometry.display.text == editor.viewport.display.text));
                             }
                             check_eq!(geometry.display.text, editor.document.source.text());
                             editor.escape(&Escape, window, cx);
-                            check_eq!(editor.display.tables.len(), 1);
+                            check_eq!(editor.viewport.display.tables.len(), 1);
                             editor.document = editor.document.fork("```rust\r\nfn main() {\r\n    let s = \"中😀\";\r\n}\r\n```\r\n");
                             editor.move_to(0, false, cx);
                         }
@@ -720,13 +737,13 @@ impl Editor {
                             let offset = editor.document.source.text().find("中😀").ok_or("missing highlighted Unicode string")?;
                             let position = geometry.position(geometry.display.position_at(offset)) + point(px(0.), px(8.));
                             editor.mouse_down(&MouseDownEvent { button: MouseButton::Left, position, click_count: 1, ..Default::default() }, window, cx);
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             check_eq!(editor.document.head, offset);
                             let original = editor.document.source.text().to_owned();
                             editor.move_to(offset - 1, false, cx);
                             editor.move_to(offset + "中😀\"".len(), true, cx);
                             editor.replace_text_in_range(None, "42", window, cx);
-                            check!(editor.display.spans.iter().any(|span| span.style.syntax == Some(Class::Constant)));
+                            check!(editor.viewport.display.spans.iter().any(|span| span.style.syntax == Some(Class::Constant)));
                             editor.undo(&Undo, window, cx);
                             check_eq!(editor.document.source.text(), original);
                             check!(!editor.document.dirty());
@@ -746,8 +763,8 @@ impl Editor {
                             check_eq!(geometry.display.code_blocks[0].source.language, "unknown");
                             check!(geometry.display.spans.iter().all(|span| span.style.syntax.is_none()));
                             editor.undo(&Undo, window, cx);
-                            check_eq!(editor.display.code_blocks[0].source.language, "rust");
-                            check!(editor.display.spans.iter().any(|span| span.style.syntax == Some(ryne_projection::Class::String)));
+                            check_eq!(editor.viewport.display.code_blocks[0].source.language, "rust");
+                            check!(editor.viewport.display.spans.iter().any(|span| span.style.syntax == Some(ryne_projection::Class::String)));
                             let path = std::env::temp_dir().join(format!("ryne-highlight-smoke-{}.md", std::process::id()));
                             editor.document.save(&path).map_err(|error| error.to_string())?;
                             let reopened = editor.document.open_with(&path).map_err(|error| error.to_string())?;
@@ -756,9 +773,9 @@ impl Editor {
                             editor.document = editor.document.fork("");
                             editor.move_to(0, false, cx);
                             editor.replace_text_in_range(None, "```\r\nfn main() { let s = \"中😀\"; }\r\n```\r\n", window, cx);
-                            check!(editor.document.source.text().starts_with("```rust\r\n"));
-                            check_eq!(editor.display.code_blocks[0].source.language, "rust");
-                            check!(editor.display.spans.iter().any(|span| span.style.syntax == Some(ryne_projection::Class::Keyword)));
+                            check!(editor.document.source.text().starts_with("```\r\n"));
+                            check!(editor.viewport.display.code_blocks[0].source.language.is_empty());
+                            check!(editor.viewport.display.spans.iter().any(|span| span.style.syntax == Some(ryne_projection::Class::Keyword)));
                             check_eq!(editor.document.history_len(false), 1);
                             editor.undo(&Undo, window, cx);
                             check_eq!(editor.document.source.text(), "");
@@ -782,9 +799,9 @@ impl Editor {
                             editor.mouse_down(&MouseDownEvent { button: MouseButton::Left,
                                 position: start + point((end.x-start.x)/2., row.line_height/2.),
                                 ..Default::default() }, window, cx);
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             check_eq!(editor.document.head, formula.source.start+1);
-                            check!(editor.display.text.contains("$\\frac{x_1}{\\sqrt{y}}$"));
+                            check!(editor.viewport.display.text.contains("$\\frac{x_1}{\\sqrt{y}}$"));
                             check!(!editor.document.dirty());
                         }
                         38 => {
@@ -834,7 +851,7 @@ impl Editor {
                             check!(geometry.lines[row.line].mixed.is_some());
                             let caret = table.source.rows[0].cells[0].content.start + 1;
                             editor.move_to(caret, false, cx);
-                            check_eq!(editor.display.tables.len(), 1);
+                            check_eq!(editor.viewport.display.tables.len(), 1);
                             editor.tab(&Tab, window, cx);
                             check_eq!(editor.document.head, table.source.rows[0].cells[1].content.start);
                             check!(!editor.document.dirty());
@@ -854,8 +871,8 @@ impl Editor {
                             check_eq!(rows.iter().filter_map(|r| r.mixed.as_ref()).flat_map(|m| &m.pieces)
                                 .filter(|p| matches!(p.content, InlineContent::Math(_))).count(), 2);
                             editor.toggle_source(&ToggleSource, window, cx);
-                            check!(editor.display.formulas.is_empty());
-                            check!(editor.display.text.contains("$\\frac{x_1}{\\sqrt{y}}$"));
+                            check!(editor.viewport.display.formulas.is_empty());
+                            check!(editor.viewport.display.text.contains("$\\frac{x_1}{\\sqrt{y}}$"));
                             check!(!editor.document.dirty());
                             let raw = editor.document.source.text().to_owned();
                             let path = std::env::temp_dir().join(format!("ryne-math-smoke-{}.md", std::process::id()));
@@ -875,8 +892,8 @@ impl Editor {
                             let original_start = geometry.display.diagrams[0].source.range.start;
                             editor.replace_and_mark_text_in_range(None,"前",Some(1..1),window,cx);
                             check_eq!(editor.document.source.text(),original);
-                            check_eq!(editor.display.diagrams.len(),1);
-                            check_eq!(editor.display.diagrams[0].source.range.start,original_start+"前".len());
+                            check_eq!(editor.viewport.display.diagrams.len(),1);
+                            check_eq!(editor.viewport.display.diagrams[0].source.range.start,original_start+"前".len());
                             // The committed source is unchanged, but the temporary
                             // composition has different text/mapping than this frame.
                             check!(editor.bounds_for_range(0..0,geometry.bounds,window,cx).is_none());
@@ -915,7 +932,7 @@ impl Editor {
                             editor.document.select(view.source.range.start,false,true);
                             editor.right(&Right,window,cx);
                             check_eq!(editor.document.head,view.source.anchor);
-                            check!(editor.display.diagrams.is_empty());
+                            check!(editor.viewport.display.diagrams.is_empty());
                             editor.move_to(0,false,cx);
                         }
                         46 => {
@@ -928,7 +945,7 @@ impl Editor {
                             editor.document.select(0,false,true);
                             editor.document.select(end,true,true);
                             editor.refresh(cx);
-                            check_eq!(editor.display.diagrams.len(),1);
+                            check_eq!(editor.viewport.display.diagrams.len(),1);
                             editor.replace_text_in_range(None,"replaced",window,cx);
                             check!(!editor.document.source.text().contains("A[中文😀]"));
                             editor.undo(&Undo,window,cx);
@@ -939,11 +956,11 @@ impl Editor {
                         47 => {
                             let raw = editor.document.source.text().to_owned();
                             editor.toggle_source(&ToggleSource,window,cx);
-                            check!(editor.display.diagrams.is_empty());
-                            check_eq!(editor.display.text,raw.replace("\r\n","\n"));
+                            check!(editor.viewport.display.diagrams.is_empty());
+                            check_eq!(editor.viewport.display.text,raw.replace("\r\n","\n"));
                             check!(!editor.document.dirty());
                             editor.toggle_source(&ToggleSource,window,cx);
-                            let view = editor.display.diagrams.first().ok_or("missing source-mode return")?.clone();
+                            let view = editor.viewport.display.diagrams.first().ok_or("missing source-mode return")?.clone();
                             editor.document.select(view.source.range.end,false,true);
                             editor.backspace(&Backspace,window,cx);
                             check_eq!(editor.document.source.text(),raw);
@@ -958,8 +975,8 @@ impl Editor {
                             check!(view.source.indent >= 2);
                             editor.move_to(view.source.anchor,false,cx);
                             editor.toggle_block_source(&ToggleBlockSource,window,cx);
-                            check!(editor.display.diagrams.is_empty());
-                            check!(editor.display.text.contains("  > ~~~mermaid"));
+                            check!(editor.viewport.display.diagrams.is_empty());
+                            check!(editor.viewport.display.text.contains("  > ~~~mermaid"));
                             check_eq!(editor.document.block_source.as_ref().ok_or("missing Mermaid scope")?.range.start,0);
                         }
                         49 => {
@@ -994,7 +1011,7 @@ impl Editor {
                         }
                         52 | 55 | 58 | 61 => {
                             let block = crate::block::at(&editor.document.parse, editor.document.head).ok_or("missing focused block")?;
-                            check_eq!(block.label, match stage - 1 { 52 => "H3", 55 => "•", 58 => "▦", _ => "</>" });
+                            check_eq!(ryne_extensions::BlockMetadata::from(block.kind).label, match stage - 1 { 52 => "H3", 55 => "•", 58 => "▦", _ => "</>" });
                             let control = geometry.block_control.ok_or("missing focused block control")?;
                             check_eq!(control.origin, geometry.block_origin(&block).ok_or("missing block origin")?);
                             let first = geometry.lines.iter().find(|line| match stage - 1 {
@@ -1009,17 +1026,17 @@ impl Editor {
                             editor.update_block_hover(control.center(),cx);
                         }
                         53 | 56 | 59 => {
-                            check!(editor.block_menu.is_some());
-                            check!(!editor.dragging);
+                            check!(editor.menus.block_menu.is_some());
+                            check!(!editor.viewport.dragging);
                             let menu = geometry.block_menu.ok_or("missing painted block menu")?;
                             check!(geometry.bounds.contains(&menu.origin));
                             check!(menu.bottom() <= geometry.bounds.bottom());
-                            let (snapshot, block) = editor.block_menu.clone().ok_or("missing menu target")?;
+                            let (snapshot, block) = editor.menus.block_menu.clone().ok_or("missing menu target")?;
                             editor.block_action(snapshot, &block, match stage - 1 { 53 => BlockAction::Source, 56 => BlockAction::Copy, _ => BlockAction::Select }, cx);
                         }
                         54 => {
                             check!(editor.document.block_source.is_some());
-                            check!(editor.display.text.starts_with("### heading"));
+                            check!(editor.viewport.display.text.starts_with("### heading"));
                             check!(!editor.document.dirty());
                             editor.escape(&Escape,window,cx);
                             let offset = editor.document.source.text().find("item").ok_or("missing item")?;
@@ -1036,23 +1053,23 @@ impl Editor {
                         60 => {
                             let table = crate::table::tables(&editor.document.parse).into_iter().next().ok_or("missing table selection")?;
                             check_eq!(editor.document.selection(), table.range);
-                            check_eq!(editor.focused_block().ok_or("missing selected table control")?.label,"▦");
+                            check_eq!(ryne_extensions::BlockMetadata::from(editor.focused_block().ok_or("missing selected table control")?.kind).label,"▦");
                             check!(!editor.document.dirty());
                             let offset = editor.document.source.text().find("value").ok_or("missing code")?;
                             editor.move_to(offset,false,cx);
                         }
                         62 => {
-                            check!(editor.block_menu.is_some());
+                            check!(editor.menus.block_menu.is_some());
                             editor.escape(&Escape,window,cx);
-                            check!(editor.block_menu.is_none());
+                            check!(editor.menus.block_menu.is_none());
                             check!(editor.document.block_source.is_none());
-                            editor.document.composition = Some(Composition { range: editor.document.head..editor.document.head, text: "临".into(), selection: editor.document.head..editor.document.head });
+                            editor.document.update_composition(Some(editor.document.head..editor.document.head), "临", Some(0..0))?;
                             editor.refresh(cx);
                         }
                         63 => {
                             check!(geometry.block_control.is_none());
                             check!(!editor.document.dirty());
-                            editor.document.composition = None;
+                            editor.document.cancel_composition();
                             editor.document.set_source_mode(true);
                             editor.refresh(cx);
                         }
@@ -1076,7 +1093,7 @@ impl Editor {
                         }
                         66 => {
                             let block = editor.focused_block().ok_or("missing nested heading")?;
-                            check_eq!(block.label,"H3");
+                            check_eq!(ryne_extensions::BlockMetadata::from(block.kind).label,"H3");
                             let control = geometry.block_control.ok_or("missing nested heading control")?;
                             let marker = geometry.list_markers.first().ok_or("missing long list marker")?.1;
                             check_eq!(control.right()+px(32.),marker.left());
@@ -1085,7 +1102,7 @@ impl Editor {
                         }
                         67 => {
                             check!(geometry.block_control.is_some());
-                            check!(editor.display.text.starts_with("1000. ### nested heading"));
+                            check!(editor.viewport.display.text.starts_with("1000. ### nested heading"));
                             check!(!editor.document.dirty());
                             editor.document = editor.document.fork("paragraph\n\n## hover heading\n\n```rs\nliteral\n```\n");
                             editor.move_to(0,false,cx);
@@ -1094,27 +1111,27 @@ impl Editor {
                             let offset = editor.document.source.text().find("hover heading").ok_or("missing hover heading")?;
                             let position = geometry.position(geometry.display.position_at(offset)) + point(px(4.),px(8.));
                             editor.update_block_hover(position,cx);
-                            check_eq!(editor.active_block().ok_or("missing hovered heading")?.label,"H2");
+                            check_eq!(ryne_extensions::BlockMetadata::from(editor.active_block().ok_or("missing hovered heading")?.kind).label,"H2");
                             check_eq!(editor.document.head,0);
                             check!(!editor.document.dirty());
                         }
                         69 => {
                             let control = geometry.block_control.ok_or("missing hover-only control")?;
                             editor.update_block_hover(control.center(),cx);
-                            check!(editor.block_menu.is_some());
+                            check!(editor.menus.block_menu.is_some());
                             editor.update_block_hover(control.center(),cx);
-                            check!(editor.block_menu.is_some());
+                            check!(editor.menus.block_menu.is_some());
                             check_eq!(editor.document.head,0);
                         }
                         70 => {
                             let control = geometry.block_control.ok_or("missing hover control")?;
                             let menu = geometry.block_menu.ok_or("missing hover menu")?;
                             editor.update_block_hover(point(control.center().x,control.bottom()+px(2.)),cx);
-                            check!(editor.block_menu.is_some());
+                            check!(editor.menus.block_menu.is_some());
                             editor.update_block_hover(menu.center(),cx);
-                            check!(editor.block_menu.is_some());
+                            check!(editor.menus.block_menu.is_some());
                             editor.update_block_hover(geometry.bounds.bottom_right()-point(px(8.),px(8.)),cx);
-                            check!(editor.block_menu.is_none());
+                            check!(editor.menus.block_menu.is_none());
                             check_eq!(editor.document.head,0);
                             let offset = editor.document.source.text().find("literal").ok_or("missing hover code")?;
                             let position = geometry.position(geometry.display.position_at(offset))+point(px(4.),px(8.));
@@ -1124,17 +1141,17 @@ impl Editor {
                             editor.update_block_hover(header,cx);
                         }
                         71 => {
-                            check_eq!(editor.active_block().ok_or("missing hovered code")?.label,"</>");
+                            check_eq!(ryne_extensions::BlockMetadata::from(editor.active_block().ok_or("missing hovered code")?.kind).label,"</>");
                             check!(geometry.block_control.is_some());
                             editor.editor_hover(&false,window,cx);
-                            check!(editor.hovered_block.is_none());
-                            check!(editor.block_menu.is_none());
+                            check!(editor.menus.hovered_block.is_none());
+                            check!(editor.menus.block_menu.is_none());
                             check!(!editor.document.dirty());
                             editor.document = editor.document.fork("");
                             editor.refresh(cx);
                             for count in 1..=3 {
                                 editor.replace_text_in_range(None, "#", window, cx);
-                                check_eq!(editor.display.text, "#".repeat(count));
+                                check_eq!(editor.viewport.display.text, "#".repeat(count));
                                 check_eq!(editor.document.head, count);
                             }
                         }
@@ -1142,13 +1159,13 @@ impl Editor {
                             check_eq!(geometry.lines[0].shaped.text.as_str(), "###");
                             editor.replace_and_mark_text_in_range(None, "标题", Some(2..2), window, cx);
                             check_eq!(editor.document.source.text(), "###");
-                            check!(editor.display.text.starts_with("###"), "composition keeps the input prefix visible");
+                            check!(editor.viewport.display.text.starts_with("###"), "composition keeps the input prefix visible");
                         }
                         73 => {
                             editor.enter(&Enter, window, cx);
-                            check!(editor.document.composition.is_none());
+                            check!(editor.document.composition().is_none());
                             check_eq!(editor.document.source.text(), "### 标题");
-                            check_eq!(editor.display.text, "标题");
+                            check_eq!(editor.viewport.display.text, "标题");
                             check_eq!(editor.document.head, "### 标题".len());
                             check_eq!(editor.selected_text_range(false, window, cx).ok_or("missing heading selection")?.range, 6..6);
                         }
@@ -1158,10 +1175,10 @@ impl Editor {
                             check_eq!(geometry.lines[0].line_height, px(height));
                             editor.undo(&Undo, window, cx);
                             check_eq!(editor.document.source.text(), "###");
-                            check_eq!(editor.display.text, "###");
+                            check_eq!(editor.viewport.display.text, "###");
                             editor.redo(&Redo, window, cx);
                             check_eq!(editor.document.source.text(), "### 标题");
-                            check_eq!(editor.display.text, "标题");
+                            check_eq!(editor.viewport.display.text, "标题");
                             editor.document = editor.document.fork("");
                             editor.refresh(cx);
                             for _ in 0..2 { editor.replace_text_in_range(None, "*", window, cx); }
@@ -1172,13 +1189,13 @@ impl Editor {
                             editor.replace_and_mark_text_in_range(None, "中文", Some(2..2), window, cx);
                             check_eq!(editor.document.source.id(), snapshot);
                             check_eq!(editor.document.source.text(), "**");
-                            check_eq!(editor.display.text, "**中文");
+                            check_eq!(editor.viewport.display.text, "**中文");
                         }
                         76 => {
                             editor.enter(&Enter, window, cx);
                             check_eq!(editor.document.source.text(), "**中文**");
                             check_eq!(editor.document.head, "**中文".len());
-                            check_eq!(editor.display.text, "**中文**");
+                            check_eq!(editor.viewport.display.text, "**中文**");
                             check_eq!(editor.selected_text_range(false, window, cx).ok_or("missing inline selection")?.range, 4..4);
                         }
                         77 => {
@@ -1186,7 +1203,7 @@ impl Editor {
                             let snapshot = editor.document.source.id();
                             for _ in 0..2 { editor.replace_text_in_range(None, "*", window, cx); }
                             check_eq!(editor.document.source.id(), snapshot);
-                            check_eq!(editor.display.text, "中文");
+                            check_eq!(editor.viewport.display.text, "中文");
                             editor.undo(&Undo, window, cx);
                             check_eq!(editor.document.source.text(), "**");
                             editor.redo(&Redo, window, cx);
@@ -1196,15 +1213,15 @@ impl Editor {
                             for input in ["`", "`", "`", "rust"] { editor.replace_text_in_range(None, input, window, cx); }
                             check_eq!(editor.document.source.text(), "```rust\r\n\r\ntail");
                             check_eq!(editor.document.head, 7);
-                            check!(editor.display.text.starts_with("```rust\n"));
+                            check!(editor.viewport.display.text.starts_with("```rust\n"));
                         }
                         78 => {
                             check_eq!(geometry.lines[0].shaped.text.as_str(), "```rust");
                             editor.enter(&Enter, window, cx);
                             check_eq!(editor.document.source.text(), "```rust\r\n\r\n```\r\n\r\ntail");
                             check_eq!(editor.document.head, 9);
-                            check_eq!(editor.display.code_blocks.len(), 1);
-                            check!(!editor.display.text.contains("```"));
+                            check_eq!(editor.viewport.display.code_blocks.len(), 1);
+                            check!(!editor.viewport.display.text.contains("```"));
                         }
                         79 => {
                             check_eq!(geometry.display.code_blocks.len(), 1);
@@ -1229,7 +1246,7 @@ impl Editor {
                             editor.update_block_hover(zone.center(), cx);
                         }
                         82 => {
-                            let control = geometry.append_control.ok_or("missing append icon after hover")?;
+                            let control = geometry.append_control.ok_or_else(|| format!("missing append icon after hover: hovered={}, focused={}, scroll={:?}, zone={:?}, epoch={}/{}", editor.menus.append_hovered, editor.focus.is_focused(window), editor.viewport.scroll, geometry.append_zone, editor.viewport.frame_epoch, geometry.frame_epoch))?;
                             check!(geometry.append_menu.is_none());
                             check_eq!(editor.document.head, 0);
                             check!(!editor.document.dirty());
@@ -1240,10 +1257,10 @@ impl Editor {
                             check!(menu.top() >= geometry.bounds.top());
                             check!(menu.bottom() <= geometry.bounds.bottom());
                             editor.update_block_hover(menu.center(), cx);
-                            check!(editor.append_menu.is_some());
+                            check!(editor.menus.append_menu.is_some());
                             check!(!editor.document.dirty());
                             editor.escape(&Escape, window, cx);
-                            check!(editor.append_menu.is_none());
+                            check!(editor.menus.append_menu.is_none());
                             let control = geometry.append_control.ok_or("missing append icon")?;
                             editor.update_block_hover(control.center(), cx);
                         }
@@ -1252,7 +1269,7 @@ impl Editor {
                             editor.append_block(geometry.snapshot, ryne_extensions::InsertBlock::Code, window, cx);
                             check_eq!(editor.document.source.text(), "```\n\n```");
                             check_eq!(editor.document.head, 4);
-                            check!(editor.append_menu.is_none());
+                            check!(editor.menus.append_menu.is_none());
                             editor.undo(&Undo, window, cx);
                             check_eq!(editor.document.source.text(), "");
                             check!(!editor.document.dirty());
@@ -1273,16 +1290,16 @@ impl Editor {
                             check!(geometry.append_zone.is_none());
                             check!(geometry.append_control.is_none());
                             editor.escape(&Escape, window, cx);
-                            editor.dragging = true;
+                            editor.viewport.dragging = true;
                             editor.refresh(cx);
                         }
                         88 => {
                             check!(geometry.append_zone.is_none());
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             editor.document = editor.document.fork(&"paragraph\n\n".repeat(80));
                             editor.refresh(cx);
-                            editor.scroll = px(100000.);
-                            editor.ensure_caret = false;
+                            editor.viewport.scroll = px(100000.);
+                            editor.viewport.ensure_caret = false;
                             cx.notify();
                         }
                         89 => {
@@ -1307,7 +1324,7 @@ impl Editor {
                         }
                         92 => {
                             editor.document = editor.document.fork("# 中英 Heading😀\r\n\r\n正文 **bold** and emoji😀\r\n\r\n## 二级\r\n\r\n- 第一项\r\n- 第二项\r\n\r\n```rust\r\nlet x = 1;\r\n\r\n```\r\n");
-                            editor.scroll = px(0.);
+                            editor.viewport.scroll = px(0.);
                             editor.move_to(editor.document.source.text().find("正文").ok_or("missing typography sample")?, false, cx);
                         }
                         93 => {
@@ -1347,8 +1364,8 @@ impl Editor {
                         96 => {
                             editor.document = editor.document.fork(&"paragraph 中😀 mixed words for wrapping and navigation. ".repeat(200));
                             editor.refresh(cx);
-                            editor.scroll = px(600.);
-                            editor.ensure_caret = false;
+                            editor.viewport.scroll = px(600.);
+                            editor.viewport.ensure_caret = false;
                         }
                         97 => {
                             let row = geometry.rows.iter().find(|row| px(geometry.page.top) + row.top + row.line_height > geometry.scroll).ok_or("missing scroll anchor")?;
@@ -1371,7 +1388,7 @@ impl Editor {
                         }
                         101 => {
                             editor.document = editor.document.fork("# Heading中文\n\nbody text $\\frac{a}{b}$ trailing\n\n```rust\nlet x = 1;\n\n```\n\n| header | second |\n| --- | --- |\n| cell | 中文 |\n\n");
-                            editor.scroll = px(0.);
+                            editor.viewport.scroll = px(0.);
                             editor.move_to(editor.document.source.text().find("body").ok_or("missing caret body")?, false, cx);
                         }
                         102 => {
@@ -1395,7 +1412,7 @@ impl Editor {
                             let offset = geometry.display.position_at(editor.caret());
                             let utf16 = editor.editable_text()[..editor.caret()].encode_utf16().count();
                             let platform = editor.bounds_for_range(utf16..utf16, geometry.bounds, window, cx).ok_or("missing IME caret bounds")?;
-                            check_eq!(platform, geometry.caret_bounds(offset, editor.caret_affinity));
+                            check_eq!(platform, geometry.caret_bounds(offset, editor.caret_state.caret_affinity));
                             check!(!editor.document.dirty());
                             editor.toggle_source(&ToggleSource, window, cx);
                         }
@@ -1403,40 +1420,40 @@ impl Editor {
                             for row in geometry.rows.iter() {
                                 check_eq!(geometry.caret_bounds(row.range.start, Affinity::Downstream).size.height, px(theme::CODE.0));
                             }
-                            editor.caret_visible = false;
+                            editor.caret_state.caret_visible = false;
                             editor.move_to(editor.document.head, false, cx);
-                            check!(editor.caret_visible);
+                            check!(editor.caret_state.caret_visible);
                             editor.replace_and_mark_text_in_range(None, "中文", Some(2..2), window, cx);
                             editor.sync_caret_blink(window, cx);
-                            check!(editor.caret_visible);
-                            check!(editor.caret_blink_task.is_none());
+                            check!(editor.caret_state.caret_visible);
+                            check!(editor.caret_state.caret_blink_task.is_none());
                             check!(!editor.document.dirty());
                         }
                         104 => {
-                            check!(editor.caret_visible);
-                            check!(editor.caret_blink_task.is_none());
+                            check!(editor.caret_state.caret_visible);
+                            check!(editor.caret_state.caret_blink_task.is_none());
                             editor.escape(&Escape, window, cx);
                             editor.select_all(&SelectAll, window, cx);
                             editor.sync_caret_blink(window, cx);
-                            check!(editor.caret_blink_task.is_none());
+                            check!(editor.caret_state.caret_blink_task.is_none());
                             check!(!editor.document.dirty());
                             editor.move_to(0, false, cx);
-                            editor.dragging = true;
+                            editor.viewport.dragging = true;
                             editor.sync_caret_blink(window, cx);
-                            check!(editor.caret_visible);
-                            check!(editor.caret_blink_task.is_none());
+                            check!(editor.caret_state.caret_visible);
+                            check!(editor.caret_state.caret_blink_task.is_none());
                         }
                         105 => {
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             let other = cx.focus_handle();
                             window.focus(&other);
                             editor.sync_caret_blink(window, cx);
-                            check!(editor.caret_blink_task.is_none());
+                            check!(editor.caret_state.caret_blink_task.is_none());
                             window.focus(&editor.focus);
                             editor.reset_caret_blink();
                             editor.sync_caret_blink(window, cx);
-                            check!(editor.caret_visible);
-                            check_eq!(editor.caret_blink_task.is_some(), window.is_window_active());
+                            check!(editor.caret_state.caret_visible);
+                            check_eq!(editor.caret_state.caret_blink_task.is_some(), window.is_window_active());
                             check!(!editor.document.dirty());
                             editor.document = editor.document.fork(&"wrapped caret text 中文 ".repeat(80));
                             editor.refresh(cx);
@@ -1473,13 +1490,13 @@ impl Editor {
                         }
                         108..=117 => {
                             let offset = geometry.display.position_at(editor.caret());
-                            let row = geometry.row_for(offset, editor.caret_affinity).ok_or("missing caret row")?;
+                            let row = geometry.row_for(offset, editor.caret_state.caret_affinity).ok_or("missing caret row")?;
                             let line = &geometry.lines[row.line];
                             // A caret in plain/styled text keeps the original full shaped line.
                             check!(line.mixed.is_none());
                             check_eq!(line.x_for_index(offset - line.start), line.shaped.unwrapped_layout.x_for_index(offset - line.start));
-                            let cursor = geometry.caret_bounds(offset, editor.caret_affinity);
-                            check_eq!(geometry.display.source_at(offset, editor.caret_affinity), editor.caret());
+                            let cursor = geometry.caret_bounds(offset, editor.caret_state.caret_affinity);
+                            check_eq!(geometry.display.source_at(offset, editor.caret_state.caret_affinity), editor.caret());
                             check_eq!(geometry.hit_caret(cursor.center()).0, offset);
                             let utf16 = editor.editable_text()[..editor.caret()].encode_utf16().count();
                             check_eq!(editor.bounds_for_range(utf16..utf16, geometry.bounds, window, cx).ok_or("missing caret IME bounds")?, cursor);
@@ -1524,9 +1541,9 @@ impl Editor {
                             let dirty = editor.document.dirty();
                             let undo = editor.document.history_len(false);
                             let redo = editor.document.history_len(true);
-                            let composition = editor.document.composition.as_ref().ok_or("missing multilingual composition")?;
+                            let composition = editor.document.composition().ok_or("missing multilingual composition")?;
                             let composition = (composition.range.clone(), composition.text.clone(), composition.selection.clone());
-                            let display = editor.display.clone();
+                            let display = editor.viewport.display.clone();
                             let language = Language::ALL[(stage - 1 - 119) as usize];
                             let menus = cx.get_menus().ok_or("missing native app menus")?;
                             let language_menu = menus[0].items.iter().find_map(|item| match item {
@@ -1547,8 +1564,8 @@ impl Editor {
                             check_eq!(editor.document.dirty(), dirty);
                             check_eq!(editor.document.history_len(false), undo);
                             check_eq!(editor.document.history_len(true), redo);
-                            check_eq!(editor.display, display);
-                            let current = editor.document.composition.as_ref().ok_or("composition lost during language change")?;
+                            check_eq!(editor.viewport.display, display);
+                            let current = editor.document.composition().ok_or("composition lost during language change")?;
                             check_eq!((current.range.clone(), current.text.clone(), current.selection.clone()), composition);
                             let path = std::env::temp_dir().join(format!("ryne-language-smoke-{}", std::process::id()));
                             check_eq!(Preference::read(&path), Preference(Some(language)));
@@ -1568,7 +1585,7 @@ impl Editor {
                             editor.move_to(2, false, cx);
                         }
                         127..=132 => {
-                            let level = stage - 127;
+                            let level = (stage - 127) as u8;
                             let control = geometry.block_control.ok_or("missing wrapped heading control")?;
                             let first = geometry.rows.first().ok_or("missing first heading row")?;
                             check!(geometry.rows.iter().filter(|row| row.line == first.line).count() > 1);
@@ -1582,7 +1599,7 @@ impl Editor {
                         }
                         133 => {
                             editor.document = editor.document.fork("> | A | B |\r\n> | --- | ---: |\r\n> | 中😀 | value |\r\n> | next | x |\r\n\r\noutside\r\n");
-                            editor.hovered_render = None;
+                            editor.menus.hovered_render = None;
                             let end = editor.document.source.text().len()-2;
                             editor.move_to(end,false,cx);
                             window.focus(&editor.focus);
@@ -1605,11 +1622,11 @@ impl Editor {
                             check!(line.width <= region.bounds.size.width-px(48.));
                             let selection=editor.document.selection();
                             editor.open_render_menu(geometry.render_key(window.viewport_size()),region.key(),window,cx);
-                            check!(editor.render_menu.is_some());check_eq!(editor.document.selection(),selection);check_eq!(editor.document.history_len(false),0);
+                            check!(editor.menus.render_menu.is_some());check_eq!(editor.document.selection(),selection);check_eq!(editor.document.history_len(false),0);
                         }
                         136 => {
                             check_eq!(geometry.render_menu_bounds.len(),1);
-                            let menu=editor.render_menu.as_ref().ok_or("missing cell popup")?;
+                            let menu=editor.menus.render_menu.as_ref().ok_or("missing cell popup")?;
                             check_eq!(menu.rows.len(),11);
                             check!(matches!(menu.rows.first(),Some(RenderMenuRow::Submenu {children,..}) if children.len()==3));
                             editor.right(&Right,window,cx);
@@ -1626,26 +1643,26 @@ impl Editor {
                             check_eq!(editor.document.selection(),selection.start.saturating_add_signed(delta)..selection.end.saturating_add_signed(delta));
                         }
                         138 => {
-                            check!(editor.render_menu.is_none());
+                            check!(editor.menus.render_menu.is_none());
                             editor.undo(&Undo,window,cx);
                             check!(!editor.document.dirty());
-                            editor.hovered_render=None;
+                            editor.menus.hovered_render=None;
                             let at=editor.document.source.text().find("中😀").ok_or("missing cell text")?;
                             editor.move_to(at,false,cx);
                         }
                         139 => {
                             check_eq!(geometry.render_buttons.len(),1);
-                            check!(editor.hovered_render.is_none());
+                            check!(editor.menus.hovered_render.is_none());
                             editor.render_shortcut(&KeyDownEvent {keystroke:Keystroke {key:"down".into(),modifiers:Modifiers {control:true,platform:cfg!(target_os="macos"),..Default::default()},..Default::default()},is_held:false},window,cx);
                             check_eq!(editor.document.history_len(false),1);
                         }
                         140 => {
-                            check_eq!(editor.display.tables[0].source.rows.len(),4);
+                            check_eq!(editor.viewport.display.tables[0].source.rows.len(),4);
                             let old=geometry.render_key(window.viewport_size());
                             let region=geometry.render_regions[0].key();
                             editor.undo(&Undo,window,cx);
                             editor.open_render_menu(old,region,window,cx);
-                            check!(editor.render_menu.is_none());check!(!editor.document.dirty());
+                            check!(editor.menus.render_menu.is_none());check!(!editor.document.dirty());
                         }
                         141 => {
                             check_eq!(geometry.render_buttons.len(),1);
@@ -1653,13 +1670,13 @@ impl Editor {
                             editor.open_render_menu(geometry.render_key(window.viewport_size()),region.key(),window,cx);
                         }
                         142 => {
-                            let menu=editor.render_menu.as_mut().ok_or("missing focused popup")?;
+                            let menu=editor.menus.render_menu.as_mut().ok_or("missing focused popup")?;
                             menu.selected=menu.rows.iter().position(|r|matches!(r,RenderMenuRow::Action(i) if i.request.command=="table.delete-column")).ok_or("missing column action")?;
                             editor.enter(&Enter,window,cx);
                             check_eq!(editor.document.history_len(false),1);
                         }
                         143 => {
-                            check_eq!(editor.display.tables[0].source.align.len(),1);
+                            check_eq!(editor.viewport.display.tables[0].source.align.len(),1);
                             check!(editor.document.source.text().contains("> | value |"));
                             editor.undo(&Undo,window,cx);
                             check!(!editor.document.dirty());
@@ -1677,32 +1694,32 @@ impl Editor {
                             check!(!editor.document.dirty());
                         }
                         146 => {
-                            check!(editor.document.composition.is_some());
+                            check!(editor.document.composition().is_some());
                             check!(geometry.render_buttons.is_empty());check!(geometry.render_menu_bounds.is_empty());
                             check_eq!(geometry.render_regions.len(),6);
                             editor.escape(&Escape,window,cx);
                             check!(!editor.document.dirty());
                         }
                         147 => {
-                            editor.dragging=true;editor.refresh(cx);
+                            editor.viewport.dragging=true;editor.refresh(cx);
                         }
                         148 => {
                             check!(geometry.render_buttons.is_empty());check!(geometry.render_menu_bounds.is_empty());
-                            editor.dragging=false;editor.refresh(cx);
+                            editor.viewport.dragging=false;editor.refresh(cx);
                         }
                         149 => {
                             window.resize(size(px(640.), px(680.)));
                             editor.document=editor.document.fork("9. parent\r\n   - child\r\n10. second\r\n    - other\r\n\r\noutside\r\n");
-                            editor.hovered_render=None;
+                            editor.menus.hovered_render=None;
                             let end=editor.document.source.text().len()-2;editor.move_to(end,false,cx);
                         }
                         150 => {
                             check_eq!(geometry.render_regions.len(),4);check!(geometry.render_buttons.is_empty());
-                            let source=editor.document.source.id();let selection=editor.document.selection();let display=editor.display.clone();
+                            let source=editor.document.source.id();let selection=editor.document.selection();let display=editor.viewport.display.clone();
                             let at=editor.document.source.text().find("second").ok_or("missing list item")?;
                             let region=geometry.render_regions.iter().find(|r|r.controls[0].focus.start==at).ok_or("missing ordered item region")?;
                             editor.mouse_move(&MouseMoveEvent{position:region.trigger.center(),..Default::default()},window,cx);
-                            check_eq!(editor.document.source.id(),source);check_eq!(editor.document.selection(),selection);check_eq!(editor.display,display);check!(!editor.document.dirty());
+                            check_eq!(editor.document.source.id(),source);check_eq!(editor.document.selection(),selection);check_eq!(editor.viewport.display,display);check!(!editor.document.dirty());
                         }
                         151 => {
                             check_eq!(geometry.render_buttons.len(),1);
@@ -1719,41 +1736,41 @@ impl Editor {
                             let first=geometry.render_regions.iter().find(|r|r.controls[0].focus.start==3).ok_or("missing first list item")?;
                             check_eq!(control.center().y,first.trigger.center().y);
                             check!(control.right()+px(4.)<=first.trigger.left());
-                            let source=editor.document.source.id();let selection=editor.document.selection();let display=editor.display.clone();
+                            let source=editor.document.source.id();let selection=editor.document.selection();let display=editor.viewport.display.clone();
                             editor.update_block_hover(control.center(),cx);
-                            check_eq!(editor.block_menu.as_ref().map(|(_,b)|b),Some(target));
-                            check_eq!(editor.document.source.id(),source);check_eq!(editor.document.selection(),selection);check_eq!(editor.display,display);check!(!editor.document.dirty());
+                            check_eq!(editor.menus.block_menu.as_ref().map(|(_,b)|b),Some(target));
+                            check_eq!(editor.document.source.id(),source);check_eq!(editor.document.selection(),selection);check_eq!(editor.viewport.display,display);check!(!editor.document.dirty());
                             let selection=editor.document.selection();editor.open_render_menu(geometry.render_key(window.viewport_size()),region.key(),window,cx);
                             check_eq!(editor.document.selection(),selection);check_eq!(editor.document.history_len(false),0);
                         }
                         152 => {
                             check_eq!(geometry.render_menu_bounds.len(),1);
-                            let menu=editor.render_menu.as_mut().ok_or("missing list menu")?;check_eq!(menu.rows.len(),7);
+                            let menu=editor.menus.render_menu.as_mut().ok_or("missing list menu")?;check_eq!(menu.rows.len(),7);
                             menu.selected=menu.rows.iter().position(|r|matches!(r,RenderMenuRow::Action(i) if i.request.command=="list.move-up")).ok_or("missing move action")?;
                             editor.enter(&Enter,window,cx);
                         }
                         153 => {
                             check_eq!(editor.document.source.text(),"9. second\r\n   - other\r\n10. parent\r\n    - child\r\n\r\noutside\r\n");check_eq!(editor.document.history_len(false),1);
                             editor.undo(&Undo,window,cx);check!(!editor.document.dirty());
-                            editor.hovered_render=None;let at=editor.document.source.text().find("child").ok_or("missing nested item")?;editor.move_to(at,false,cx);
+                            editor.menus.hovered_render=None;let at=editor.document.source.text().find("child").ok_or("missing nested item")?;editor.move_to(at,false,cx);
                         }
                         154 => {
                             check_eq!(geometry.render_buttons.len(),1);
                             let target=geometry.block_target.as_ref().ok_or("missing nested whole-list target")?;
                             check!(target.is_list());check_eq!(target.range.start,0);
-                            check_eq!(target.icon,Some("text_number_list_ltr"));
+                            check_eq!(ryne_extensions::BlockMetadata::from(target.kind).icon,Some("text_number_list_ltr"));
                             let control=geometry.block_control.ok_or("missing nested whole-list control")?;
                             let first=geometry.render_regions.iter().find(|r|r.controls[0].focus.start==3).ok_or("missing outer first item")?;
                             check_eq!(control.center().y,first.trigger.center().y);
                             check!(control.left()>=geometry.bounds.left());
                             check!(control.right()+px(4.)<=first.trigger.left());
                             editor.render_shortcut(&KeyDownEvent{keystroke:Keystroke{key:"enter".into(),modifiers:Modifiers{alt:true,..Default::default()},..Default::default()},is_held:false},window,cx);
-                            let menu=editor.render_menu.as_ref().ok_or("missing nested list menu")?;
+                            let menu=editor.menus.render_menu.as_ref().ok_or("missing nested list menu")?;
                             let marker=editor.document.source.text().find("- child").ok_or("missing child marker")?;
                             check!(menu.rows.iter().all(|r|matches!(r,RenderMenuRow::Action(i) if i.request.target.part==[marker])));
                         }
                         155 => {
-                            let menu=editor.render_menu.as_mut().ok_or("missing nested menu")?;
+                            let menu=editor.menus.render_menu.as_mut().ok_or("missing nested menu")?;
                             menu.selected=menu.rows.iter().position(|r|matches!(r,RenderMenuRow::Action(i) if i.request.command=="list.outdent")).ok_or("missing outdent action")?;
                             editor.enter(&Enter,window,cx);
                             check!(editor.document.source.text().contains("\r\n- child\r\n"));check_eq!(editor.document.history_len(false),1);
@@ -1767,25 +1784,25 @@ impl Editor {
                             editor.escape(&Escape,window,cx);check!(!editor.document.dirty());editor.toggle_source(&ToggleSource,window,cx);
                         }
                         158 => {
-                            check!(geometry.render_regions.is_empty());editor.toggle_source(&ToggleSource,window,cx);editor.dragging=true;editor.refresh(cx);
+                            check!(geometry.render_regions.is_empty());editor.toggle_source(&ToggleSource,window,cx);editor.viewport.dragging=true;editor.refresh(cx);
                         }
                         159 => {
-                            check!(geometry.render_buttons.is_empty());editor.dragging=false;
+                            check!(geometry.render_buttons.is_empty());editor.viewport.dragging=false;
                             editor.document=editor.document.fork("- ```rust\n  let x = 1;\n  ```\n- second\n\noutside\n");
-                            editor.hovered_render=None;let end=editor.document.source.text().len()-1;editor.move_to(end,false,cx);
+                            editor.menus.hovered_render=None;let end=editor.document.source.text().len()-1;editor.move_to(end,false,cx);
                         }
                         160 => {
-                            check_eq!(geometry.render_regions.len(),2);
+                            check_eq!(geometry.render_regions.iter().filter(|r| r.controls[0].provider == "list").count(),2);
                             let at=editor.document.source.text().find("```rust").ok_or("missing list code fence")?;
                             let region=geometry.render_regions.iter().find(|r|r.controls[0].focus.start==at).ok_or("missing panel-first item region")?;
                             editor.mouse_move(&MouseMoveEvent{position:region.trigger.center(),..Default::default()},window,cx);
                         }
                         161 => {
-                            check_eq!(geometry.render_buttons.len(),1);
+                            check_eq!(geometry.render_buttons.len(),2);
                             let region=geometry.render_regions.iter().find(|r|r.controls[0].focus.start==2).ok_or("missing code list trigger")?;
-                            editor.open_render_menu(geometry.render_key(window.viewport_size()),region.key(),window,cx);check!(editor.render_menu.is_some());check!(!editor.document.dirty());
+                            editor.open_render_menu(geometry.render_key(window.viewport_size()),region.key(),window,cx);check!(editor.menus.render_menu.is_some());check!(!editor.document.dirty());
                             editor.escape(&Escape,window,cx);
-                            editor.document=editor.document.fork("- first\n  - child\n- second\n\noutside\n");editor.hovered_render=None;editor.move_to(2,false,cx);
+                            editor.document=editor.document.fork("- first\n  - child\n- second\n\noutside\n");editor.menus.hovered_render=None;editor.move_to(2,false,cx);
                         }
                         162 => {
                             check_eq!(geometry.render_buttons.len(),1);
@@ -1795,7 +1812,7 @@ impl Editor {
                             let source=editor.document.source.id();let selection=editor.document.selection();
                             let control=geometry.block_control.ok_or("missing unordered list icon")?;
                             editor.update_block_hover(control.center(),cx);
-                            check_eq!(editor.block_menu.as_ref().map(|(_,b)|b),Some(&target));
+                            check_eq!(editor.menus.block_menu.as_ref().map(|(_,b)|b),Some(&target));
                             check_eq!(editor.document.source.id(),source);check_eq!(editor.document.selection(),selection);check!(!editor.document.dirty());
                             let region=geometry.render_regions.iter().find(|r|r.controls[0].focus.start==2).ok_or("missing unordered item")?;
                             editor.open_render_menu(geometry.render_key(window.viewport_size()),region.key(),window,cx);
@@ -1820,8 +1837,8 @@ impl Editor {
                             match phase {
                                 0 => {
                                     editor.select_language(Preference(Some(language)), cx);
-                                    check!(editor.block_menu.is_none());
-                                    check!(editor.render_menu.is_none());
+                                    check!(editor.menus.block_menu.is_none());
+                                    check!(editor.menus.render_menu.is_none());
                                     // Validate the labels emitted by the real feature providers,
                                     // including disabled actions and the alignment submenu.
                                     let controls = editor.document.render_controls()?;
@@ -1836,7 +1853,7 @@ impl Editor {
                                         }
                                     }
                                     let block = block::at(&editor.document.parse, 2).ok_or("missing localized heading")?;
-                                    editor.hovered_block = Some((source.id(), block.clone()));
+                                    editor.menus.hovered_block = Some((source.id(), block.clone()));
                                     editor.open_block_menu(source.id(), block, cx);
                                 }
                                 1 => {
@@ -1846,11 +1863,15 @@ impl Editor {
                                     }
                                     let region = geometry.render_regions.iter().find(|r| r.controls[0].provider == "table").ok_or("missing localized table controls")?;
                                     editor.open_render_menu(geometry.render_key(window.viewport_size()), region.key(), window, cx);
+                                    check!(editor.menus.render_menu.is_some());
                                     editor.right(&Right, window, cx);
+                                    check!(editor.menus.render_menu.as_ref().is_some_and(|m| m.submenu.is_some()));
                                 }
                                 2 => {
-                                    check_eq!(geometry.render_menu_bounds.len(), 2);
-                                    let menu = editor.render_menu.as_ref().ok_or("missing translated table menu")?;
+                                    if geometry.render_menu_bounds.len() != 2 {
+                                        return Err(format!("translated submenu missing: language={language:?}, bounds={}, menu={:?}, frame={:?}, triggers={:?}", geometry.render_menu_bounds.len(), editor.menus.render_menu.as_ref().map(|m| (&m.key, &m.region, m.selected, m.submenu)), geometry.render_key(window.viewport_size()), geometry.render_buttons));
+                                    }
+                                    let menu = editor.menus.render_menu.as_ref().ok_or("missing translated table menu")?;
                                     for row in &menu.rows {
                                         match row {
                                             RenderMenuRow::Action(item) => check!(render_action_width(&item.action, language, window) <= geometry.render_menu_bounds[0].size.width),
@@ -1866,7 +1887,7 @@ impl Editor {
                                 }
                                 _ => {
                                     check_eq!(geometry.render_menu_bounds.len(), 1);
-                                    let menu = editor.render_menu.as_ref().ok_or("missing translated list menu")?;
+                                    let menu = editor.menus.render_menu.as_ref().ok_or("missing translated list menu")?;
                                     for row in &menu.rows {
                                         if let RenderMenuRow::Action(item) = row {
                                             let required = render_action_width(&item.action, language, window);
@@ -1905,8 +1926,8 @@ impl Editor {
                             check!(!editor.document.dirty());
                             check_eq!(editor.document.history_len(false), 0);
                             check_eq!(editor.document.history_len(true), 0);
-                            check!(editor.geometry.is_none(), "guide change must invalidate native geometry");
-                            check_eq!(editor.scroll, px(0.));
+                            check!(editor.viewport.geometry.is_none(), "guide change must invalidate native geometry");
+                            check_eq!(editor.viewport.scroll, px(0.));
                         }
                         201 => {
                             check_eq!(editor.document.source.text(), Language::Es.sample());
@@ -1957,17 +1978,17 @@ impl Editor {
                             check!(menus[1].items.iter().any(|item| matches!(item,
                                 OwnedMenuItem::Action { name, action, .. }
                                     if name.as_str() == editor.locale.language.text(Text::ExportPdf)
-                                        && action.as_any().is::<ExportPdf>())));
+                                        && action.as_any().downcast_ref::<menus::ExportRegistered>().is_some_and(|a| a.id == "pdf"))));
                             check!(menus[1].items.iter().any(|item| matches!(item,
                                 OwnedMenuItem::Action { name, action, .. }
                                     if name.as_str() == editor.locale.language.text(Text::ExportPdfV2)
-                                        && action.as_any().is::<ExportPdfV2>())));
+                                        && action.as_any().downcast_ref::<menus::ExportRegistered>().is_some_and(|a| a.id == "pdf-v2"))));
                             editor.escape(&Escape, window, cx);
                             editor.install_document(editor.document.fork("clean document"), Text::Opened, window, cx);
                             editor.new_document(&New, window, cx);
                         }
                         205 => {
-                            check!(!editor.file_operation_pending);
+                            check!(!editor.operations.file_operation_pending);
                             check_eq!(editor.document.source.text(), "");
                             check!(!editor.document.dirty());
                             check!(editor.document.files.path.is_none());
@@ -1977,7 +1998,7 @@ impl Editor {
                             editor.open_recent(&OpenRecent { path }, window, cx);
                         }
                         206 => {
-                            check!(!editor.file_operation_pending);
+                            check!(!editor.operations.file_operation_pending);
                             check_eq!(editor.document.source.text(), "# 原始\r\n\r\n```text\r\n**literal**\r\n```\r\n");
                             let path = editor.document.files.path.clone().ok_or("missing opened recent path")?;
                             check_eq!(editor.recent.paths.first(), Some(&std::fs::canonicalize(&path).map_err(|e| e.to_string())?));
@@ -1985,7 +2006,7 @@ impl Editor {
                             editor.reload(&Reload, window, cx);
                         }
                         207 => {
-                            check!(!editor.file_operation_pending);
+                            check!(!editor.operations.file_operation_pending);
                             check_eq!(editor.document.source.text(), "# Reloaded 中文\r\n\r\n- item\r\n");
                             check!(!editor.document.dirty());
                             check_eq!(editor.document.history_len(false), 0);
@@ -1994,14 +2015,14 @@ impl Editor {
                             editor.replace_text_in_range(None, "new edit", window, cx);
                         }
                         208 => {
-                            check!(!editor.file_operation_pending);
+                            check!(!editor.operations.file_operation_pending);
                             check!(editor.document.source.text().contains("new edit"));
                             check!(editor.document.dirty());
                             let current = editor.document.source.id();
                             check!(editor.can_replace(current));
-                            editor.document.composition = Some(Composition { range: 0..0, text: "预编辑".into(), selection: 0..0 });
+                            editor.document.update_composition(Some(0..0), "预编辑", Some(0..0))?;
                             check!(!editor.can_replace(current));
-                            editor.document.composition = None;
+                            editor.document.cancel_composition();
                             editor.document.files.saving = true;
                             check!(!editor.can_replace(current));
                             editor.document.files.saving = false;
@@ -2016,8 +2037,8 @@ impl Editor {
                             editor.move_to(editor.document.source.text().find("outside").ok_or("missing task outside")?, false, cx);
                         }
                         210 => {
-                            check!(!editor.display.text.contains("[ ]"));
-                            check!(!editor.display.text.contains("[X]"));
+                            check!(!editor.viewport.display.text.contains("[ ]"));
+                            check!(!editor.viewport.display.text.contains("[X]"));
                             let tasks = geometry.render_regions.iter().filter(|r| matches!(r.controls[0].placement, ryne_extensions::RenderControlPlacement::Marker { .. })).collect::<Vec<_>>();
                             check_eq!(tasks.len(), 3);
                             for task in &tasks {
@@ -2047,7 +2068,7 @@ impl Editor {
                             editor.undo(&Undo, window, cx);
                             editor.undo(&Undo, window, cx);
                             check!(!editor.document.dirty());
-                            editor.document.composition = Some(Composition { range: 6..6, text: "预编辑".into(), selection: 0..0 });
+                            editor.document.update_composition(Some(6..6), "预编辑", Some(0..0))?;
                             editor.refresh(cx);
                         }
                         212 => {
@@ -2060,15 +2081,15 @@ impl Editor {
                         }
                         213 => {
                             check!(geometry.render_regions.is_empty());
-                            check!(editor.display.text.contains("[ ]"));
-                            check!(editor.display.text.contains("[X]"));
+                            check!(editor.viewport.display.text.contains("[ ]"));
+                            check!(editor.viewport.display.text.contains("[X]"));
                             editor.toggle_source(&ToggleSource, window, cx);
-                            editor.dragging = true;
+                            editor.viewport.dragging = true;
                             editor.refresh(cx);
                         }
                         214 => {
                             check!(geometry.render_buttons.is_empty());
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             editor.refresh(cx);
                             println!("Task checkboxes passed: embedded checked/unchecked SVGs, nested real-window marker geometry, toggle with preserved selection and atomic undo, stale frame and source/IME/drag protection");
                         }
@@ -2081,13 +2102,13 @@ impl Editor {
                             editor.update_block_hover(control.center(), cx);
                         }
                         217 => {
-                            let (snapshot, block) = editor.block_menu.clone().ok_or("missing first block menu")?;
+                            let (snapshot, block) = editor.menus.block_menu.clone().ok_or("missing first block menu")?;
                             check!(!block::can_insert_above(&editor.document.parse, &block));
                             let source = editor.document.source.clone();
                             editor.block_action(snapshot, &block, BlockAction::AddAbove, cx);
-                            check!(editor.block_insert.is_none());
+                            check!(editor.menus.block_insert.is_none());
                             editor.block_action(snapshot, &block, BlockAction::AddBelow, cx);
-                            check_eq!(editor.block_insert, Some(false));
+                            check_eq!(editor.menus.block_insert, Some(false));
                             check_eq!(editor.document.source.id(), source.id());
                             check!(!editor.document.dirty());
                         }
@@ -2100,19 +2121,19 @@ impl Editor {
                             let overlap = point(picker.center().x, zone.center().y);
                             check!(picker.contains(&overlap));
                             editor.update_block_hover(overlap, cx);
-                            check!(editor.block_menu.is_some());
-                            check!(!editor.append_hovered);
+                            check!(editor.menus.block_menu.is_some());
+                            check!(!editor.menus.append_hovered);
                             editor.update_block_hover(picker.center(), cx);
-                            check!(editor.block_menu.is_some());
-                            check_eq!(editor.block_insert, Some(false));
+                            check!(editor.menus.block_menu.is_some());
+                            check_eq!(editor.menus.block_insert, Some(false));
                             editor.escape(&Escape, window, cx);
-                            check!(editor.block_menu.is_some());
-                            check!(editor.block_insert.is_none());
-                            let (snapshot, block) = editor.block_menu.clone().ok_or("missing retained insertion target")?;
+                            check!(editor.menus.block_menu.is_some());
+                            check!(editor.menus.block_insert.is_none());
+                            let (snapshot, block) = editor.menus.block_menu.clone().ok_or("missing retained insertion target")?;
                             editor.block_action(snapshot, &block, BlockAction::AddBelow, cx);
                             editor.insert_adjacent_block(snapshot, &block, false, ryne_extensions::InsertBlock::Code, window, cx);
                             check_eq!(editor.document.history_len(false), 1);
-                            check!(editor.block_menu.is_none());
+                            check!(editor.menus.block_menu.is_none());
                             check!(editor.document.source.text().contains("```\r\n\r\n```"));
                         }
                         219 => {
@@ -2128,20 +2149,20 @@ impl Editor {
                             editor.update_block_hover(control.center(), cx);
                         }
                         221 => {
-                            let (snapshot, block) = editor.block_menu.clone().ok_or("missing second block menu")?;
+                            let (snapshot, block) = editor.menus.block_menu.clone().ok_or("missing second block menu")?;
                             check!(block::can_insert_above(&editor.document.parse, &block));
                             editor.block_action(snapshot, &block, BlockAction::AddAbove, cx);
-                            check_eq!(editor.block_insert, Some(true));
+                            check_eq!(editor.menus.block_insert, Some(true));
                         }
                         222 => {
                             check!(geometry.block_menu.is_some());
-                            let (snapshot, block) = editor.block_menu.clone().ok_or("missing above insertion target")?;
+                            let (snapshot, block) = editor.menus.block_menu.clone().ok_or("missing above insertion target")?;
                             let selection = editor.document.selection();
-                            editor.document.composition = Some(Composition { range: selection.clone(), text: "临".into(), selection: 0..0 });
+                            editor.document.update_composition(Some(selection.clone()), "临", Some(0..0))?;
                             editor.insert_adjacent_block(snapshot, &block, true, ryne_extensions::InsertBlock::Table, window, cx);
                             check!(!editor.document.dirty());
-                            editor.document.composition = None;
-                            editor.hovered_block = Some((snapshot, block.clone()));
+                            editor.document.cancel_composition();
+                            editor.menus.hovered_block = Some((snapshot, block.clone()));
                             editor.open_block_menu(snapshot, block.clone(), cx);
                             editor.block_action(snapshot, &block, BlockAction::AddAbove, cx);
                             editor.insert_adjacent_block(snapshot, &block, true, ryne_extensions::InsertBlock::Table, window, cx);
@@ -2163,8 +2184,8 @@ impl Editor {
                             editor.move_to(5, false, cx);
                         }
                         225 => {
-                            check_eq!(editor.display.formulas.len(), 3);
-                            let before = editor.display.formulas.clone();
+                            check_eq!(editor.viewport.display.formulas.len(), 3);
+                            let before = editor.viewport.display.formulas.clone();
                             let source = editor.document.source.clone();
                             let selection = editor.document.selection();
                             let menus = cx.get_menus().ok_or("missing native menus")?;
@@ -2184,38 +2205,38 @@ impl Editor {
                             check_eq!(editor.document.selection(), selection);
                             check_eq!(editor.document.history_len(false), 0);
                             check!(!editor.document.dirty());
-                            for (old, new) in before.iter().zip(&editor.display.formulas) {
+                            for (old, new) in before.iter().zip(&editor.viewport.display.formulas) {
                                 check!(old.formula.svg != new.formula.svg);
                                 check!(new.formula.path.starts_with("math:stix-two-math:"));
                             }
                         }
                         226 => {
-                            check_eq!(geometry.display.formulas, editor.display.formulas);
+                            check_eq!(geometry.display.formulas, editor.viewport.display.formulas);
                             editor.replace_and_mark_text_in_range(None, "にほん", Some(3..3), window, cx);
-                            let composition = editor.document.composition.as_ref().ok_or("missing preedit")?;
+                            let composition = editor.document.composition().ok_or("missing preedit")?;
                             let composition = (composition.range.clone(), composition.text.clone(), composition.selection.clone());
-                            let display = editor.display.clone();
+                            let display = editor.viewport.display.clone();
                             let source = editor.document.source.id();
                             editor.change_math_font(&SelectMathFont { font: MathFont::LeteSans }, window, cx);
                             check_eq!(editor.formulas.font(), MathFont::StixTwo);
-                            check_eq!(editor.display, display);
+                            check_eq!(editor.viewport.display, display);
                             check_eq!(editor.document.source.id(), source);
-                            let current = editor.document.composition.as_ref().ok_or("lost preedit")?;
+                            let current = editor.document.composition().ok_or("lost preedit")?;
                             check_eq!(current.range, composition.0);
                             check_eq!(current.text, composition.1);
                             check_eq!(current.selection, composition.2);
-                            editor.document.composition = None;
+                            editor.document.cancel_composition();
                             editor.refresh(cx);
                             check_eq!(editor.formulas.font(), MathFont::LeteSans);
                         }
                         227 => {
                             check!(geometry.display.formulas.iter().all(|f| f.formula.path.starts_with("math:lete-sans-math:")));
-                            editor.dragging = true;
-                            let display = editor.display.clone();
+                            editor.viewport.dragging = true;
+                            let display = editor.viewport.display.clone();
                             editor.change_math_font(&SelectMathFont { font: MathFont::StixTwo }, window, cx);
                             check_eq!(editor.formulas.font(), MathFont::LeteSans);
-                            check_eq!(editor.display, display);
-                            editor.dragging = false;
+                            check_eq!(editor.viewport.display, display);
+                            editor.viewport.dragging = false;
                             editor.refresh(cx);
                             check_eq!(editor.formulas.font(), MathFont::StixTwo);
                         }
@@ -2257,36 +2278,40 @@ impl Editor {
                             editor.redo(&Redo, window, cx);
                             let source = editor.document.source.id();
                             let selection = editor.document.selection();
-                            editor.document.composition = Some(Composition { range: selection, text: "未".into(), selection: 0..3 });
+                            editor.document.update_composition(Some(selection), "未", Some(0..0))?;
                             editor.format_source(&FormatSource, window, cx);
-                            check!(editor.document.composition.is_some());
+                            check!(editor.document.composition().is_some());
                             check_eq!(editor.document.source.id(), source);
-                            editor.document.composition = None;
-                            editor.dragging = true;
+                            editor.document.cancel_composition();
+                            editor.viewport.dragging = true;
                             editor.format_source(&FormatSource, window, cx);
                             check_eq!(editor.document.source.id(), source);
-                            editor.dragging = false;
+                            editor.viewport.dragging = false;
                             editor.refresh(cx);
                             println!("Source formatting passed: toolbar action availability, explicit heading repair, marker/fence rules, CRLF and literal code, fresh geometry, atomic undo/redo, idempotence and IME/drag protection");
                         }
                         233 => {
                             editor.document = editor.document.fork("plain text 中文😀\n\n| A | B |\n| --- | --- |\n| $x^2$ | text |\n\n```rust\nlet x = 1;\n```\n");
-                            editor.scroll = px(0.);
+                            editor.viewport.scroll = px(0.);
                             editor.move_to(0, false, cx);
                             window.resize(size(px(960.), px(680.)));
                         }
                         234 => {
                             cached_layout = Some(geometry.text_layout.clone());
-                            editor.caret_visible = !editor.caret_visible;
+                            cached_projection = Some(editor.viewport.display.clone());
+                            cached_controls = Some(editor.viewport.render_controls.clone());
+                            editor.caret_state.caret_visible = !editor.caret_state.caret_visible;
                             cx.notify();
                         }
                         235 => {
                             check!(cached_layout.as_ref().is_some_and(|old| std::sync::Arc::ptr_eq(old, &geometry.text_layout)), "blink rebuilt text layout");
                             editor.move_to(1, false, cx);
-                            editor.hovered_render = editor.render_controls.first().map(|c| c.id.clone());
+                            editor.menus.hovered_render = editor.viewport.render_controls.first().map(|c| c.id.clone());
                             cx.notify();
                         }
                         236 => {
+                            check!(cached_projection.as_ref().is_some_and(|old| std::sync::Arc::ptr_eq(old, &editor.viewport.display)), "caret rebuilt projection");
+                            check!(cached_controls.as_ref().is_some_and(|old| std::sync::Arc::ptr_eq(old, &editor.viewport.render_controls)), "caret rebuilt controls");
                             check!(cached_layout.as_ref().is_some_and(|old| std::sync::Arc::ptr_eq(old, &geometry.text_layout)), "caret/hover rebuilt text layout");
                             window.resize(size(px(640.), px(680.)));
                         }
@@ -2299,8 +2324,9 @@ impl Editor {
                         238 => {
                             check!(cached_layout.as_ref().is_some_and(|old| !std::sync::Arc::ptr_eq(old, &geometry.text_layout)), "font change reused stale layout");
                             cached_layout = Some(geometry.text_layout.clone());
-                            let control = editor.render_controls.first_mut().ok_or("missing spacing control")?;
+                            let control = std::sync::Arc::make_mut(&mut editor.viewport.render_controls).first_mut().ok_or("missing spacing control")?;
                             control.trailing_space += 8.;
+                            editor.viewport.control_index = text_layout::ControlIndex::new(&editor.viewport.render_controls);
                             cx.notify();
                         }
                         239 => {
@@ -2334,7 +2360,261 @@ impl Editor {
                             window.resize(size(px(960.), px(680.)));
                             println!("Layout cache passed: blink/caret/hover reuse; resize/font/control-space/edit/IME/source-mode invalidation; unchanged document/history and shared source geometry");
                         }
+                        244 => {
+                            struct RejectIme;
+                            impl ryne_extensions::Validator for RejectIme {
+                                fn validate(&self, _: &ryne_extensions::EditingState, plan: &ryne_extensions::CommandPlan) -> Result<(), String> {
+                                    if matches!(plan, ryne_extensions::CommandPlan::Edit { .. }) { Err("injected IME rejection".into()) } else { Ok(()) }
+                                }
+                            }
+                            editor.document = editor.document.fork("start");
+                            editor.document.add_validator(std::sync::Arc::new(RejectIme));
+                            editor.move_to(5, false, cx);
+                            editor.replace_and_mark_text_in_range(None, "中😀", Some(3..3), window, cx);
+                            editor.enter(&Enter, window, cx);
+                            check_eq!(editor.document.source.text(), "start");
+                            check_eq!(editor.document.composition().ok_or("rejected confirmation lost preedit")?.text, "中😀");
+                            check_eq!(editor.document.history_len(false), 0);
+                            check!(!editor.request_close(window, cx));
+                            check!(editor.document.composition().is_some());
+                        }
+                        245 => {
+                            check!(geometry.is_current(editor));
+                            check!(geometry.display.text.contains("中😀"));
+                            editor.document.cancel_composition();
+                            editor.document = editor.document.fork("e\u{301}😀");
+                            editor.move_to(editor.document.source.text().len(), false, cx);
+                            editor.backspace(&Backspace, window, cx);
+                            check_eq!(editor.document.source.text(), "e\u{301}");
+                            editor.backspace(&Backspace, window, cx);
+                            check_eq!(editor.document.source.text(), "");
+                            editor.undo(&Undo, window, cx);
+                            check_eq!(editor.document.source.text(), "e\u{301}");
+                            println!("Session boundary checks passed: rejected IME confirmation retains temporary text and geometry, close is blocked, generic deletion respects graphemes and undo");
+                        }
+                        246 => {
+                            let raw = format!("> 中😀 {}\r\n> continuation\r\n>\r\n> > nested\r\n>\r\n> ```text\r\n> > **literal**\r\n> ```\r\n\r\noutside", "wrapped quote text ".repeat(12));
+                            editor.document = editor.document.fork(&raw);
+                            editor.move_to(2, false, cx);
+                        }
+                        247 => {
+                            check_eq!(geometry.text_layout.quote_panels.len(), 1);
+                            check_eq!(geometry.display.quotes.len(), 2);
+                            check!(geometry.display.text.starts_with("中😀"));
+                            check!(geometry.display.text.contains("> **literal**"));
+                            let panel = &geometry.text_layout.quote_panels[0];
+                            let first = geometry.lines.first().ok_or("missing quote line")?;
+                            check_eq!(first.inset, px(32.));
+                            check!(!first.shaped.wrap_boundaries.is_empty());
+                            check!(panel.icon.right() < first.inset);
+                            let control = geometry.block_control.ok_or("missing quote type control")?;
+                            quote_control = Some(control);
+                            check_eq!(ryne_extensions::BlockMetadata::from(geometry.block_target.as_ref().ok_or("missing quote target")?.kind).icon, Some("quote_bubble"));
+                            check!(control.right() < geometry.bounds.left() + px(geometry.page.left) + panel.icon.left());
+                            check!(panel.bounds.size.height > first.shaped.size(first.line_height).height);
+                            let offset = geometry.display.text.find('😀').ok_or("missing quote emoji")?;
+                            let position = geometry.position(offset);
+                            let hit = geometry.hit_caret(position + point(px(1.), px(8.)));
+                            check_eq!(geometry.display.source_at(hit.0, hit.1), editor.document.source.text().find('😀').ok_or("missing source emoji")?);
+                            check!(!editor.document.dirty());
+                            check_eq!(editor.document.history_len(false), 0);
+                            editor.move_to(2, false, cx);
+                            editor.insert(2..2, "新", cx);
+                        }
+                        248 => {
+                            check!(geometry.display.text.starts_with("新中😀"));
+                            check_eq!(geometry.text_layout.quote_panels.len(), 1);
+                            check_eq!(editor.document.history_len(false), 1);
+                            editor.undo(&Undo, window, cx);
+                            check!(!editor.document.dirty());
+                            editor.toggle_source(&ToggleSource, window, cx);
+                        }
+                        249 => {
+                            check!(geometry.text_layout.quote_panels.is_empty());
+                            check!(geometry.display.text.starts_with("> 中😀"));
+                            check!(!editor.document.dirty());
+                            check_eq!(editor.document.history_len(false), 0);
+                            editor.toggle_source(&ToggleSource, window, cx);
+                            editor.toggle_block_source(&ToggleBlockSource, window, cx);
+                        }
+                        250 => {
+                            check!(geometry.text_layout.quote_panels.is_empty());
+                            check!(geometry.display.text.starts_with("> 中😀"));
+                            check!(!editor.document.dirty());
+                            editor.toggle_block_source(&ToggleBlockSource, window, cx);
+                        }
+                        251 => {
+                            check_eq!(geometry.text_layout.quote_panels.len(), 1);
+                            check_eq!(editor.document.history_len(false), 0);
+                            check!(!editor.document.dirty());
+                            editor.move_to(editor.document.source.text().find("nested").ok_or("missing nested quote")?, false, cx);
+                        }
+                        252 => {
+                            check_eq!(geometry.block_control, quote_control);
+                            let block = geometry.block_target.as_ref().ok_or("missing outer quote control")?.clone();
+                            check_eq!(block.kind, ryne_syntax::block::BlockKind::Quote);
+                            check_eq!(block.range.start, 0);
+                            check!(editor.document.source.text()[block.range.clone()].contains("continuation"));
+                            check!(editor.document.source.text()[block.range.clone()].contains("nested"));
+                            check_eq!(geometry.text_layout.quote_panels.len(), 1);
+                            editor.block_action(editor.document.source.id(), &block, BlockAction::Select, cx);
+                            check_eq!(editor.selected(), block.range);
+                            check!(!editor.document.dirty());
+                            check_eq!(editor.document.history_len(false), 0);
+                            println!("Quote presentation passed: one outer block/panel across lines and nested prose, quote_bubble type icon and quoter body icon, stable menu origin, complete block selection, wrapping/literal code, Unicode mapping, editing/undo and local/full source without dirty/history changes");
+                        }
+                        253 => {
+                            editor.document = editor.document.fork("> first");
+                            editor.move_to(7, false, cx);
+                            editor.enter(&Enter, window, cx);
+                            check_eq!(editor.document.source.text(), "> first\n> ");
+                            check_eq!(editor.document.history_len(false), 1);
+                        }
+                        254 => {
+                            check_eq!(geometry.text_layout.quote_panels.len(), 1);
+                            let panel = &geometry.text_layout.quote_panels[0];
+                            let last = geometry.lines.last().ok_or("missing empty quote row")?;
+                            check_eq!(last.inset, px(32.));
+                            check!(panel.bounds.bottom() >= last.top + last.line_height);
+                            let caret = geometry.position(geometry.display.text.len());
+                            let hit = geometry.hit_caret(caret + point(px(1.), px(8.)));
+                            check_eq!(geometry.display.source_at(hit.0, hit.1), editor.document.source.text().len());
+                            check!(geometry.display.quote_at(geometry.display.text.len()).is_some());
+                            editor.enter(&Enter, window, cx);
+                            check_eq!(editor.document.source.text(), "> first\n");
+                        }
+                        255 => {
+                            let last = geometry.lines.last().ok_or("missing row after quote exit")?;
+                            check_eq!(last.inset, px(0.));
+                            check!(geometry.text_layout.quote_panels[0].bounds.bottom() <= last.top);
+                            editor.undo(&Undo, window, cx);
+                            check_eq!(editor.document.source.text(), "> first\n> ");
+                        }
+                        256 => {
+                            check_eq!(geometry.lines.last().ok_or("missing restored quote row")?.inset, px(32.));
+                            let last = geometry.lines.last().ok_or("missing restored quote row")?;
+                            check!(geometry.text_layout.quote_panels[0].bounds.bottom() >= last.top + last.line_height);
+                            editor.undo(&Undo, window, cx);
+                            check_eq!(editor.document.source.text(), "> first");
+                            check!(!editor.document.dirty());
+                        }
+                        257 => {
+                            editor.replace_and_mark_text_in_range(None, "中", Some(1..1), window, cx);
+                            editor.enter(&Enter, window, cx);
+                            check_eq!(editor.document.source.text(), "> first中");
+                            check_eq!(editor.document.history_len(false), 1);
+                            editor.undo(&Undo, window, cx);
+                            check_eq!(editor.document.source.text(), "> first");
+                            check!(!editor.document.dirty());
+                            println!("Quote Enter passed: continuation prefix, background and inset on the empty new row, shared caret/hit mapping, empty-row exit, atomic undo and IME confirmation without an extra newline");
+                        }
+                        258 => {
+                            editor.document = editor.document.fork("> ```\r\n> fn main() { let s = \"中😀\"; }\r\n> ```\r\n");
+                            let at = editor.document.source.text().find("中😀").ok_or("missing language body")?;
+                            editor.move_to(at, false, cx);
+                        }
+                        259 => {
+                            let region = geometry.render_regions.iter().find(|r| r.controls[0].provider == "code").ok_or("missing code language header")?;
+                            check!(matches!(&region.controls[0].placement, ryne_extensions::RenderControlPlacement::Header { label } if label == "auto"));
+                            check!(geometry.render_buttons.contains(&region.trigger));
+                            let first = geometry.lines.iter().find(|l| l.code.is_some()).ok_or("missing code body")?;
+                            check!(region.trigger.bottom() <= geometry.bounds.top() + px(geometry.page.top) + first.top - geometry.scroll);
+                            let lines = geometry.rows.iter().map(|r| r.range.clone()).collect::<Vec<_>>();
+                            let selection = editor.document.selection();
+                            editor.open_render_menu(geometry.render_key(window.viewport_size()), region.key(), window, cx);
+                            check_eq!(editor.document.selection(), selection);
+                            check_eq!(editor.document.history_len(false), 0);
+                            check_eq!(geometry.rows.iter().map(|r| r.range.clone()).collect::<Vec<_>>(), lines);
+                        }
+                        260 => {
+                            check!(!geometry.render_menu_bounds.is_empty());
+                            let menu = editor.menus.render_menu.as_mut().ok_or("missing code language menu")?;
+                            check!(menu.rows.iter().any(|r| matches!(r, RenderMenuRow::Action(i) if i.action.checked && i.request.command == "code.language-auto")));
+                            check!(geometry.block_control.is_none());
+                            check!(geometry.block_target.is_none());
+                            check!(menu.rows.iter().all(|r| !matches!(r, RenderMenuRow::Action(i) if i.action.fallback == "<empty>")));
+                            menu.selected = menu.rows.iter().position(|r| matches!(r, RenderMenuRow::Action(i) if i.request.command == "code.language-python")).ok_or("missing Python choice")?;
+                            editor.enter(&Enter, window, cx);
+                            check!(editor.document.source.text().starts_with("> ```python\r\n"));
+                            check_eq!(editor.document.history_len(false), 1);
+                        }
+                        261 => {
+                            let region = geometry.render_regions.iter().find(|r| r.controls[0].provider == "code").ok_or("missing updated language header")?;
+                            check!(matches!(&region.controls[0].placement, ryne_extensions::RenderControlPlacement::Header { label } if label == "Python"));
+                            editor.open_render_menu(geometry.render_key(window.viewport_size()), region.key(), window, cx);
+                            let menu = editor.menus.render_menu.as_mut().ok_or("missing auto language menu")?;
+                            menu.selected = menu.rows.iter().position(|r| matches!(r, RenderMenuRow::Action(i) if i.request.command == "code.language-auto")).ok_or("missing auto choice")?;
+                            editor.enter(&Enter, window, cx);
+                            check!(editor.document.source.text().starts_with("> ```\r\n"));
+                        }
+                        262 => {
+                            check!(geometry.block_control.is_some());
+                            check!(editor.viewport.display.spans.iter().any(|s| s.style.syntax == Some(ryne_projection::Class::Keyword)));
+                            editor.undo(&Undo, window, cx);
+                            editor.undo(&Undo, window, cx);
+                            check!(!editor.document.dirty());
+                            check!(editor.document.source.text().starts_with("> ```\r\n"));
+                            editor.toggle_source(&ToggleSource, window, cx);
+                        }
+                        263 => {
+                            check!(geometry.render_regions.is_empty());
+                            editor.toggle_source(&ToggleSource, window, cx);
+                            editor.replace_and_mark_text_in_range(None, "预编辑", Some(2..2), window, cx);
+                        }
+                        264 => {
+                            check!(geometry.render_buttons.is_empty());
+                            editor.escape(&Escape, window, cx);
+                            check!(!editor.document.dirty());
+                            println!("Code language menu passed: header geometry, empty-source auto, removed empty choice, popup hides block controls, keyboard selection, literal CRLF source edits, atomic undo, source/IME suppression");
+                        }
+                        265 => {
+                            if code_language_only {println!("Code language GUI smoke passed");cx.quit();return Ok(());}
+                            let unit="> quote **bold**\r\n> next\r\n\r\n- item 中😀\r\n  - nested\r\n\r\n| a | b |\r\n| --- | --- |\r\n| 中 | x |\r\n\r\n```rust\r\nfn main() {}\r\n```\r\n\r\n";
+                            let source=unit.repeat(80);
+                            editor.document=editor.document.fork(&source);
+                            editor.viewport.scroll=px(0.);editor.viewport.ensure_caret=false;
+                            editor.refresh(cx);
+                        }
+                        266 => {
+                            let layout=&geometry.text_layout;
+                            let top=geometry.scroll-px(geometry.page.top);let bottom=top+geometry.bounds.size.height;
+                            check!(layout.visibility.lines.visible(top,bottom).len()<geometry.lines.len());
+                            check!(geometry.render_regions.len()<editor.viewport.render_controls.len());
+                            let quads=geometry.selection_quads(0..geometry.display.text.len(),rgb(0).into());
+                            check!(quads.len()<=layout.visibility.rows.visible(top,bottom).len());
+                            cached_layout=Some(layout.clone());
+                            editor.viewport.scroll=geometry.height/2.;editor.viewport.ensure_caret=false;cx.notify();
+                        }
+                        267 => {
+                            check!(cached_layout.as_ref().is_some_and(|old|std::sync::Arc::ptr_eq(old,&geometry.text_layout)));
+                            let top=geometry.scroll-px(geometry.page.top);let bottom=top+geometry.bounds.size.height;
+                            let visible=geometry.text_layout.visibility.rows.visible(top,bottom);
+                            check!(!visible.is_empty());check!(visible.len()<geometry.rows.len());
+                            let row=&geometry.rows[visible[visible.len()/2]];
+                            let source=geometry.display.source_at(row.range.start,Affinity::Downstream);
+                            let units=editor.document.editable_byte_to_utf16(source).map_err(|e|format!("{e:?}"))?;
+                            check_eq!(editor.document.editable_utf16_to_byte(units).map_err(|e|format!("{e:?}"))?,source);
+                            editor.move_to(source,false,cx);
+                            editor.replace_and_mark_text_in_range(None,"中😀",Some(3..3),window,cx);
+                        }
+                        268 => {
+                            check!(editor.document.composition().is_some());
+                            let range=editor.marked_text_range(window,cx).ok_or("missing preedit UTF16 range")?;
+                            check_eq!(range.end-range.start,3);
+                            check!(editor.bounds_for_range(range,Bounds::default(),window,cx).is_some());
+                            check_eq!(editor.document.history_len(false),0);
+                            editor.document.cancel_composition();editor.refresh(cx);
+                        }
+                        269 => {
+                            check!(!editor.document.dirty());check_eq!(editor.document.history_len(false),0);
+                            println!("P1/P2 GUI checks passed: indexed CRLF/Unicode mappings, viewport line/control/selection clipping, scroll layout reuse and preedit geometry without source/history changes");
+                        }
                         _ => {
+                            if performance_only {
+                                println!("P1/P2 performance GUI smoke passed");
+                                cx.quit();
+                                return Ok(());
+                            }
                             if window.is_window_active() {
                                 check!(blink_seen.load(std::sync::atomic::Ordering::Relaxed));
                             }

@@ -21,6 +21,14 @@ impl Editor {
     ) {
         self.replace_document(Replacement::Path(action.path.clone()), window, cx);
     }
+    pub(super) fn open_external_path(
+        &mut self,
+        path: PathBuf,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.replace_document(Replacement::Path(path), window, cx);
+    }
     pub(super) fn reload(&mut self, _: &Reload, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(path) = self.document.files.path.clone() {
             self.replace_document(Replacement::Reload(path), window, cx);
@@ -31,9 +39,9 @@ impl Editor {
     }
     pub(super) fn can_replace(&self, snapshot: SnapshotId) -> bool {
         self.document.source.id() == snapshot
-            && self.document.composition.is_none()
+            && self.document.composition().is_none()
             && !self.document.files.saving
-            && !self.close_prompt
+            && !self.operations.close_prompt
     }
     pub(super) fn install_document(
         &mut self,
@@ -43,19 +51,19 @@ impl Editor {
         cx: &mut Context<Self>,
     ) {
         self.document = document;
-        self.top_menu = None;
-        self.top_submenu = None;
+        self.menus.top_menu = None;
+        self.menus.top_submenu = None;
         self.default_document = None;
-        self.scroll = px(0.);
-        self.geometry = None;
-        self.dragging = false;
-        self.preferred_x = None;
-        self.caret_affinity = Affinity::Downstream;
-        self.ensure_caret = true;
-        self.allow_close = false;
-        self.close_after_save = false;
-        self.hovered_block = None;
-        self.hovered_render = None;
+        self.viewport.scroll = px(0.);
+        self.viewport.geometry = None;
+        self.viewport.dragging = false;
+        self.caret_state.preferred_x = None;
+        self.caret_state.caret_affinity = Affinity::Downstream;
+        self.viewport.ensure_caret = true;
+        self.operations.allow_close = false;
+        self.operations.close_after_save = false;
+        self.menus.hovered_block = None;
+        self.menus.hovered_render = None;
         self.status = status.into();
         if let Some(path) = self.document.files.path.clone() {
             self.remember_file(&path, cx);
@@ -69,16 +77,18 @@ impl Editor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.commit_composition(cx);
+        if !self.commit_composition(cx) {
+            return;
+        }
         if self.document.files.saving {
             self.status = Text::SavingWait.into();
             cx.notify();
             return;
         }
-        if self.file_operation_pending || self.close_prompt || self.exporting {
+        if self.operations.blocks_document_replacement() {
             return;
         }
-        self.file_operation_pending = true;
+        self.operations.file_operation_pending = true;
         let snapshot = self.document.source.id();
         let services = self.document.services();
         let title = match action {
@@ -200,7 +210,7 @@ impl Editor {
                 }
             }
             let _ = this.update_in(cx, |this, _, cx| {
-                this.file_operation_pending = false;
+                this.operations.file_operation_pending = false;
                 cx.notify();
             });
         })
@@ -213,7 +223,7 @@ impl Editor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.close_after_save |= close_after;
+        self.operations.close_after_save |= close_after;
         self.status = Text::Saving.into();
         if let Some(request) = self.document.queue_save(path) {
             self.run_save(request, window, cx)
@@ -251,13 +261,13 @@ impl Editor {
                 }
                 if let Some(request) = completion.next {
                     editor.run_save(request, window, cx)
-                } else if editor.close_after_save {
-                    editor.close_after_save = false;
+                } else if editor.operations.close_after_save {
+                    editor.operations.close_after_save = false;
                     if completion.error.is_none()
                         && completion.clean
-                        && editor.document.composition.is_none()
+                        && editor.document.composition().is_none()
                     {
-                        editor.allow_close = true;
+                        editor.operations.allow_close = true;
                         window.remove_window();
                     }
                 }
@@ -267,7 +277,9 @@ impl Editor {
         .detach();
     }
     pub(super) fn save(&mut self, _: &Save, window: &mut Window, cx: &mut Context<Self>) {
-        self.commit_composition(cx);
+        if !self.commit_composition(cx) {
+            return;
+        }
         if let Some(path) = self.document.files.path.clone() {
             self.save_to(path, false, window, cx);
         } else {
@@ -275,8 +287,10 @@ impl Editor {
         }
     }
     pub(super) fn save_as(&mut self, _: &SaveAs, window: &mut Window, cx: &mut Context<Self>) {
-        self.commit_composition(cx);
-        if self.exporting {
+        if !self.commit_composition(cx) {
+            return;
+        }
+        if self.operations.exporting {
             self.status = Text::OperationWait.into();
             cx.notify();
             return;
@@ -296,7 +310,9 @@ impl Editor {
             Ok(Ok(Some(path))) => {
                 let _ = this.update_in(cx, |this, window, cx| {
                     if this.document.source.id().document_id == document_id {
-                        this.commit_composition(cx);
+                        if !this.commit_composition(cx) {
+                            return;
+                        }
                         this.save_to(path, false, window, cx);
                     }
                 });
@@ -312,8 +328,10 @@ impl Editor {
         .detach();
     }
     pub(super) fn request_close(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        self.commit_composition(cx);
-        if self.exporting || self.file_operation_pending {
+        if !self.commit_composition(cx) {
+            return false;
+        }
+        if self.operations.exporting || self.operations.file_operation_pending {
             self.status = Text::OperationWait.into();
             cx.notify();
             return false;
@@ -323,13 +341,13 @@ impl Editor {
             cx.notify();
             return false;
         }
-        if self.allow_close || !self.document.dirty() {
+        if self.operations.allow_close || !self.document.dirty() {
             return true;
         }
-        if self.close_prompt {
+        if self.operations.close_prompt {
             return false;
         }
-        self.close_prompt = true;
+        self.operations.close_prompt = true;
         let closing_document = self.document.source.id().document_id;
         let answer = window.prompt(
             PromptLevel::Warning,
@@ -346,7 +364,7 @@ impl Editor {
             let answer = answer.await.ok();
             let path = this
                 .update_in(cx, |this, _, cx| {
-                    this.close_prompt = false;
+                    this.operations.close_prompt = false;
                     cx.notify();
                     this.document.files.path.clone()
                 })
@@ -355,7 +373,7 @@ impl Editor {
             if answer == Some(1) {
                 let _ = this.update_in(cx, |this, window, _| {
                     if this.document.source.id().document_id == closing_document {
-                        this.allow_close = true;
+                        this.operations.allow_close = true;
                         window.remove_window();
                     }
                 });
@@ -380,7 +398,9 @@ impl Editor {
                 if let Some(path) = path {
                     let _ = this.update_in(cx, |this, window, cx| {
                         if this.document.source.id().document_id == closing_document {
-                            this.commit_composition(cx);
+                            if !this.commit_composition(cx) {
+                                return;
+                            }
                             this.save_to(path, true, window, cx);
                         }
                     });
@@ -395,4 +415,10 @@ impl Editor {
             window.remove_window();
         }
     }
+}
+
+pub(super) fn file_url_to_path(value: &str) -> Option<PathBuf> {
+    let url = url::Url::parse(value).ok()?;
+    (url.scheme() == "file").then_some(())?;
+    url.to_file_path().ok()
 }

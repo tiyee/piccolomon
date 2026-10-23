@@ -69,13 +69,11 @@ mod tests {
             UpdateStatus::Available { .. }
         ));
         assert!(parse_release(&release("unknown"), "0.1.0").is_err());
-        assert!(
-            parse_release(
-                r#"{"tag_name":"v9.0.0","draft":true,"prerelease":false}"#,
-                "0.1.0"
-            )
-            .is_err()
-        );
+        assert!(parse_release(
+            r#"{"tag_name":"v9.0.0","draft":true,"prerelease":false}"#,
+            "0.1.0"
+        )
+        .is_err());
         assert!(parse_release("{}", "0.1.0").is_err());
     }
 }

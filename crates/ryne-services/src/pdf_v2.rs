@@ -1,8 +1,8 @@
 //! Krilla PDF backend over the shared immutable A4 print layout.
 //! SVG is an intermediate drawing scene, not a screenshot: text stays embedded,
 //! formula paths stay vector, and Mermaid retains its existing bitmap resource.
-use crate::pdf::{FONTS, HEIGHT, WIDTH, layout_pages};
-use krilla::{Document, geom::Size, page::PageSettings};
+use crate::print_layout::{layout_pages, FONTS, HEIGHT, WIDTH};
+use krilla::{geom::Size, page::PageSettings, Document};
 use krilla_svg::{SurfaceExt, SvgSettings};
 use ryne_projection::Display;
 
@@ -70,12 +70,10 @@ mod tests {
                 text,
                 ..Default::default()
             };
-            assert!(
-                KrillaPdfExporter
-                    .export(&display)
-                    .unwrap_err()
-                    .contains(message)
-            );
+            assert!(KrillaPdfExporter
+                .export(&display)
+                .unwrap_err()
+                .contains(message));
         }
     }
 }

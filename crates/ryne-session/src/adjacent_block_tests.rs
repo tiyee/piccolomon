@@ -1,6 +1,6 @@
 use super::*;
 use crate::regression_tests::new_document;
-use ryne_features::templates::{ITEMS, MarkdownTemplate};
+use ryne_features::templates::{MarkdownTemplate, ITEMS};
 use ryne_syntax::block;
 
 fn insert(
@@ -141,15 +141,14 @@ fn unsafe_and_obsolete_targets_do_not_modify_source_or_history() {
     let stale = doc.source.id();
     doc.insert_text(0..0, "new ").unwrap();
     let source = doc.source.clone();
-    assert!(
-        doc.dispatch(EditIntent::InsertAdjacent {
+    assert!(doc
+        .dispatch(EditIntent::InsertAdjacent {
             block: ryne_core::SourceRange::new(stale, target.range),
             before: false,
             template: InsertBlock::Paragraph,
             labels: TemplateLabels::default(),
         })
-        .is_err()
-    );
+        .is_err());
     assert_eq!(doc.source.id(), source.id());
     assert_eq!(doc.history_len(false), 1);
     let target = block::at(&doc.parse, doc.source.text().find("target").unwrap()).unwrap();

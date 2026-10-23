@@ -259,7 +259,7 @@ pub(super) struct VisualRow {
 pub(super) struct Geometry {
     pub(super) snapshot: SnapshotId,
     pub(super) frame_epoch: u64,
-    pub(super) display: std::sync::Arc<Display>,
+    pub(super) display: std::sync::Arc<ryne_projection::IndexedDisplay>,
     pub(super) rows: std::sync::Arc<Vec<VisualRow>>,
     pub(super) text_layout: std::sync::Arc<text_layout::TextLayout>,
     pub(super) bounds: Bounds<Pixels>,
@@ -290,7 +290,7 @@ impl Geometry {
         self.snapshot == editor.document.source.id()
             // A cancelled preedit can return to the exact same projection before
             // another draw. Its original geometry is safe to reuse in that case.
-            && (self.frame_epoch == editor.frame_epoch || self.display.as_ref() == &editor.display)
+            && (self.frame_epoch == editor.viewport.frame_epoch || self.display == editor.viewport.display)
             && self.source_mode == editor.document.source_mode
     }
 
@@ -313,7 +313,14 @@ impl Geometry {
                 px(self.page.left) + line.inset,
                 px(self.page.top) + row.top - self.scroll,
             );
-        if let Some(index) = self
+        if block.kind == ryne_syntax::block::BlockKind::Quote
+            && let Some(quote) = self.display.quotes.iter().find(|quote| {
+                quote.source.start == block.anchor && quote.source.end == block.range.end
+            })
+        {
+            // The type menu sits outside the quote panel, clear of its body icon.
+            origin.x = self.bounds.left() + px(self.page.left + quote.inset as f32 - 32.);
+        } else if let Some(index) = self
             .display
             .code_blocks
             .iter()
@@ -373,12 +380,13 @@ impl Geometry {
         Some(origin)
     }
     pub(super) fn row_for(&self, offset: usize, affinity: Affinity) -> Option<&VisualRow> {
-        let contains = |row: &&VisualRow| row.range.start <= offset && offset <= row.range.end;
-        if affinity == Affinity::Upstream {
-            self.rows.iter().find(contains)
+        let candidates = self.text_layout.index.visual_rows.at(offset);
+        let id = if affinity == Affinity::Upstream {
+            candidates.first()
         } else {
-            self.rows.iter().rev().find(contains)
-        }
+            candidates.last()
+        }?;
+        self.rows.get(*id)
     }
     pub(super) fn line_height(&self, offset: usize) -> Pixels {
         self.row_for(offset, Affinity::Downstream)
@@ -609,7 +617,14 @@ impl Geometry {
     }
     pub(super) fn selection_quads(&self, selection: Range<usize>, color: Hsla) -> Vec<PaintQuad> {
         let mut quads = Vec::new();
-        for row in self.rows.iter() {
+        let top = self.scroll - px(self.page.top);
+        for i in self
+            .text_layout
+            .visibility
+            .rows
+            .visible(top, top + self.bounds.size.height)
+        {
+            let row = &self.rows[i];
             let start = selection.start.max(row.range.start);
             let end = selection.end.min(row.range.end);
             let newline =

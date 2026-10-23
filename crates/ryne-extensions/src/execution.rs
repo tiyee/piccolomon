@@ -4,7 +4,6 @@ use ryne_projection::{DiagramViewInput, Display};
 
 pub struct FeatureServices<'a> {
     pub formulas: &'a dyn FormulaRenderer,
-    pub language_detector: Option<&'a dyn CodeLanguageDetector>,
 }
 pub trait CommandHandler: Send + Sync {
     /// None delegates to the next registered handler. An error aborts planning.

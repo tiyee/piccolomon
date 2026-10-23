@@ -70,7 +70,7 @@ impl Context {
             || self.source_mode
             || session.source_mode
             || self.composing
-            || session.composition.is_some()
+            || session.composition().is_some()
             || self.dragging
         {
             return Err("interaction unavailable or stale".into());

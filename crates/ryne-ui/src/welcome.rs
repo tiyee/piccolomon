@@ -23,7 +23,7 @@ impl DefaultDocument {
             || document.source.id() != self.snapshot
             || document.files.path.is_some()
             || document.files.saving
-            || document.composition.is_some()
+            || document.composition().is_some()
             || document.dirty()
             || document.history_len(false) != 0
             || document.history_len(true) != 0
@@ -41,9 +41,10 @@ impl DefaultDocument {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use editable_markdown_parser::{Alignment, NodeKind, ParseSnapshot, Source};
+    use editable_markdown_parser::{Alignment, NodeKind, Source};
     use ryne_extensions::FileStore;
-    use ryne_session::{Composition, SessionServices, basic::SourceEditing};
+    use ryne_session::{basic::SourceEditing, SessionServices};
+    use ryne_syntax::ParseSnapshot;
     use std::{path::Path, sync::Arc};
 
     struct Files;
@@ -96,36 +97,26 @@ mod tests {
                 assert!(has(kind.clone()), "{language:?}: {kind:?}");
             }
             assert!(has(NodeKind::BlockQuote));
-            assert!(
-                parse
-                    .nodes
-                    .iter()
-                    .any(|n| matches!(n.kind, NodeKind::Task(_)))
-            );
-            assert!(
-                parse
-                    .nodes
-                    .iter()
-                    .any(|n| matches!(n.kind, NodeKind::Link { .. }))
-            );
-            assert!(
-                parse
-                    .nodes
-                    .iter()
-                    .any(|n| matches!(n.kind, NodeKind::Image { .. }))
-            );
-            assert!(
-                parse
-                    .nodes
-                    .iter()
-                    .any(|n| matches!(n.kind, NodeKind::InlineMath(_)))
-            );
-            assert!(
-                parse
-                    .nodes
-                    .iter()
-                    .any(|n| matches!(n.kind, NodeKind::Code(_)))
-            );
+            assert!(parse
+                .nodes
+                .iter()
+                .any(|n| matches!(n.kind, NodeKind::Task(_))));
+            assert!(parse
+                .nodes
+                .iter()
+                .any(|n| matches!(n.kind, NodeKind::Link { .. })));
+            assert!(parse
+                .nodes
+                .iter()
+                .any(|n| matches!(n.kind, NodeKind::Image { .. })));
+            assert!(parse
+                .nodes
+                .iter()
+                .any(|n| matches!(n.kind, NodeKind::InlineMath(_))));
+            assert!(parse
+                .nodes
+                .iter()
+                .any(|n| matches!(n.kind, NodeKind::Code(_))));
             let items = ryne_syntax::list::items(&parse);
             assert!(
                 items.iter().any(|item| item.parent.is_some()),
@@ -137,13 +128,11 @@ mod tests {
                 tables[0].align,
                 [Alignment::Left, Alignment::Center, Alignment::Right]
             );
-            assert!(
-                tables[0]
-                    .rows
-                    .iter()
-                    .flat_map(|row| &row.cells)
-                    .any(|cell| cell.content.is_empty())
-            );
+            assert!(tables[0]
+                .rows
+                .iter()
+                .flat_map(|row| &row.cells)
+                .any(|cell| cell.content.is_empty()));
             let blocks = ryne_syntax::code_block::blocks(&parse);
             assert_eq!(
                 blocks.len(),
@@ -208,16 +197,13 @@ mod tests {
     fn saved_saving_and_preedit_guides_are_preserved() {
         let mut doc = document(Language::En);
         let mut guide = DefaultDocument::new(&doc, Language::En);
-        doc.composition = Some(Composition {
-            range: 0..0,
-            text: "未確定😀".into(),
-            selection: 0..0,
-        });
+        doc.update_composition(Some(0..0), "未確定😀", Some(0..0))
+            .unwrap();
         let before = doc.source.id();
         assert!(!guide.switch(&mut doc, Language::Ja));
         assert_eq!(doc.source.id(), before);
-        assert_eq!(doc.composition.as_ref().unwrap().text, "未確定😀");
-        doc.composition = None;
+        assert_eq!(doc.composition().unwrap().text, "未確定😀");
+        doc.cancel_composition();
         let request = doc.queue_save("guide.md".into()).unwrap();
         assert!(!guide.switch(&mut doc, Language::Ja));
         assert!(doc.complete_save(request.run()).accepted);

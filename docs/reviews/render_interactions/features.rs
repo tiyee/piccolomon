@@ -1,9 +1,10 @@
 use crate::protocol::*;
-use editable_markdown_parser::{Affinity, Edit, ParseSnapshot};
+use editable_markdown_parser::{Affinity, Edit};
 use ryne_core::PreparedEdit;
 use ryne_extensions::{CommandPlan, EditingState, FileStore, FormulaRenderer};
 use ryne_projection::Formula;
 use ryne_session::{EditorSession, SessionServices};
+use ryne_syntax::ParseSnapshot;
 use ryne_syntax::{code_block, list, table};
 use std::{ops::Range, path::Path, sync::Arc};
 

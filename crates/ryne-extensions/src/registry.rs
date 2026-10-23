@@ -1,6 +1,7 @@
 //! Startup-only registration. Contributions are staged before the registry is published.
 use crate::{
-    CommandHandler, CommandPlan, EditIntent, EditingState, FeatureServices, PresentationProvider,
+    CommandHandler, CommandPlan, EditIntent, EditingState, FeatureServices, InsertBlock,
+    PresentationProvider, PreviewInput, RenderActionProvider, RenderActionRegistry,
     SyntaxHighlighter,
 };
 use ryne_projection::{DiagramViewInput, Display};
@@ -52,10 +53,70 @@ pub struct Registrar {
     staged: Vec<Contribution>,
     commands: BTreeMap<&'static str, Arc<dyn CommandHandler>>,
     presentations: BTreeMap<&'static str, Arc<dyn PresentationProvider>>,
+    controls: BTreeMap<&'static str, Arc<dyn RenderActionProvider>>,
+    previews: BTreeMap<&'static str, Arc<dyn PreviewProvider>>,
+    block_ui: BTreeMap<&'static str, Arc<dyn BlockUiProvider>>,
+    templates: BTreeMap<&'static str, Vec<(&'static str, InsertBlock)>>,
 }
 impl Registrar {
     pub fn contribute(&mut self, contribution: Contribution) {
         self.staged.push(contribution)
+    }
+    pub fn render_controls(
+        &mut self,
+        contribution: Contribution,
+        provider: Arc<dyn RenderActionProvider>,
+    ) -> Result<(), String> {
+        if !matches!(contribution.slot, Slot::Ui(_)) {
+            return Err("incompatible contribution slot".into());
+        }
+        if self.controls.insert(contribution.id, provider).is_some() {
+            return Err("duplicate executable contribution".into());
+        }
+        self.contribute(contribution);
+        Ok(())
+    }
+    pub fn preview(
+        &mut self,
+        contribution: Contribution,
+        provider: Arc<dyn PreviewProvider>,
+    ) -> Result<(), String> {
+        if !matches!(contribution.slot, Slot::Renderer(_)) {
+            return Err("incompatible contribution slot".into());
+        }
+        if self.previews.insert(contribution.id, provider).is_some() {
+            return Err("duplicate executable contribution".into());
+        }
+        self.contribute(contribution);
+        Ok(())
+    }
+    pub fn block_ui(
+        &mut self,
+        contribution: Contribution,
+        provider: Arc<dyn BlockUiProvider>,
+    ) -> Result<(), String> {
+        if contribution.slot != Slot::Ui("block-menu") || !contribution.exclusive {
+            return Err("incompatible contribution slot".into());
+        }
+        if self.block_ui.insert(contribution.id, provider).is_some() {
+            return Err("duplicate executable contribution".into());
+        }
+        self.contribute(contribution);
+        Ok(())
+    }
+    pub fn templates(
+        &mut self,
+        contribution: Contribution,
+        provider: Vec<(&'static str, InsertBlock)>,
+    ) -> Result<(), String> {
+        if !matches!(contribution.slot, Slot::InsertTemplate(_)) {
+            return Err("incompatible contribution slot".into());
+        }
+        if self.templates.insert(contribution.id, provider).is_some() {
+            return Err("duplicate executable contribution".into());
+        }
+        self.contribute(contribution);
+        Ok(())
     }
     pub fn command(
         &mut self,
@@ -90,16 +151,32 @@ impl Registrar {
         Ok(())
     }
 }
-pub trait BuiltinFeature {
+pub trait FeatureModule {
     fn manifest(&self) -> FeatureManifest;
     fn register(&self, registrar: &mut Registrar) -> Result<(), String>;
 }
+/// Compatibility name for existing static feature implementations.
+pub use FeatureModule as BuiltinFeature;
+pub trait PreviewProvider: Send + Sync {
+    fn input(
+        &self,
+        state: &EditingState,
+        block: &ryne_syntax::code_block::CodeBlock,
+    ) -> Option<PreviewInput>;
+}
+pub trait BlockUiProvider: Send + Sync {
+    fn adornment(&self, block: &ryne_syntax::block::Block, source_open: bool) -> AdornmentSpec;
+}
 #[derive(Clone, Default)]
 pub struct Registry {
+    render_actions: RenderActionRegistry,
+    insert_templates: Vec<(&'static str, InsertBlock)>,
     order: Vec<&'static str>,
     contributions: Vec<(&'static str, Contribution)>,
     commands: BTreeMap<&'static str, Arc<dyn CommandHandler>>,
     presentations: BTreeMap<&'static str, Arc<dyn PresentationProvider>>,
+    previews: BTreeMap<&'static str, Arc<dyn PreviewProvider>>,
+    block_ui: BTreeMap<&'static str, Arc<dyn BlockUiProvider>>,
 }
 impl Registry {
     pub fn build(features: &[&dyn BuiltinFeature]) -> Result<Self, String> {
@@ -158,6 +235,10 @@ impl Registry {
         let mut contributions = Vec::new();
         let mut commands = BTreeMap::new();
         let mut presentations = BTreeMap::new();
+        let mut controls = BTreeMap::new();
+        let mut previews = BTreeMap::new();
+        let mut block_ui = BTreeMap::new();
+        let mut templates = BTreeMap::new();
         let mut ids = BTreeSet::new();
         let mut slots = BTreeMap::new();
         for id in &order {
@@ -165,6 +246,10 @@ impl Registry {
             features[manifests[id].0].register(&mut registrar)?;
             commands.extend(registrar.commands);
             presentations.extend(registrar.presentations);
+            controls.extend(registrar.controls);
+            previews.extend(registrar.previews);
+            block_ui.extend(registrar.block_ui);
+            templates.extend(registrar.templates);
             // Nothing is visible to the host until all staged contributions validate.
             for contribution in registrar.staged {
                 if !ids.insert(contribution.id) {
@@ -225,7 +310,23 @@ impl Registry {
             sorted.push(contributions.remove(index));
         }
         let contributions = sorted;
+        let render_actions = RenderActionRegistry::new(
+            contributions
+                .iter()
+                .filter_map(|(_, c)| controls.get(c.id).cloned())
+                .collect(),
+        )?;
+        let insert_templates = contributions
+            .iter()
+            .filter_map(|(_, c)| templates.get(c.id))
+            .flatten()
+            .cloned()
+            .collect();
         Ok(Self {
+            render_actions,
+            insert_templates,
+            previews,
+            block_ui,
             order,
             contributions,
             commands,
@@ -263,6 +364,34 @@ impl Registry {
             .find_map(|(_, contribution)| self.presentations.get(contribution.id))
             .map(|provider| provider.display(state, services, highlighter, diagrams))
     }
+    pub fn render_actions(&self) -> &RenderActionRegistry {
+        &self.render_actions
+    }
+    pub fn insert_templates(&self) -> &[(&'static str, InsertBlock)] {
+        &self.insert_templates
+    }
+    pub fn preview_inputs(&self, state: &EditingState) -> Vec<PreviewInput> {
+        ryne_syntax::SemanticQuery::new(&state.parse)
+            .code_blocks()
+            .iter()
+            .filter_map(|block| {
+                self.contributions
+                    .iter()
+                    .find_map(|(_, c)| self.previews.get(c.id).and_then(|p| p.input(state, block)))
+            })
+            .take(32)
+            .collect()
+    }
+    pub fn block_ui(&self, block: &ryne_syntax::block::Block, source_open: bool) -> AdornmentSpec {
+        self.contributions
+            .iter()
+            .find_map(|(_, c)| self.block_ui.get(c.id))
+            .map(|provider| provider.adornment(block, source_open))
+            .unwrap_or_else(|| AdornmentSpec {
+                metadata: BlockMetadata::from(block.kind),
+                menu: Vec::new(),
+            })
+    }
     pub fn feature_order(&self) -> &[&'static str] {
         &self.order
     }
@@ -272,6 +401,7 @@ impl Registry {
 }
 #[derive(Clone, Debug)]
 pub struct BlockMetadata {
+    pub kind: Option<ryne_syntax::block::BlockKind>,
     pub name: &'static str,
     pub icon: Option<&'static str>,
     pub label: &'static str,

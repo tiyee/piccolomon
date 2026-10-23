@@ -1,5 +1,6 @@
-use crate::{code_block, list};
-use editable_markdown_parser::{Alignment, NodeKind, ParseSnapshot, TokenKind};
+use crate::list;
+use crate::ParseSnapshot;
+use editable_markdown_parser::{Alignment, NodeKind, TokenKind};
 use std::ops::Range;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -23,22 +24,39 @@ pub struct Table {
 
 impl Table {
     pub fn cell_at(&self, position: usize) -> (usize, usize) {
-        self.rows
-            .iter()
-            .enumerate()
-            .flat_map(|(r, row)| {
-                row.cells
-                    .iter()
-                    .enumerate()
-                    .map(move |(c, cell)| (r, c, cell))
-            })
-            .min_by_key(|(_, _, cell)| {
-                if position < cell.content.start {
-                    cell.content.start - position
-                } else {
-                    position.saturating_sub(cell.content.end)
-                }
-            })
+        let row = self.rows.partition_point(|row| {
+            row.cells
+                .last()
+                .is_some_and(|cell| cell.content.end < position)
+        });
+        let next = self.rows.get(row).and_then(|r| {
+            let col = r.cells.partition_point(|cell| cell.content.end < position);
+            r.cells.get(col).map(|cell| (row, col, cell))
+        });
+        let previous = match next {
+            Some((r, c, _)) if c > 0 => self.rows[r].cells.get(c - 1).map(|cell| (r, c - 1, cell)),
+            Some((r, _, _)) if r > 0 => self.rows[r - 1]
+                .cells
+                .last()
+                .map(|cell| (r - 1, self.rows[r - 1].cells.len() - 1, cell)),
+            None => self.rows.last().and_then(|r| {
+                r.cells
+                    .last()
+                    .map(|cell| (self.rows.len() - 1, r.cells.len() - 1, cell))
+            }),
+            _ => None,
+        };
+        let distance = |cell: &Cell| {
+            if position < cell.content.start {
+                cell.content.start - position
+            } else {
+                position.saturating_sub(cell.content.end)
+            }
+        };
+        previous
+            .into_iter()
+            .chain(next)
+            .min_by_key(|(_, _, cell)| distance(cell))
             .map_or((0, 0), |(r, c, _)| (r, c))
     }
 }
@@ -46,12 +64,21 @@ impl Table {
 /// Only project tables whose complete cell content is accounted for by the AST.
 /// Ragged rows with missing or ignored extra cells retain editable source.
 pub fn tables(parse: &ParseSnapshot) -> Vec<Table> {
+    cached(parse).to_vec()
+}
+pub fn cached(parse: &ParseSnapshot) -> &[Table] {
+    let parse = parse.semantic();
+    parse.tables.get_or_init(|| build_tables(parse))
+}
+fn build_tables(parse: &ParseSnapshot) -> Vec<Table> {
     let text = parse.source().text();
-    let lines = code_block::lines(text);
-    let items = list::items(parse);
+    let lines = &parse.index().lines;
+    let items = list::cached_items(parse);
     parse
-        .nodes
+        .index()
+        .table_nodes
         .iter()
+        .map(|&id| &parse.nodes[id])
         .filter_map(|node| {
             let NodeKind::Table(align) = &node.kind else {
                 return None;
@@ -59,19 +86,14 @@ pub fn tables(parse: &ParseSnapshot) -> Vec<Table> {
             if align.is_empty() {
                 return None;
             }
-            let first = lines
-                .iter()
-                .find(|line| line.contains(&node.envelope.start))?;
+            let first = parse.index().line(node.envelope.start)?;
             let mut rows = Vec::new();
             for &row_id in &node.children {
                 let row = &parse.nodes[row_id];
                 if !matches!(row.kind, NodeKind::TableHead | NodeKind::TableRow) {
                     return None;
                 }
-                let line = lines
-                    .iter()
-                    .find(|line| line.contains(&row.envelope.start))?
-                    .clone();
+                let line = parse.index().line(row.envelope.start)?.clone();
                 let end = line.start + text[line.clone()].trim_end_matches(['\r', '\n']).len();
                 if row.children.len() != align.len() {
                     return None;
@@ -120,8 +142,7 @@ pub fn tables(parse: &ParseSnapshot) -> Vec<Table> {
                 return None;
             }
             let end = lines
-                .iter()
-                .find(|line| line.start < node.envelope.end && node.envelope.end <= line.end)?
+                .get(lines.partition_point(|line| line.end < node.envelope.end))?
                 .end;
             let mut scope = node.envelope.clone();
             let mut inset = 0;
@@ -141,15 +162,14 @@ pub fn tables(parse: &ParseSnapshot) -> Vec<Table> {
                 }
                 ancestor = parse.nodes[parent].parent;
             }
-            scope.start = lines
-                .iter()
-                .find(|line| line.contains(&scope.start))
+            scope.start = parse
+                .index()
+                .line(scope.start)
                 .map_or(scope.start, |line| line.start);
             let mut continuation = text[first.start..node.envelope.start].to_owned();
             let mut prefixes: Vec<_> = parse
-                .syntax
-                .tokens
-                .iter()
+                .index()
+                .prefixes(parse, first.start..node.envelope.start)
                 .filter(|token| {
                     token.kind == TokenKind::ContainerPrefix
                         && parse.nodes[token.owner].kind == NodeKind::Item
@@ -168,12 +188,12 @@ pub fn tables(parse: &ParseSnapshot) -> Vec<Table> {
                 );
             }
             // Keep the table aligned with a surrounding list's content column.
-            if let Some(item) = items
-                .iter()
-                .filter(|item| item.range.contains(&node.envelope.start))
-                .max_by_key(|item| item.inset)
-            {
-                inset = inset.max(item.inset);
+            let mut parent = node.parent;
+            while let Some(id) = parent {
+                if let Ok(i) = items.binary_search_by_key(&id, |item| item.id) {
+                    inset = inset.max(items[i].inset);
+                }
+                parent = parse.nodes[id].parent;
             }
             Some(Table {
                 range: first.start..end,
@@ -269,5 +289,41 @@ mod tests {
         assert_eq!(cell_input("a\\|b", ""), "a\\|b");
         assert_eq!(cell_input("a\\\\|b", ""), "a\\\\\\|b");
         assert_eq!(cell_input("|", "x\\"), "|");
+    }
+}
+
+#[cfg(test)]
+mod cell_query_tests {
+    use super::*;
+    #[test]
+    fn nearest_cell_binary_lookup_preserves_separator_and_empty_cell_ties() {
+        for newline in ["\n", "\r\n", "\r"] {
+            let raw = "| a | b | c |\n| --- | --- | --- |\n| | 中😀 | |\n| next | x | y |\n"
+                .replace('\n', newline);
+            let parse = ParseSnapshot::with_math(editable_markdown_parser::Source::new(&raw));
+            let t = &cached(&parse)[0];
+            for position in 0..=raw.len() + 2 {
+                let expected = t
+                    .rows
+                    .iter()
+                    .enumerate()
+                    .flat_map(|(r, row)| {
+                        row.cells
+                            .iter()
+                            .enumerate()
+                            .map(move |(c, cell)| (r, c, cell))
+                    })
+                    .min_by_key(|(_, _, cell)| {
+                        if position < cell.content.start {
+                            cell.content.start - position
+                        } else {
+                            position.saturating_sub(cell.content.end)
+                        }
+                    })
+                    .map(|(r, c, _)| (r, c))
+                    .unwrap();
+                assert_eq!(t.cell_at(position), expected, "position {position}");
+            }
+        }
     }
 }

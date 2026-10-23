@@ -38,6 +38,8 @@ Cliquez sur un format ou utilisez les flèches pour modifier sa source, y compri
 
 Code en ligne : `**texte littéral**` et ``un `accent grave` dans le code``. Le Markdown dans le code n'est pas interprété. La barre oblique inverse protège les signes : \*pas d'italique\* et \[pas de lien\].
 
+Les liens peuvent avoir un titre : [Ryne](https://example.org "Site de Ryne"). Liens automatiques : <https://example.org> et <mailto:bonjour@example.org>.
+
 ## Listes et tâches
 
 - Élément non ordonné avec du **gras**.
@@ -52,6 +54,16 @@ Code en ligne : `**texte littéral**` et ``un `accent grave` dans le code``. Le 
 
 - [ ] Une tâche à terminer.
 - [x] Une tâche terminée.
+
+Les listes non ordonnées acceptent aussi les marqueurs `+` et `*` :
+
++ Un autre marqueur de liste.
+* Et un autre.
+
+Une liste numérotée peut commencer par un nombre différent de 1 :
+
+7. Premier élément, numéroté à partir de sept.
+8. Élément suivant.
 
 Entrée continue un élément non vide ; sur un élément vide, elle quitte un niveau. Tab / Maj+Tab augmentent ou réduisent le retrait de l'élément et de ses enfants ; le premier élément d'un niveau ne peut pas être décalé davantage. Maj+Entrée ajoute un saut dans l'élément. Cliquez sur la case d'une tâche pour changer son état ; vous pouvez annuler ou rétablir ce changement. Les marqueurs restent modifiables dans la source du bloc.
 
@@ -80,7 +92,7 @@ def greet(name):
   {"editor": "Ryne", "ready": true}
   ```
 
-La coloration prend en charge Rust, Python, JavaScript/JSX, TypeScript/TSX, JSON et Bash, avec des alias comme `rs`, `py`, `js`, `ts` et `sh`. Coller du code valide et caractéristique ou insérer un saut dans le code peut remplir un langage vide. Les langages inconnus et le code ambigu gardent un style simple ; un langage déjà renseigné est conservé.
+La coloration prend en charge Rust, Python, JavaScript/JSX, TypeScript/TSX, JSON et Bash, avec des alias comme `rs`, `py`, `js`, `ts` et `sh`. Le menu de langage en haut à gauche du code clôturé propose des langages courants et `auto` par défaut. Choisir `auto` vide le champ d’information de la clôture. La détection colore le code sans modifier la source. Les changements manuels sont annulables. Les autres langages et le code ambigu gardent un style simple.
 
 ## Diagrammes Mermaid
 
@@ -111,14 +123,19 @@ Le menu à trois points de la cellule change l'alignement, insère, déplace ou 
 
 ## Citations, images, séparateurs et texte brut
 
-Ces formes peuvent être insérées et modifiées en source Markdown ; leurs marqueurs structurels restent actuellement visibles. Les citations n'ont pas encore de barre rendue ni de continuation automatique. Les images n'ont pas encore d'aperçu. Entrée insère un retour littéral dans ces blocs source.
+Les citations masquent `>` et affichent une icône de citation devant le texte sur un fond clair. Le contenu et les formats en ligne sont modifiables directement ; la source du bloc permet de modifier les marqueurs. Les citations imbriquées conservent leur retrait. Entrée continue une citation non vide ; la nouvelle ligne conserve le fond et le retrait. Sur une ligne de citation vide, Entrée quitte un niveau ; Maj+Entrée ajoute un saut de ligne dans la citation. Le mode source conserve les retours littéraux. Les citations vides, les images et le texte brut restent en source modifiable. Les images n'ont pas encore d'aperçu.
 
 > Une citation avec du **gras en ligne**.
+>
+> Un deuxième paragraphe dans le même bloc de citation.
 > > Une citation imbriquée.
 
 ![Description de l'image](https://example.org/image.png)
 
 ---
+
+D'autres marqueurs de séparation comme `***` et `___` sont reconnus.
+***
 
 <div>Le HTML brut reste une source modifiable.</div>
 

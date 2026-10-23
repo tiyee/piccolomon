@@ -63,8 +63,12 @@ pub struct RenderControl {
     pub trailing_space: f32,
     pub actions: Vec<RenderAction>,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RenderControlPlacement {
+    /// Always-visible text trigger in a panel header; does not reserve body width.
+    Header {
+        label: String,
+    },
     Leading,
     Trailing,
     /// An always-visible icon in the structural marker slot, invoking its sole action.

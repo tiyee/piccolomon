@@ -161,10 +161,7 @@ fn execution_uses_validated_priority_dependencies_and_first_acceptance() {
         calls: calls.clone(),
     };
     let state = EditingState::new(Source::new("unchanged"));
-    let services = FeatureServices {
-        formulas: &NoMath,
-        language_detector: None,
-    };
+    let services = FeatureServices { formulas: &NoMath };
     for inputs in [[&a, &b, &z], [&z, &b, &a]] {
         calls.lock().unwrap().clear();
         let features: Vec<&dyn BuiltinFeature> = inputs
@@ -181,4 +178,122 @@ fn execution_uses_validated_priority_dependencies_and_first_acceptance() {
         assert_eq!(*calls.lock().unwrap(), ["z", "a", "b"]);
     }
     assert_eq!(state.source.text(), "unchanged");
+}
+
+#[test]
+fn a_module_publishes_controls_templates_preview_and_ui_atomically() {
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
+    struct Bundle {
+        calls: Arc<AtomicUsize>,
+        fail: bool,
+    }
+    struct Controls(Arc<AtomicUsize>);
+    impl RenderActionProvider for Controls {
+        fn id(&self) -> &'static str {
+            "bundle"
+        }
+        fn commands(&self) -> &'static [&'static str] {
+            &["bundle.run"]
+        }
+        fn controls(&self, _: &EditingState) -> Result<Vec<RenderControl>, String> {
+            self.0.fetch_add(1, Ordering::Relaxed);
+            Ok(Vec::new())
+        }
+        fn plan(&self, _: &EditingState, _: &RenderActionRequest) -> Result<CommandPlan, String> {
+            Ok(CommandPlan::Consume)
+        }
+    }
+    struct Preview;
+    impl PreviewProvider for Preview {
+        fn input(
+            &self,
+            _: &EditingState,
+            block: &ryne_syntax::code_block::CodeBlock,
+        ) -> Option<PreviewInput> {
+            struct Renderer;
+            impl DiagramRenderer for Renderer {
+                fn render(&self, _: &str, _: CancelControl) -> DiagramOutcome {
+                    Err("test fallback".into())
+                }
+                fn generation(&self) -> u64 {
+                    0
+                }
+            }
+            Some(PreviewInput {
+                feature: "bundle",
+                block: block.clone(),
+                input: Ok("registered".into()),
+                renderer: Arc::new(Renderer),
+            })
+        }
+    }
+    struct Ui;
+    impl BlockUiProvider for Ui {
+        fn adornment(&self, block: &ryne_syntax::block::Block, _: bool) -> AdornmentSpec {
+            AdornmentSpec {
+                metadata: BlockMetadata::from(block.kind),
+                menu: vec![MenuItemSpec {
+                    command: BlockCommand::Copy,
+                    name: "bundle menu",
+                    order: 0,
+                }],
+            }
+        }
+    }
+    impl FeatureModule for Bundle {
+        fn manifest(&self) -> FeatureManifest {
+            FeatureManifest::builtin("bundle")
+        }
+        fn register(&self, r: &mut Registrar) -> Result<(), String> {
+            let c = |id, slot| Contribution {
+                id,
+                slot,
+                exclusive: true,
+                priority: 0,
+            };
+            r.render_controls(
+                c("bundle.controls", Slot::Ui("controls")),
+                Arc::new(Controls(self.calls.clone())),
+            )?;
+            r.preview(
+                c("bundle.preview", Slot::Renderer("test")),
+                Arc::new(Preview),
+            )?;
+            r.block_ui(c("bundle.ui", Slot::Ui("block-menu")), Arc::new(Ui))?;
+            r.templates(
+                c("bundle.template", Slot::InsertTemplate("test")),
+                vec![("bundle", InsertBlock::Quote)],
+            )?;
+            if self.fail {
+                Err("abort whole module".into())
+            } else {
+                Ok(())
+            }
+        }
+    }
+    let calls = Arc::new(AtomicUsize::new(0));
+    let module = Bundle {
+        calls: calls.clone(),
+        fail: false,
+    };
+    let registry = Registry::build(&[&module]).unwrap();
+    let state = EditingState::new(Source::new("```test\nbody\n```\n"));
+    registry.render_actions().controls(&state).unwrap();
+    assert_eq!(calls.load(Ordering::Relaxed), 1);
+    assert_eq!(registry.insert_templates()[0].0, "bundle");
+    assert_eq!(
+        registry.preview_inputs(&state)[0].input.as_deref().unwrap(),
+        "registered"
+    );
+    let block = ryne_syntax::SemanticQuery::new(&state.parse)
+        .block_at(9)
+        .unwrap();
+    assert_eq!(registry.block_ui(&block, false).menu[0].name, "bundle menu");
+    assert!(Registry::build(&[&module, &module]).is_err());
+    assert!(Registry::build(&[&Bundle { calls, fail: true }]).is_err());
+    // Failed builds never invalidate or partly replace the published registry.
+    assert_eq!(registry.insert_templates().len(), 1);
 }

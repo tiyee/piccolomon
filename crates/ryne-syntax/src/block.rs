@@ -1,7 +1,22 @@
 //! Block controls refer to the same semantic AST and source as the editor.
+use crate::ParseSnapshot;
 use crate::{code_block, list, table};
-use editable_markdown_parser::{NodeKind, ParseSnapshot};
+use editable_markdown_parser::NodeKind;
 use std::ops::Range;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BlockKind {
+    Paragraph,
+    Heading(u8),
+    List { ordered: bool, task: bool },
+    Quote,
+    Code,
+    Mermaid,
+    Table,
+    Raw,
+    Rule,
+    Image,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Block {
@@ -9,19 +24,12 @@ pub struct Block {
     /// Local source includes the complete enclosing container context.
     pub scope: Range<usize>,
     pub anchor: usize,
-    /// Icon filename under `assets/icons`; None keeps the text label when no
-    /// unambiguous asset exists.
-    pub icon: Option<&'static str>,
-    pub label: &'static str,
-    pub name: &'static str,
+    pub kind: BlockKind,
 }
 
 impl Block {
     pub fn is_list(&self) -> bool {
-        matches!(
-            self.icon,
-            Some("text_bullet_list_ltr" | "text_number_list_ltr" | "task_list_ltr")
-        )
+        matches!(self.kind, BlockKind::List { .. })
     }
 }
 
@@ -30,7 +38,7 @@ impl Block {
 /// insertion never separates that marker from its first child.
 pub fn insertion_context(parse: &ParseSnapshot, block: &Block) -> Option<(Range<usize>, String)> {
     if let Some(view) = crate::parser::normalized(parse) {
-        return insertion_context(&view, block);
+        return insertion_context(view, block);
     }
     if at(parse, block.anchor).as_ref() != Some(block) {
         return None;
@@ -79,43 +87,42 @@ pub fn can_insert_above(parse: &ParseSnapshot, block: &Block) -> bool {
 pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
     let text = parse.source().text();
     if let Some(view) = crate::parser::normalized(parse) {
-        return at(&view, caret);
+        return at(view, caret);
     }
     let contains = |range: &Range<usize>| {
         range.contains(&caret) || (caret == text.len() && caret == range.end)
     };
-    if let Some(code) = code_block::blocks(parse)
-        .into_iter()
+    if let Some(code) = code_block::cached(parse)
+        .iter()
         .find(|b| contains(&b.range))
     {
         let diagram = code.language.split_whitespace().next() == Some("mermaid");
         return Some(Block {
-            range: code.range,
-            scope: code.scope,
+            range: code.range.clone(),
+            scope: code.scope.clone(),
             anchor: code.anchor,
-            icon: Some(if diagram { "mermaid" } else { "code" }),
-            label: if diagram { "◇" } else { "</>" },
-            name: if diagram { "Mermaid" } else { "代码块" },
+            kind: if diagram {
+                BlockKind::Mermaid
+            } else {
+                BlockKind::Code
+            },
         });
     }
-    if let Some(table) = table::tables(parse)
-        .into_iter()
-        .find(|t| contains(&t.range))
-    {
+    if let Some(table) = table::cached(parse).iter().find(|t| contains(&t.range)) {
         let anchor = table.rows.first()?.cells.first()?.content.start;
         return Some(Block {
-            range: table.range,
-            scope: table.scope,
+            range: table.range.clone(),
+            scope: table.scope.clone(),
             anchor,
-            icon: Some("table"),
-            label: "▦",
-            name: "表格",
+            kind: BlockKind::Table,
         });
     }
     let (id, node) = parse
-        .nodes
-        .iter()
-        .enumerate()
+        .index()
+        .blocks
+        .at(caret)
+        .into_iter()
+        .map(|id| (id, &parse.nodes[id]))
         .filter(|(_, n)| {
             contains(&n.envelope)
                 && matches!(
@@ -144,9 +151,20 @@ pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
     {
         target = parent;
     }
+    if parse.nodes[target].kind == NodeKind::BlockQuote {
+        // All prose lines/paragraphs in a quote share its outer block control,
+        // including nested quotes. Keep semantic child panels independent.
+        let mut ancestor = parse.nodes[target].parent;
+        while let Some(parent) = ancestor {
+            if parse.nodes[parent].kind == NodeKind::BlockQuote {
+                target = parent;
+            }
+            ancestor = parse.nodes[parent].parent;
+        }
+    }
     let node = &parse.nodes[target];
     if node.kind == NodeKind::Item
-        && let Some(item) = list::items(parse).into_iter().find(|i| i.id == target)
+        && let Some(item) = list::cached_items(parse).iter().find(|i| i.id == target)
     {
         // One type control represents the complete outer list. Item controls
         // remain independent, including for nested lists of a different kind.
@@ -158,7 +176,7 @@ pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
             }
             ancestor = parse.nodes[id].parent;
         }
-        let first = list::items(parse).into_iter().find(|i| i.list == list)?;
+        let first = list::cached_items(parse).iter().find(|i| i.list == list)?;
         let ordered = matches!(parse.nodes[list].kind, NodeKind::List(Some(_)));
         let task = parse.nodes.iter().any(|candidate| {
             if !matches!(candidate.kind, NodeKind::Task(_)) {
@@ -175,57 +193,25 @@ pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
         });
         return Some(Block {
             range: first.range.start..parse.nodes[list].envelope.end,
-            scope: first.scope,
+            scope: first.scope.clone(),
             anchor: first.body,
-            icon: Some(if task {
-                "task_list_ltr"
-            } else if ordered {
-                "text_number_list_ltr"
-            } else {
-                "text_bullet_list_ltr"
-            }),
-            label: if ordered { "1." } else { "•" },
-            name: if task {
-                "任务列表"
-            } else if ordered {
-                "有序列表"
-            } else {
-                "无序列表"
-            },
+            kind: BlockKind::List { ordered, task },
         });
     }
 
-    let (icon, label, name) = match node.kind {
-        NodeKind::Heading(level) => (
-            Some(match level {
-                1 => "text_header_1",
-                2 => "text_header_2",
-                3 => "text_header_3",
-                4 => "text_header_4",
-                5 => "text_header_5",
-                _ => "text_header_6",
-            }),
-            match level {
-                1 => "H1",
-                2 => "H2",
-                3 => "H3",
-                4 => "H4",
-                5 => "H5",
-                _ => "H6",
-            },
-            "标题",
-        ),
-        NodeKind::BlockQuote => (Some("text_quote"), "❯", "引用"),
-        NodeKind::CodeBlock(_) => (Some("code"), "</>", "代码块"),
-        NodeKind::Table(_) => (Some("table"), "▦", "表格"),
-        NodeKind::HtmlBlock | NodeKind::SourceBlock => (Some("code"), "<>", "原始块"),
-        NodeKind::Rule => (Some("divider"), "—", "分隔线"),
+    let kind = match node.kind {
+        NodeKind::Heading(level) => BlockKind::Heading(level),
+        NodeKind::BlockQuote => BlockKind::Quote,
+        NodeKind::CodeBlock(_) => BlockKind::Code,
+        NodeKind::Table(_) => BlockKind::Table,
+        NodeKind::HtmlBlock | NodeKind::SourceBlock => BlockKind::Raw,
+        NodeKind::Rule => BlockKind::Rule,
         _ if node.children.len() == 1
             && matches!(parse.nodes[node.children[0]].kind, NodeKind::Image { .. }) =>
         {
-            (Some("image"), "IMG", "图片")
+            BlockKind::Image
         }
-        _ => (Some("text_t"), "¶", "段落"),
+        _ => BlockKind::Paragraph,
     };
     let lines = code_block::lines(text);
     let line_start = |position| {
@@ -251,9 +237,7 @@ pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
         range,
         scope,
         anchor: node.envelope.start,
-        icon,
-        label,
-        name,
+        kind,
     })
 }
 
@@ -272,19 +256,67 @@ mod tests {
 
     #[test]
     fn types_follow_ast_including_setext_and_literal_code() {
-        for (text, needle, label) in [
-            ("###### title\n", "title", "H6"),
-            ("title\n===\n", "title", "H1"),
-            ("plain **bold**\n", "bold", "¶"),
-            ("![alt](img.png)\n", "alt", "IMG"),
-            ("> quote\n", "quote", "❯"),
-            ("1. item\n", "item", "1."),
-            ("- item\n", "item", "•"),
-            ("```rust\n# literal\n```\n", "literal", "</>"),
-            ("```mermaid\ngraph LR\n```\n", "graph", "◇"),
-            ("| a | b |\n|---|---|\n| c | d |\n", "d |", "▦"),
+        for (text, needle, kind) in [
+            ("###### title\n", "title", BlockKind::Heading(6)),
+            ("title\n===\n", "title", BlockKind::Heading(1)),
+            ("plain **bold**\n", "bold", BlockKind::Paragraph),
+            ("![alt](img.png)\n", "alt", BlockKind::Image),
+            ("> quote\n", "quote", BlockKind::Quote),
+            (
+                "1. item\n",
+                "item",
+                BlockKind::List {
+                    ordered: true,
+                    task: false,
+                },
+            ),
+            (
+                "- item\n",
+                "item",
+                BlockKind::List {
+                    ordered: false,
+                    task: false,
+                },
+            ),
+            ("```rust\n# literal\n```\n", "literal", BlockKind::Code),
+            ("```mermaid\ngraph LR\n```\n", "graph", BlockKind::Mermaid),
+            ("| a | b |\n|---|---|\n| c | d |\n", "d |", BlockKind::Table),
         ] {
-            assert_eq!(block(text, needle).label, label, "{text}");
+            assert_eq!(block(text, needle).kind, kind, "{text}");
+        }
+    }
+
+    #[test]
+    fn multiline_quote_has_one_control_and_complete_range_for_all_its_prose() {
+        for newline in ["\n", "\r\n", "\r"] {
+            for prefix in ["", "- "] {
+                let continuation = if prefix.is_empty() { "" } else { "  " };
+                let quote = [
+                    format!("{prefix}> first **中😀**"),
+                    format!("{continuation}> continuation"),
+                    format!("{continuation}>"),
+                    format!("{continuation}> second paragraph"),
+                    format!("{continuation}> > nested"),
+                    format!("{continuation}> > continuation inside"),
+                    String::new(),
+                ]
+                .join(newline);
+                let text = format!("{quote}{newline}outside{newline}{newline}> separate{newline}");
+                let first = block(&text, "first");
+                assert_eq!(first.kind, BlockKind::Quote);
+                assert_eq!(&text[first.range.clone()], quote);
+                for needle in [
+                    "中😀",
+                    "continuation",
+                    "second paragraph",
+                    "nested",
+                    "continuation inside",
+                ] {
+                    assert_eq!(block(&text, needle), first, "{needle}, newline={newline:?}");
+                }
+                assert_ne!(block(&text, "outside"), first);
+                assert_ne!(block(&text, "separate"), first);
+            }
         }
     }
 
@@ -292,7 +324,13 @@ mod tests {
     fn list_control_is_shared_by_all_items_including_nested_tasks() {
         let text = "- outer\n  - [ ] pending\n  - [x] done\n- ordinary\n\noutside\n";
         let outer = block(text, "outer");
-        assert_eq!(outer.icon, Some("text_bullet_list_ltr"));
+        assert_eq!(
+            outer.kind,
+            BlockKind::List {
+                ordered: false,
+                task: false
+            }
+        );
         assert!(outer.is_list());
         assert_eq!(
             &text[outer.range.clone()],
@@ -304,8 +342,20 @@ mod tests {
         assert!(!block(text, "outside").is_list());
         let task = "- [ ] pending\n- ordinary\n";
         assert_eq!(block(task, "pending"), block(task, "ordinary"));
-        assert_eq!(block(task, "pending").icon, Some("task_list_ltr"));
-        assert_eq!(block(task, "pending").name, "任务列表");
+        assert_eq!(
+            block(task, "pending").kind,
+            BlockKind::List {
+                ordered: false,
+                task: true
+            }
+        );
+        assert_eq!(
+            block(task, "pending").kind,
+            BlockKind::List {
+                ordered: false,
+                task: true
+            }
+        );
     }
 
     #[test]
@@ -317,7 +367,13 @@ mod tests {
             for needle in ["nested", "second"] {
                 assert_eq!(block(&text, needle), first);
             }
-            assert_eq!(first.icon, Some("text_number_list_ltr"));
+            assert_eq!(
+                first.kind,
+                BlockKind::List {
+                    ordered: true,
+                    task: false
+                }
+            );
             assert_eq!(&text[first.range.clone()], list);
             assert_eq!(&text[first.scope.clone()], list);
             assert_eq!(first.anchor, text.find("first").unwrap());
@@ -334,7 +390,13 @@ mod tests {
         let second = block(text, "second");
         assert_eq!(second, block(text, "third"));
         assert!(first.range.end < second.range.start);
-        assert_eq!(second.icon, Some("text_number_list_ltr"));
+        assert_eq!(
+            second.kind,
+            BlockKind::List {
+                ordered: true,
+                task: false
+            }
+        );
     }
 
     #[test]
@@ -345,8 +407,14 @@ mod tests {
             assert_eq!(&text[b.scope], text);
             assert!(b.range.contains(&text.find(needle).unwrap()));
         }
-        assert_eq!(block(text, "inner").label, "•");
-        assert_eq!(block(text, "literal").label, "</>");
+        assert_eq!(
+            block(text, "inner").kind,
+            BlockKind::List {
+                ordered: false,
+                task: false
+            }
+        );
+        assert_eq!(block(text, "literal").kind, BlockKind::Code);
     }
 
     #[test]
@@ -354,7 +422,7 @@ mod tests {
         let text = "# heading\n\nparagraph";
         let parse = ParseSnapshot::new(Source::new(text));
         assert!(at(&parse, text.find("\n\n").unwrap() + 1).is_none());
-        assert_eq!(at(&parse, text.len()).unwrap().label, "¶");
+        assert_eq!(at(&parse, text.len()).unwrap().kind, BlockKind::Paragraph);
     }
 
     #[test]
@@ -371,8 +439,8 @@ mod tests {
                 "",
             ]
             .join(newline);
-            assert_eq!(block(&text, "second").label, "H2");
-            assert_eq!(block(&text, "literal").label, "</>");
+            assert_eq!(block(&text, "second").kind, BlockKind::Heading(2));
+            assert_eq!(block(&text, "literal").kind, BlockKind::Code);
         }
     }
 }

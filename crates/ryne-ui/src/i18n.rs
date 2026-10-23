@@ -60,6 +60,8 @@ impl Language {
     }
     pub fn render_label(self, key: &'static str, fallback: &'static str) -> &'static str {
         let text = match key {
+            "export.pdf" => Text::ExportPdf,
+            "export.pdf-v2" => Text::ExportPdfV2,
             "table.alignment" => Text::Alignment,
             "table.align-left" => Text::AlignLeft,
             "table.align-center" => Text::AlignCenter,
@@ -132,6 +134,10 @@ pub(crate) enum Text {
     CheckUpdates,
     Hide,
     Quit,
+    MinimizeWindow,
+    MaximizeWindow,
+    RestoreWindow,
+    CloseWindow,
     File,
     New,
     Recent,
@@ -260,11 +266,15 @@ pub(crate) enum Text {
 }
 impl Text {
     #[cfg(test)]
-    const ALL: [Self; 128] = [
+    const ALL: [Self; 132] = [
         Self::About,
         Self::CheckUpdates,
         Self::Hide,
         Self::Quit,
+        Self::MinimizeWindow,
+        Self::MaximizeWindow,
+        Self::RestoreWindow,
+        Self::CloseWindow,
         Self::File,
         Self::New,
         Self::Recent,
@@ -428,6 +438,18 @@ impl Text {
                 "Ryne 종료",
                 "Quitter Ryne",
                 "Salir de Ryne",
+            ],
+            Self::MinimizeWindow => [
+                "最小化", "最小化", "Minimize", "最小化", "최소화", "Réduire", "Minimizar",
+            ],
+            Self::MaximizeWindow => [
+                "最大化", "最大化", "Maximize", "最大化", "최대화", "Agrandir", "Maximizar",
+            ],
+            Self::RestoreWindow => [
+                "还原", "還原", "Restore", "元に戻す", "이전 크기로", "Restaurer", "Restaurar",
+            ],
+            Self::CloseWindow => [
+                "关闭", "關閉", "Close", "閉じる", "닫기", "Fermer", "Cerrar",
             ],
             Self::File => [
                 "文件",
@@ -1581,22 +1603,24 @@ impl Localization {
     }
 }
 impl Language {
-    pub fn block_name(self, icon: Option<&str>, fallback: &'static str) -> &'static str {
-        let key = match icon {
-            Some("text_t") => Text::Paragraph,
-            Some(
-                "text_header_1" | "text_header_2" | "text_header_3" | "text_header_4"
-                | "text_header_5" | "text_header_6",
-            ) => Text::Heading,
-            Some("text_bullet_list_ltr") => Text::Unordered,
-            Some("text_number_list_ltr") => Text::Ordered,
-            Some("task_list_ltr") => Text::Task,
-            Some("text_quote") => Text::Quote,
-            Some("code") if fallback == "原始块" => Text::Raw,
-            Some("code") => Text::Code,
-            Some("table") => Text::Table,
-            Some("image") => Text::Image,
-            Some("divider") => Text::Rule,
+    pub fn block_name(
+        self,
+        kind: Option<ryne_syntax::block::BlockKind>,
+        fallback: &'static str,
+    ) -> &'static str {
+        use ryne_syntax::block::BlockKind::*;
+        let key = match kind {
+            Some(Paragraph) => Text::Paragraph,
+            Some(Heading(_)) => Text::Heading,
+            Some(List { task: true, .. }) => Text::Task,
+            Some(List { ordered: true, .. }) => Text::Ordered,
+            Some(List { .. }) => Text::Unordered,
+            Some(Quote) => Text::Quote,
+            Some(Code) => Text::Code,
+            Some(Raw) => Text::Raw,
+            Some(Table) => Text::Table,
+            Some(Image) => Text::Image,
+            Some(Rule) => Text::Rule,
             _ => return fallback,
         };
         self.text(key)
@@ -1698,11 +1722,9 @@ mod tests {
                     "{language:?}: {key:?}"
                 );
             }
-            assert!(
-                language
-                    .insert_label(ryne_extensions::InsertBlock::Heading(6))
-                    .starts_with("H6")
-            );
+            assert!(language
+                .insert_label(ryne_extensions::InsertBlock::Heading(6))
+                .starts_with("H6"));
         }
         assert_eq!(Language::Fr.text(Text::Save), "Enregistrer");
         assert_eq!(Language::ZhHant.text(Text::Save), "儲存");
@@ -1714,8 +1736,9 @@ mod tests {
     }
     #[test]
     fn block_menu_types_and_source_states_use_every_language() {
-        use editable_markdown_parser::{ParseSnapshot, Source};
+        use editable_markdown_parser::Source;
         use ryne_extensions::BlockCommand;
+        use ryne_syntax::ParseSnapshot;
         // Use actual AST metadata so new block icons cannot silently fall back
         // to the Chinese semantic name in another interface language.
         for (source, needle, key) in [
@@ -1736,7 +1759,7 @@ mod tests {
             let block = ryne_syntax::block::at(&parse, source.find(needle).unwrap()).unwrap();
             for language in Language::ALL {
                 assert_eq!(
-                    language.block_name(block.icon, block.name),
+                    language.block_name(Some(block.kind), "MISSING"),
                     language.text(key)
                 );
                 assert_eq!(
@@ -1772,11 +1795,11 @@ mod tests {
                 language.render_label("extension.custom", "Custom action"),
                 "Custom action"
             );
+            assert_eq!(language.block_name(None, "Custom block"), "Custom block");
             assert_eq!(
-                language.block_name(Some("extension-icon"), "Custom block"),
-                "Custom block"
+                language.block_name(Some(ryne_syntax::block::BlockKind::Mermaid), "Mermaid"),
+                "Mermaid"
             );
-            assert_eq!(language.block_name(Some("mermaid"), "Mermaid"), "Mermaid");
         }
     }
     #[test]

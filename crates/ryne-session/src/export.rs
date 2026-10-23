@@ -42,7 +42,7 @@ impl ExportSnapshot {
             });
             views.push((input.block.range, result));
         }
-        Ok(self.features.display(&state, None, &views))
+        Ok(project_checked(self.features.as_ref(), &state, None, &views).display)
     }
 }
 

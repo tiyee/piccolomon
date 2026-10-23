@@ -253,13 +253,12 @@ fn tables_without_outer_pipes_empty_cells_and_cell_end_carets_stay_stable() {
         format(&mut doc).unwrap_or_else(|e| panic!("{raw:?}: {e}"));
         let table = ryne_syntax::table::tables(&doc.parse).remove(0);
         assert_eq!(doc.head, table.rows[1].cells[1].content.end, "{raw:?}");
-        assert!(
-            doc.block_source
-                .as_ref()
-                .unwrap()
-                .visible(&doc.source)
-                .is_ok()
-        );
+        assert!(doc
+            .block_source
+            .as_ref()
+            .unwrap()
+            .visible(&doc.source)
+            .is_ok());
         let result = doc.source.text().to_owned();
         format(&mut doc).unwrap();
         assert_eq!(doc.source.text(), result);

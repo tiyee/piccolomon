@@ -230,18 +230,14 @@ fn controls_and_malformed_table_fallback_are_read_only() {
     assert_eq!(doc.selection(), selection);
     assert!(!doc.dirty());
     assert_eq!(doc.history_len(false), 0);
-    assert!(
-        new_document("|a|b|\n|---|---|\n|short|\n")
-            .render_controls()
-            .unwrap()
-            .is_empty()
-    );
-    assert!(
-        new_document("A | B\n--- | ---\na | \n")
-            .render_controls()
-            .unwrap()
-            .is_empty()
-    );
+    assert!(new_document("|a|b|\n|---|---|\n|short|\n")
+        .render_controls()
+        .unwrap()
+        .is_empty());
+    assert!(new_document("A | B\n--- | ---\na | \n")
+        .render_controls()
+        .unwrap()
+        .is_empty());
 }
 struct Custom;
 #[test]
@@ -293,10 +289,9 @@ fn render_action_validation_failure_does_not_publish_any_state() {
     doc.add_validator(Arc::new(Reject));
     let key = doc.source.id();
     let selection = doc.selection();
-    assert!(
-        doc.execute_render_action(&request(&doc, 1, 1, "table.delete-column"))
-            .is_err()
-    );
+    assert!(doc
+        .execute_render_action(&request(&doc, 1, 1, "table.delete-column"))
+        .is_err());
     assert_eq!(doc.source.id(), key);
     assert_eq!(doc.source.text(), RAW);
     assert_eq!(doc.selection(), selection);

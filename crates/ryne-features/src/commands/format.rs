@@ -20,7 +20,7 @@ impl Planner<'_> {
         }
         let input = self.state.parse.clone();
         let normalized = ryne_syntax::parser::normalized(&input);
-        let parse = normalized.as_ref().unwrap_or(&input);
+        let parse = normalized.unwrap_or(&input);
         let text = self.state.source.text();
         let mut edits = Vec::new();
         let front_matter = front_matter_end(text);
@@ -45,7 +45,7 @@ impl Planner<'_> {
             parse.math_enabled,
         );
         let normalized_baseline = ryne_syntax::parser::normalized(&baseline);
-        let baseline = normalized_baseline.as_ref().unwrap_or(&baseline);
+        let baseline = normalized_baseline.unwrap_or(&baseline);
         edits.extend(repairs);
         for rule in RULES
             .iter()
@@ -110,7 +110,7 @@ impl Planner<'_> {
         self.apply_edits(edits, None)
             .map_err(|error| format!("{error:?}"))?;
         let after_normalized = ryne_syntax::parser::normalized(&self.state.parse);
-        let after = after_normalized.as_ref().unwrap_or(&self.state.parse);
+        let after = after_normalized.unwrap_or(&self.state.parse);
         if !same_semantics(baseline, after) {
             return Err(format!(
                 "formatting would change Markdown semantics; source preserved (rules: {})",

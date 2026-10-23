@@ -1,6 +1,9 @@
 use super::*;
 impl Planner<'_> {
     pub fn normalize_heading_caret(&mut self) {
+        if self.state.source_mode {
+            return;
+        }
         if !self.state.source_mode
             && !self.in_block_source(self.state.head)
             && self.selection().is_empty()
@@ -22,9 +25,12 @@ impl Planner<'_> {
         if !self.state.source_mode
             && self.state.anchor == self.state.head
             && !self.in_block_source(self.state.head)
-            && let Some(block) = code_block::blocks(&self.state.parse)
-                .iter()
-                .find(|block| block.range.contains(&self.state.head))
+            && let Some(block) = {
+                let blocks = code_block::cached(&self.state.parse);
+                blocks
+                    .get(blocks.partition_point(|b| b.range.end <= self.state.head))
+                    .filter(|b| b.range.contains(&self.state.head))
+            }
         {
             let position = block.caret(self.state.head);
             self.state.anchor = position;
@@ -43,14 +49,41 @@ impl Planner<'_> {
             let position = presentation::heading_caret(&self.state.parse, self.state.head);
             self.state.anchor = position;
             self.state.head = position;
-            if let Some(row) = list::rows(&self.state.parse)
-                .iter()
-                .find(|r| r.line.contains(&self.state.head))
-            {
+            if let Some(row) = {
+                let rows = list::cached_rows(&self.state.parse);
+                rows.get(rows.partition_point(|r| r.line.end <= self.state.head))
+                    .filter(|r| r.line.contains(&self.state.head))
+            } {
                 while let Some(prefix) = row.hidden.iter().find(|r| r.contains(&self.state.head)) {
                     self.state.head = prefix.end;
                 }
                 self.state.anchor = self.state.head;
+            }
+            if self
+                .state
+                .parse
+                .index()
+                .prefixes(
+                    &self.state.parse,
+                    self.state.head..self.state.head.saturating_add(1),
+                )
+                .any(|token| {
+                    token.kind == editable_markdown_parser::TokenKind::ContainerPrefix
+                        && self.state.parse.nodes[token.owner].kind == NodeKind::BlockQuote
+                        && token.range.contains(&self.state.head)
+                })
+            {
+                let display = self.display();
+                if display
+                    .quotes
+                    .iter()
+                    .any(|quote| quote.source.contains(&self.state.head))
+                {
+                    let position = display
+                        .source_at(display.position_at(self.state.head), Affinity::Downstream);
+                    self.state.head = position;
+                    self.state.anchor = position;
+                }
             }
         }
     }
@@ -58,11 +91,20 @@ impl Planner<'_> {
         if self.state.source_mode || self.in_block_source(self.state.head) {
             return;
         }
-        self.state.heading_reveal = self.state.parse.nodes.iter().find_map(|node| {
-            (matches!(node.kind, NodeKind::Heading(_)) && node.envelope.contains(&self.state.head))
+        self.state.heading_reveal = self
+            .state
+            .parse
+            .index()
+            .headings
+            .at(self.state.head)
+            .into_iter()
+            .map(|id| &self.state.parse.nodes[id])
+            .find_map(|node| {
+                (matches!(node.kind, NodeKind::Heading(_))
+                    && node.envelope.contains(&self.state.head))
                 .then(|| Session::new(&self.state.source, node.envelope.clone()).ok())
                 .flatten()
-        });
+            });
     }
     /// Only an empty ATX heading at the end of its hash run is an input prefix.
     /// The AST supplies block/container context so code and inline hashes stay literal.
@@ -80,43 +122,27 @@ impl Planner<'_> {
         if !(1..=6).contains(&count) {
             return None;
         }
-        // The parser's block backend needs LF for bare-CR documents. Keep offsets
-        // identical and leave the authoritative source bytes untouched.
-        let normalized;
-        let parse = if text
-            .bytes()
-            .enumerate()
-            .any(|(i, b)| b == b'\r' && text.as_bytes().get(i + 1) != Some(&b'\n'))
-        {
-            let normalized_text = text
-                .char_indices()
-                .map(|(i, ch)| {
-                    if ch == '\r' && text.as_bytes().get(i + 1) != Some(&b'\n') {
-                        '\n'
-                    } else {
-                        ch
-                    }
-                })
-                .collect::<String>();
-            normalized = ParseSnapshot::with_math(Source::new(&normalized_text));
-            &normalized
-        } else {
-            &self.state.parse
-        };
-        parse.nodes.iter().find_map(|node| {
-            (node.kind == NodeKind::Heading(count as u8)
-                && node.children.is_empty()
-                && node.envelope.start <= caret - count
-                && text[node.envelope.start..caret - count]
-                    .bytes()
-                    .all(|b| b == b' ')
-                && caret
-                    == node.envelope.start
-                        + text[node.envelope.clone()]
-                            .trim_end_matches(['\r', '\n'])
-                            .len())
-            .then_some(caret - count..caret)
-        })
+        let parse = self.state.parse.semantic();
+        parse
+            .index()
+            .headings
+            .at(caret)
+            .into_iter()
+            .map(|id| &parse.nodes[id])
+            .find_map(|node| {
+                (node.kind == NodeKind::Heading(count as u8)
+                    && node.children.is_empty()
+                    && node.envelope.start <= caret - count
+                    && text[node.envelope.start..caret - count]
+                        .bytes()
+                        .all(|b| b == b' ')
+                    && caret
+                        == node.envelope.start
+                            + text[node.envelope.clone()]
+                                .trim_end_matches(['\r', '\n'])
+                                .len())
+                .then_some(caret - count..caret)
+            })
     }
     pub(crate) fn reveal_heading_input(&mut self) {
         if self.selection().is_empty()

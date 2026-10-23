@@ -4,4 +4,12 @@ pub mod code_block;
 pub mod list;
 pub mod math;
 pub mod parser;
+mod query;
+pub mod quote;
 pub mod table;
+pub use query::SemanticQuery;
+mod snapshot;
+pub use snapshot::{ParseSnapshot, RangeIndex, SemanticIndex};
+
+mod utf16;
+pub use utf16::Utf16Index;

@@ -89,12 +89,10 @@ impl Planner<'_> {
         }
         if !self.state.source_mode
             && !self.in_block_source(range.start)
-            && let Some(block) = code_block::blocks(&self.state.parse)
-                .into_iter()
-                .find(|block| {
-                    block.range.contains(&range.start)
-                        || (block.closing.is_none() && range.start == block.range.end)
-                })
+            && let Some(block) = code_block::cached(&self.state.parse).iter().find(|block| {
+                block.range.contains(&range.start)
+                    || (block.closing.is_none() && range.start == block.range.end)
+            })
             && !block.continuation.is_empty()
         {
             let mut replacement = String::new();
@@ -117,8 +115,8 @@ impl Planner<'_> {
         if !self.state.source_mode
             && !self.in_block_source(range.start)
             && text.contains(['\r', '\n'])
-            && let Some(row) = list::rows(&self.state.parse)
-                .into_iter()
+            && let Some(row) = list::cached_rows(&self.state.parse)
+                .iter()
                 .find(|row| row.content.start <= range.start && range.end <= row.content.end)
         {
             let mut replacement = String::new();

@@ -1,14 +1,15 @@
 //! Typed, read-only feature and service contracts for static built-ins.
-use editable_markdown_parser::{Error, ParseSnapshot, Session, Source};
+use editable_markdown_parser::{Error, Session, Source};
 use ryne_core::{DocumentKey, PreparedEdit, SourceRange};
 use ryne_projection::{Class, DiagramOutcome, DiagramViewInput, Display, Formula};
 use ryne_syntax::code_block::CodeBlock;
+use ryne_syntax::ParseSnapshot;
 use std::{
     ops::Range,
     path::Path,
     sync::{
-        Arc,
         atomic::{AtomicBool, Ordering},
+        Arc,
     },
     time::{Duration, Instant},
 };
@@ -46,6 +47,13 @@ impl EditingState {
 #[derive(Clone)]
 pub enum EditIntent {
     FormatSource,
+    /// Semantic rules delegate in registration order; the final rule edits plain text.
+    Delete {
+        forward: bool,
+    },
+    Tab {
+        backward: bool,
+    },
     Normalize,
     RestoreHeading,
     Select {
@@ -119,6 +127,15 @@ pub enum CommandPlan {
     Consume,
 }
 pub trait FeatureEngine: Send + Sync {
+    /// Opt in only when these inputs fully describe presentation, excluding diagrams
+    /// and highlighting (tracked by the host). Unknown extensions remain uncached.
+    fn presentation_key(&self, _: &EditingState) -> Option<PresentationKey> {
+        None
+    }
+    /// Opt in when controls depend only on source identity and source mode.
+    fn cache_source_controls(&self) -> bool {
+        false
+    }
     /// Freeze presentation settings for a detached background export.
     fn snapshot(&self) -> Option<Arc<dyn FeatureEngine>> {
         None
@@ -156,6 +173,10 @@ pub trait FeatureEngine: Send + Sync {
 mod math_font;
 pub use math_font::MathFont;
 pub trait FormulaRenderer: Send + Sync {
+    /// Stable until any setting or availability affecting rendered output changes.
+    fn presentation_generation(&self) -> Option<u64> {
+        None
+    }
     fn font(&self) -> MathFont {
         MathFont::default()
     }
@@ -174,9 +195,22 @@ pub struct HighlightSpan {
     pub class: Class,
 }
 pub trait SyntaxHighlighter {
+    /// None also requests another pass when a frame deferred work under its budget.
+    fn presentation_generation(&self) -> Option<u64> {
+        None
+    }
     fn begin_frame(&mut self);
     fn end_frame(&mut self);
     fn spans(&mut self, source: &str, block: &CodeBlock) -> Vec<HighlightSpan>;
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PresentationKey {
+    pub document: DocumentKey,
+    pub source_mode: bool,
+    pub inline: Option<Range<usize>>,
+    pub heading: Option<Range<usize>>,
+    pub block: Option<Range<usize>>,
+    pub generation: u64,
 }
 /// Conservative language inference over literal code, without document ownership.
 pub trait CodeLanguageDetector: Send + Sync {
@@ -293,7 +327,15 @@ pub trait UpdateChecker: Send + Sync {
 }
 #[derive(Clone)]
 pub struct DesktopServices {
-    pub pdf: Arc<dyn PdfExporter>,
-    pub pdf_v2: Arc<dyn PdfExporter>,
+    pub exports: ExportRegistry,
+    pub artifacts: Arc<dyn ArtifactStore>,
     pub updates: Arc<dyn UpdateChecker>,
 }
+
+mod block_metadata;
+
+mod projection;
+pub use projection::{project_checked, ProjectionBatch};
+
+mod export;
+pub use export::{ArtifactStore, ExportDescriptor, ExportRegistry};

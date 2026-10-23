@@ -1,6 +1,12 @@
 use super::*;
 #[derive(Clone, Debug, PartialEq, Action)]
 #[action(namespace = ryne, no_json)]
+pub(super) struct ExportRegistered {
+    pub id: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Action)]
+#[action(namespace = ryne, no_json)]
 pub(super) struct OpenRecent {
     pub path: PathBuf,
 }
@@ -22,6 +28,7 @@ pub(super) fn application_menus(
     preference: Preference,
     math_font: MathFont,
     paths: &[PathBuf],
+    exports: &[ExportDescriptor],
 ) -> Vec<Menu> {
     let text = |key| language.text(key);
     let language_choice = |name: &str, choice: Preference| {
@@ -100,9 +107,17 @@ pub(super) fn application_menus(
                 MenuItem::action(text(Text::Save), Save),
                 MenuItem::action(text(Text::SaveAs), SaveAs),
                 MenuItem::separator(),
-                MenuItem::action(text(Text::ExportPdf), ExportPdf),
-                MenuItem::action(text(Text::ExportPdfV2), ExportPdfV2),
-            ],
+            ]
+            .into_iter()
+            .chain(exports.iter().map(|format| {
+                MenuItem::action(
+                    language.render_label(format.label, format.fallback),
+                    ExportRegistered {
+                        id: format.id.into(),
+                    },
+                )
+            }))
+            .collect(),
         },
     ]
 }
@@ -113,6 +128,7 @@ impl Editor {
             self.locale.preference,
             self.math_font.font,
             &self.recent.paths,
+            self.desktop.exports.formats(),
         ));
     }
     pub(super) fn remember_file(&mut self, path: &std::path::Path, cx: &mut Context<Self>) {
@@ -158,8 +174,8 @@ impl Editor {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        self.top_menu = None;
-        self.top_submenu = None;
+        self.menus.top_menu = None;
+        self.menus.top_submenu = None;
         if let Err(error) = self.math_font.select(action.font) {
             self.status = self
                 .locale
@@ -178,10 +194,10 @@ impl Editor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.checking_updates {
+        if self.operations.checking_updates {
             return;
         }
-        self.checking_updates = true;
+        self.operations.checking_updates = true;
         self.status = Text::CheckingUpdates.into();
         let checker = self.desktop.updates.clone();
         let task = cx
@@ -190,7 +206,7 @@ impl Editor {
         cx.spawn_in(window, async move |this, cx| {
             let result = task.await;
             let Ok((answer, url)) = this.update_in(cx, |this, window, cx| {
-                this.checking_updates = false;
+                this.operations.checking_updates = false;
                 let (title, detail, url) = match result {
                     Ok(ryne_extensions::UpdateStatus::Current) => (Text::UpToDate, None, None),
                     Ok(ryne_extensions::UpdateStatus::NoRelease) => (Text::NoRelease, None, None),
@@ -245,6 +261,7 @@ impl Editor {
             self.locale.preference,
             self.math_font.font,
             &self.recent.paths,
+            self.desktop.exports.formats(),
         );
         let mut bar = div()
             .relative()
@@ -268,18 +285,18 @@ impl Editor {
                         MouseButton::Left,
                         cx.listener(move |this, _, _, cx| {
                             cx.stop_propagation();
-                            this.top_menu = if this.top_menu == Some(index) {
+                            this.menus.top_menu = if this.menus.top_menu == Some(index) {
                                 None
                             } else {
                                 Some(index)
                             };
-                            this.top_submenu = None;
+                            this.menus.top_submenu = None;
                             cx.notify();
                         }),
                     ),
             );
         }
-        if let Some(index) = self.top_menu
+        if let Some(index) = self.menus.top_menu
             && let Some(menu) = menus.into_iter().nth(index)
         {
             let mut items = Vec::new();
@@ -298,17 +315,18 @@ impl Editor {
                                     MouseButton::Left,
                                     cx.listener(move |this, _, _, cx| {
                                         cx.stop_propagation();
-                                        this.top_submenu = if this.top_submenu == Some(item_index) {
-                                            None
-                                        } else {
-                                            Some(item_index)
-                                        };
+                                        this.menus.top_submenu =
+                                            if this.menus.top_submenu == Some(item_index) {
+                                                None
+                                            } else {
+                                                Some(item_index)
+                                            };
                                         cx.notify();
                                     }),
                                 )
                                 .into_any_element(),
                         );
-                        if self.top_submenu == Some(item_index) {
+                        if self.menus.top_submenu == Some(item_index) {
                             items.extend(
                                 submenu
                                     .items
@@ -366,8 +384,8 @@ fn window_menu_item(item: MenuItem, cx: &mut Context<Editor>) -> AnyElement {
                     cx.listener(move |this, _, window, cx| {
                         cx.stop_propagation();
                         if enabled {
-                            this.top_menu = None;
-                            this.top_submenu = None;
+                            this.menus.top_menu = None;
+                            this.menus.top_submenu = None;
                             window.focus(&this.focus);
                             window.dispatch_action(action.boxed_clone(), cx);
                             cx.notify();
@@ -387,11 +405,60 @@ fn window_menu_item(item: MenuItem, cx: &mut Context<Editor>) -> AnyElement {
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn test_exports() -> Vec<ExportDescriptor> {
+        struct Unused;
+        impl ryne_extensions::PdfExporter for Unused {
+            fn export(&self, _: &Display) -> Result<Vec<u8>, String> {
+                Err("menu test".into())
+            }
+        }
+        [
+            ("pdf", "export.pdf", "Export PDF"),
+            ("pdf-v2", "export.pdf-v2", "Export PDF v2"),
+        ]
+        .into_iter()
+        .map(|(id, label, fallback)| ExportDescriptor {
+            id,
+            label,
+            fallback,
+            file_suffix: "",
+            exporter: std::sync::Arc::new(Unused),
+        })
+        .collect()
+    }
+    #[::core::prelude::v1::test]
+    fn custom_export_appears_without_a_new_ui_action_type() {
+        let mut exports = test_exports();
+        exports[0].id = "custom-pdf";
+        exports[0].label = "custom.label";
+        exports[0].fallback = "Custom PDF";
+        exports.truncate(1);
+        let menus = application_menus(
+            Language::En,
+            Preference(None),
+            MathFont::default(),
+            &[],
+            &exports,
+        );
+        let MenuItem::Action { name, action, .. } = menus[1].items.last().unwrap() else {
+            panic!("missing export")
+        };
+        assert_eq!(name.as_ref(), "Custom PDF");
+        assert_eq!(
+            action
+                .as_any()
+                .downcast_ref::<ExportRegistered>()
+                .unwrap()
+                .id,
+            "custom-pdf"
+        );
+    }
     #[::core::prelude::v1::test]
     fn math_font_submenu_localizes_routes_and_marks_exactly_one_choice() {
         for language in Language::ALL {
             for selected in MathFont::ALL {
-                let menus = application_menus(language, Preference(None), selected, &[]);
+                let menus =
+                    application_menus(language, Preference(None), selected, &[], &test_exports());
                 let MenuItem::Submenu(menu) = &menus[0].items[2] else {
                     panic!("math font submenu")
                 };
@@ -426,7 +493,13 @@ mod tests {
             .collect::<Vec<_>>();
         for language in Language::ALL {
             for preference in &preferences {
-                let menus = application_menus(language, *preference, MathFont::default(), &[]);
+                let menus = application_menus(
+                    language,
+                    *preference,
+                    MathFont::default(),
+                    &[],
+                    &test_exports(),
+                );
                 let MenuItem::Submenu(submenu) = &menus[0].items[1] else {
                     panic!("language submenu must be under Ryne");
                 };
@@ -471,6 +544,7 @@ mod tests {
                 Preference(None),
                 MathFont::default(),
                 std::slice::from_ref(&path),
+                &test_exports(),
             );
             assert_eq!(menus[0].name.as_ref(), "Ryne");
             assert_eq!(menus[1].name.as_ref(), language.text(Text::File));
@@ -481,11 +555,8 @@ mod tests {
                 let MenuItem::Action { action, .. } = entry else {
                     unreachable!()
                 };
-                if v2 {
-                    assert!(action.as_any().is::<ExportPdfV2>());
-                } else {
-                    assert!(action.as_any().is::<ExportPdf>());
-                }
+                let action = action.as_any().downcast_ref::<ExportRegistered>().unwrap();
+                assert_eq!(action.id, if v2 { "pdf-v2" } else { "pdf" });
             }
             let MenuItem::Submenu(recent) = &menus[1].items[2] else {
                 panic!("recent submenu");

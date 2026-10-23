@@ -1,4 +1,5 @@
-use editable_markdown_parser::{NodeKind, ParseSnapshot, TokenKind};
+use crate::ParseSnapshot;
+use editable_markdown_parser::{NodeKind, TokenKind};
 use std::ops::Range;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -44,7 +45,7 @@ fn content_end(text: &str, line: &Range<usize>) -> usize {
 
 fn prefix_end(parse: &ParseSnapshot, line: &Range<usize>) -> usize {
     let mut start = line.start;
-    for token in &parse.syntax.tokens {
+    for token in parse.index().prefixes(parse, line.clone()) {
         if token.kind == TokenKind::ContainerPrefix && token.range.start == start {
             start = token
                 .range
@@ -58,24 +59,23 @@ fn prefix_end(parse: &ParseSnapshot, line: &Range<usize>) -> usize {
 // The semantic AST decides what is code. Physical lines are used only to
 // recover exact indentation and fences, including fences inside containers.
 pub fn blocks(parse: &ParseSnapshot) -> Vec<CodeBlock> {
-    if let Some(view) = crate::parser::normalized(parse) {
-        return blocks_lf(&view);
-    }
-    blocks_lf(parse)
+    cached(parse).to_vec()
+}
+pub fn cached(parse: &ParseSnapshot) -> &[CodeBlock] {
+    let parse = parse.semantic();
+    parse.codes.get_or_init(|| blocks_lf(parse))
 }
 
 fn blocks_lf(parse: &ParseSnapshot) -> Vec<CodeBlock> {
     let text = parse.source().text();
-    let source_lines = lines(text);
+    let source_lines = &parse.index().lines;
     let mut result = Vec::new();
-    for (id, node) in parse.nodes.iter().enumerate() {
+    for &id in &parse.index().code_nodes {
+        let node = &parse.nodes[id];
         let NodeKind::CodeBlock(language) = &node.kind else {
             continue;
         };
-        let Some(first) = source_lines
-            .iter()
-            .find(|line| line.start <= node.envelope.start && node.envelope.start < line.end)
-        else {
+        let Some(first) = parse.index().line(node.envelope.start) else {
             continue;
         };
         let first_end = content_end(text, first);
@@ -100,8 +100,8 @@ fn blocks_lf(parse: &ParseSnapshot) -> Vec<CodeBlock> {
         let mut semantic_end = node.envelope.end;
         if !fenced {
             for line in source_lines
+                [source_lines.partition_point(|line| line.start < node.envelope.end)..]
                 .iter()
-                .filter(|line| line.start >= node.envelope.end)
             {
                 let value = &text[line.start..content_end(text, line)];
                 if line.start == semantic_end
@@ -115,7 +115,7 @@ fn blocks_lf(parse: &ParseSnapshot) -> Vec<CodeBlock> {
             }
         }
         let closing = if fenced {
-            source_lines
+            source_lines[..source_lines.partition_point(|line| line.start < node.envelope.end)]
                 .iter()
                 .rev()
                 .find(|line| {
@@ -146,16 +146,23 @@ fn blocks_lf(parse: &ParseSnapshot) -> Vec<CodeBlock> {
         } else {
             4
         };
-        let rows = source_lines
+        let body_lines = source_lines.partition_point(|line| line.start < body_start)
+            ..source_lines.partition_point(|line| line.start < body_end);
+        let text_children: Vec<_> = node
+            .children
             .iter()
-            .filter(|line| body_start <= line.start && line.start < body_end)
+            .map(|&id| &parse.nodes[id])
+            .filter(|node| matches!(node.kind, NodeKind::Text(_)))
+            .collect();
+        let rows = source_lines[body_lines]
+            .iter()
             .map(|line| {
                 let end = content_end(text, line);
-                let semantic_start = node
-                    .children
+                let semantic_start = text_children
+                    [text_children.partition_point(|child| child.envelope.end <= line.start)..]
                     .iter()
-                    .filter_map(|&child| {
-                        let child = &parse.nodes[child];
+                    .take_while(|child| child.envelope.start < line.end)
+                    .filter_map(|child| {
                         (matches!(child.kind, NodeKind::Text(_))
                             && child.envelope.start < line.end
                             && line.start < child.envelope.end)
@@ -193,10 +200,7 @@ fn blocks_lf(parse: &ParseSnapshot) -> Vec<CodeBlock> {
             }
             parent = parse.nodes[p].parent;
         }
-        if let Some(line) = source_lines
-            .iter()
-            .find(|line| line.start <= scope.start && scope.start < line.end)
-        {
+        if let Some(line) = parse.index().line(scope.start) {
             scope.start = line.start;
         }
         let anchor = rows.first().map_or_else(
@@ -210,7 +214,7 @@ fn blocks_lf(parse: &ParseSnapshot) -> Vec<CodeBlock> {
         let container_end = node.envelope.start;
         let mut continuation = text[first.start..container_end].to_owned();
         // A list's first-line marker becomes hanging indentation on code lines.
-        for token in &parse.syntax.tokens {
+        for token in parse.index().prefixes(parse, first.start..container_end) {
             if token.kind == TokenKind::ContainerPrefix
                 && token.range.start >= first.start
                 && token.range.end <= container_end

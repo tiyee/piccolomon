@@ -3,7 +3,7 @@ impl Planner<'_> {
     pub fn indent_list(&mut self, outdent: bool) -> Result<bool, Error> {
         if self.state.source_mode
             || self.in_block_source(self.state.head)
-            || code_block::blocks(&self.state.parse)
+            || code_block::cached(&self.state.parse)
                 .iter()
                 .any(|b| b.range.contains(&self.state.head))
         {
@@ -165,5 +165,77 @@ impl Planner<'_> {
             }
         }
         Ok(true)
+    }
+}
+
+impl Planner<'_> {
+    pub fn list_line_break(&mut self, hard: bool) -> Result<bool, Error> {
+        let selection = self.selection();
+        let newline = self.newline_at(selection.start);
+        if !self.state.source_mode
+            && !self.in_block_source(selection.start)
+            && let Some(row) = list::rows(&self.state.parse)
+                .into_iter()
+                .find(|r| r.content.start <= selection.start && selection.start <= r.content.end)
+        {
+            if row.first
+                && self.state.source.text()[row.content.clone()]
+                    .trim()
+                    .is_empty()
+                && selection.is_empty()
+            {
+                self.indent_list(true)?;
+                return Ok(true);
+            }
+            let prefix = if hard {
+                format!("  {newline}{}", row.item.continuation)
+            } else {
+                format!(
+                    "{newline}{}{}",
+                    &self.state.source.text()[row.item.range.start..row.item.marker.start],
+                    row.item.next_marker
+                )
+            };
+            if !hard {
+                let mut edits = vec![Edit {
+                    range: selection.clone(),
+                    replacement: prefix,
+                }];
+                let before = list::columns(&row.item.continuation);
+                let after = list::columns(&format!(
+                    "{}{}",
+                    &self.state.source.text()[row.item.range.start..row.item.marker.start],
+                    row.item.next_marker
+                ));
+                // Keep the remainder of this item inside the new item's content
+                // column when an ordered marker grows (9 -> 10) or shrinks.
+                if before != after {
+                    for line in code_block::lines(self.state.source.text())
+                        .into_iter()
+                        .filter(|line| {
+                            selection.end < line.start && line.start < row.item.range.end
+                        })
+                    {
+                        if self.state.source.text()[line.clone()].trim().is_empty() {
+                            continue;
+                        }
+                        let start = list::quote_end(&self.state.parse, &line);
+                        if after > before {
+                            edits.push(Edit {
+                                range: start..start,
+                                replacement: " ".repeat(after - before),
+                            });
+                        } else if let Some((range, replacement)) =
+                            list::unindent(self.state.source.text(), &line, start, before - after)
+                        {
+                            edits.push(Edit { range, replacement });
+                        }
+                    }
+                }
+                return self.apply_edits(edits, Some(selection.end)).map(|()| true);
+            }
+            return self.replace(selection, &prefix).map(|()| true);
+        }
+        Ok(false)
     }
 }

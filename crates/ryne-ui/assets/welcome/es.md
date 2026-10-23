@@ -38,6 +38,8 @@ Haz clic en un formato o entra con las flechas para editar su código, incluidos
 
 Código en línea: `**texto literal**` y ``un `acento grave` dentro del código``. El Markdown dentro del código no se interpreta. La barra inversa conserva los signos literales: \*sin cursiva\* y \[sin enlace\].
 
+Los enlaces pueden incluir un título: [Ryne](https://example.org "Sitio de Ryne"). Enlaces automáticos: <https://example.org> y <mailto:hola@example.org>.
+
 ## Listas y tareas
 
 - Elemento sin ordenar con **negrita**.
@@ -52,6 +54,16 @@ Código en línea: `**texto literal**` y ``un `acento grave` dentro del código`
 
 - [ ] Una tarea pendiente.
 - [x] Una tarea terminada.
+
+Las listas sin ordenar también admiten los marcadores `+` y `*`:
+
++ Otro marcador de lista.
+* Y otro más.
+
+Una lista numerada puede comenzar por un número distinto de 1:
+
+7. Primer elemento, numerado desde siete.
+8. Elemento siguiente.
 
 Intro continúa un elemento con contenido; en uno vacío sale de un nivel. Tab / Mayús+Tab aumentan o reducen la sangría del elemento y sus hijos; el primer elemento de un nivel no puede aumentar su sangría. Mayús+Intro añade un salto dentro del elemento. Haz clic en la casilla de una tarea para cambiar su estado; puedes deshacer y rehacer el cambio. También puedes editar sus marcadores en el código del bloque.
 
@@ -80,7 +92,7 @@ def greet(name):
   {"editor": "Ryne", "ready": true}
   ```
 
-El resaltado admite Rust, Python, JavaScript/JSX, TypeScript/TSX, JSON y Bash, con alias como `rs`, `py`, `js`, `ts` y `sh`. Pegar código válido y distintivo o insertar un salto en el código puede completar un lenguaje vacío. Los lenguajes desconocidos y el código ambiguo mantienen un estilo sencillo; se conserva un lenguaje ya indicado.
+El resaltado admite Rust, Python, JavaScript/JSX, TypeScript/TSX, JSON y Bash, con alias como `rs`, `py`, `js`, `ts` y `sh`. El menú de lenguaje en la esquina superior izquierda del código cercado ofrece lenguajes comunes y `auto` por defecto. Elegir `auto` vacía el campo de información de la cerca. La detección resalta sin modificar la fuente. Los cambios manuales se pueden deshacer. Otros lenguajes y el código ambiguo mantienen un estilo sencillo.
 
 ## Diagramas Mermaid
 
@@ -111,14 +123,19 @@ El menú de tres puntos de la celda cambia la alineación e inserta, mueve o eli
 
 ## Citas, imágenes, separadores y texto sin procesar
 
-Estas formas se pueden insertar y editar como código Markdown; actualmente sus marcadores estructurales permanecen visibles. Las citas aún no tienen barra visual ni continuación automática. Las imágenes aún no tienen vista previa. Intro inserta un salto literal en estos bloques de código fuente.
+Las citas ocultan `>` y muestran un icono de cita delante del texto sobre un fondo claro. El contenido y los formatos en línea se editan directamente; el código del bloque permite cambiar los marcadores. Las citas anidadas conservan la sangría. Intro continúa una cita no vacía; la nueva línea conserva el fondo y la sangría. En una línea de cita vacía, Intro sale de un nivel; Mayús+Intro añade un salto de línea dentro de la cita. El modo de código fuente conserva los saltos literales. Las citas vacías, las imágenes y el texto sin procesar conservan código editable. Las imágenes aún no tienen vista previa.
 
 > Una cita con **negrita en línea**.
+>
+> Un segundo párrafo dentro del mismo bloque de cita.
 > > Una cita anidada.
 
 ![Descripción de la imagen](https://example.org/image.png)
 
 ---
+
+También se reconocen otros separadores, como `***` y `___`.
+***
 
 <div>El HTML sin procesar permanece como código editable.</div>
 

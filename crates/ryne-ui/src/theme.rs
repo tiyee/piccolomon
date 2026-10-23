@@ -1,5 +1,5 @@
 //! Shared typography and page geometry. Values use GPUI logical pixels.
-use gpui::{Font, FontFallbacks, TextSystem, font};
+use gpui::{font, Font, FontFallbacks, TextSystem};
 
 pub const BODY: (f32, f32) = (18., 30.);
 pub const CODE: (f32, f32) = (15., 24.);
@@ -14,6 +14,7 @@ pub const MUTED: u32 = 0x727780;
 pub const MARKER: u32 = 0x818791;
 pub const LINK: u32 = 0x306fa6;
 pub const CODE_BG: u32 = 0xf0f1ee;
+pub const QUOTE_BG: u32 = 0xeff2f4;
 pub const BORDER: u32 = 0xe1e4de;
 
 pub fn heading(level: u8) -> (f32, f32) {

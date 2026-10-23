@@ -1,11 +1,24 @@
+mod contribution;
+#[cfg(test)]
+mod legacy;
+mod style_plan;
+use contribution::BlockContribution;
+use style_plan::{Attr, StylePlan};
+mod code;
+#[path = "presentation/list.rs"]
+mod list_component;
+mod quote;
+#[path = "presentation/table.rs"]
+mod table_component;
 use crate::math;
 #[cfg(test)]
 use editable_markdown_parser::{Affinity, Source};
-use editable_markdown_parser::{NodeKind, ParseSnapshot, TokenKind};
+use editable_markdown_parser::{NodeKind, TokenKind};
 use ryne_extensions::SyntaxHighlighter;
 use ryne_projection::*;
 #[cfg(test)]
 use ryne_services::mermaid;
+use ryne_syntax::ParseSnapshot;
 use ryne_syntax::{code_block, list, table};
 use std::ops::Range;
 
@@ -81,22 +94,28 @@ fn inline_range(parse: &ParseSnapshot, id: usize, tables: &[table::Table]) -> Ra
 
 /// Reveal all inline ancestors, stopping before block containers.
 pub fn active_window(parse: &ParseSnapshot, caret: usize) -> Option<Range<usize>> {
-    let tables = table::tables(parse);
-    let formulas = math::formulas(parse);
-    parse
-        .nodes
-        .iter()
-        .enumerate()
+    let parse = parse.semantic();
+    let candidates = parse.index().inline_nodes.at(caret);
+    if candidates.is_empty() {
+        return None;
+    }
+    let tables = table::cached(parse);
+    let all_formulas = ryne_syntax::math::cached(parse);
+    let first = all_formulas.partition_point(|f| f.range.end <= caret);
+    let formulas = &all_formulas[first..all_formulas.partition_point(|f| f.range.start < caret)];
+    candidates
+        .into_iter()
+        .map(|id| (id, &parse.nodes[id]))
         .filter(|(id, _)| {
-            let range = inline_range(parse, *id, &tables);
-            editable_inline(parse, *id, &tables)
+            let range = inline_range(parse, *id, tables);
+            editable_inline(parse, *id, tables)
                 && range.start < caret
                 && caret < range.end
                 && !formulas
                     .iter()
                     .any(|f| f.range.start <= range.start && range.end <= f.range.end)
         })
-        .map(|(id, _)| inline_range(parse, id, &tables))
+        .map(|(id, _)| inline_range(parse, id, tables))
         .chain(
             formulas
                 .iter()
@@ -123,7 +142,8 @@ fn heading_content(parse: &ParseSnapshot, id: usize) -> Range<usize> {
 }
 
 pub fn heading_caret(parse: &ParseSnapshot, caret: usize) -> usize {
-    for (id, node) in parse.nodes.iter().enumerate() {
+    for id in parse.index().headings.at(caret) {
+        let node = &parse.nodes[id];
         if matches!(node.kind, NodeKind::Heading(_))
             && node.envelope.start <= caret
             && caret <= node.envelope.end
@@ -145,7 +165,7 @@ pub fn heading_caret(parse: &ParseSnapshot, caret: usize) -> usize {
 }
 
 /// Headings and code have structural presentation; inline syntax follows the
-/// caret. Other block prefixes and unsupported syntax remain editable source.
+/// caret. Unsupported syntax remains editable source.
 #[cfg(test)]
 pub fn build(parse: &ParseSnapshot, window: Option<&Range<usize>>, source_mode: bool) -> Display {
     build_with_heading(parse, window, source_mode, None, None)
@@ -206,7 +226,7 @@ impl PresentationBuilder<'_> {
     pub fn build(
         &self,
         context: PresentationContext<'_>,
-        mut highlighter: Option<&mut dyn SyntaxHighlighter>,
+        highlighter: Option<&mut dyn SyntaxHighlighter>,
         diagrams: &[DiagramViewInput],
     ) -> Display {
         let PresentationContext {
@@ -220,96 +240,40 @@ impl PresentationBuilder<'_> {
         // semantic view for the entire projection, retaining dialect and optional math.
         // Document bytes and every source offset stay unchanged.
         let normalized = ryne_syntax::parser::normalized(parse);
-        let parse = normalized.as_ref().unwrap_or(parse);
+        let parse = normalized.unwrap_or(parse);
         let text = parse.source().text();
-        let mut hidden = vec![false; text.len()];
-        let mut styles = vec![Style::default(); text.len()];
-        let code_blocks = code_block::blocks(parse);
+        let mut plan = StylePlan::default();
+        let quotes = quote::regions(parse, source_mode, block_window);
+        let code_blocks = ryne_syntax::SemanticQuery::new(parse).code_blocks();
         let formulas = math::formulas(parse);
-        let mut structured = Vec::new();
-        let mut folded_diagrams = Vec::new();
-        if let Some(highlighter) = &mut highlighter {
-            highlighter.begin_frame();
+        let code::CodePresentation {
+            structured,
+            diagrams: mut folded_diagrams,
+            patch,
+        } = code::contribute(
+            text,
+            code_blocks,
+            source_mode,
+            block_window,
+            highlighter,
+            diagrams,
+        );
+        if !patch.apply_plan(text, &mut plan) {
+            return Display::plain_source(text);
         }
-        for block in &code_blocks {
-            for style in &mut styles[block.range.clone()] {
-                style.code_block = true;
-            }
-            if let Some(highlighter) = &mut highlighter {
-                for span in highlighter.spans(text, block) {
-                    for style in &mut styles[span.range] {
-                        style.syntax = Some(span.class);
-                    }
-                }
-            }
-            if source_mode
-                || block_window
-                    .is_some_and(|w| w.start < block.range.end && block.range.start < w.end)
-            {
-                continue;
-            }
-            hidden[block.range.clone()].fill(true);
-            if let Some((_, Ok(diagram))) = diagrams.iter().find(|(range, _)| *range == block.range)
-            {
-                folded_diagrams.push((block.clone(), diagram.clone()));
-                continue;
-            }
-            for row in &block.rows {
-                hidden[row.content.start..row.line.end].fill(false);
-            }
-            structured.push(block.clone());
-        }
-        if let Some(highlighter) = &mut highlighter {
-            highlighter.end_frame();
-        }
-        let all_tables = table::tables(parse);
-        let tables = all_tables
-            .iter()
-            .filter(|table| {
-                !source_mode
-                    && !block_window
-                        .is_some_and(|w| w.start < table.range.end && table.range.start < w.end)
-            })
-            .cloned()
-            .collect::<Vec<_>>();
-        let list_rows = list::rows(parse)
-            .into_iter()
-            .filter(|row| {
-                !source_mode
-                    && !tables.iter().any(|table| {
-                        table.range.start < row.line.end && row.line.start < table.range.end
-                    })
-                    && !block_window.is_some_and(|w| {
-                        w.start < row.item.range.end && row.item.range.start < w.end
-                    })
-            })
-            .collect::<Vec<_>>();
-        for row in &list_rows {
-            for range in &row.hidden {
-                hidden[range.clone()].fill(true);
-            }
-        }
-        for table in &tables {
-            hidden[table.range.clone()].fill(true);
-            for (r, row) in table.rows.iter().enumerate() {
-                let end =
-                    row.line.start + text[row.line.clone()].trim_end_matches(['\r', '\n']).len();
-                hidden[end..row.line.end].fill(false);
-                for cell in &row.cells {
-                    hidden[cell.content.clone()].fill(false);
-                    if r == 0 {
-                        for style in &mut styles[cell.content.clone()] {
-                            style.bold = true;
-                        }
-                    }
-                }
-            }
+        let all_tables = ryne_syntax::SemanticQuery::new(parse).tables();
+        let tables = table_component::select(all_tables, source_mode, block_window);
+        let list_rows = list_component::select(parse, &tables, source_mode, block_window);
+        if !list_component::prefixes(&list_rows).apply_plan(text, &mut plan)
+            || !table_component::contribute(text, &tables).apply_plan(text, &mut plan)
+        {
+            return Display::plain_source(text);
         }
         if !source_mode {
             for (id, node) in parse.nodes.iter().enumerate() {
                 if code_blocks
-                    .iter()
-                    .any(|block| block.range.contains(&node.envelope.start))
+                    .get(code_blocks.partition_point(|b| b.range.end <= node.envelope.start))
+                    .is_some_and(|b| b.range.contains(&node.envelope.start))
                 {
                     continue;
                 }
@@ -318,52 +282,53 @@ impl PresentationBuilder<'_> {
                     let revealed = heading_window.into_iter().chain(block_window).any(|range| {
                         range.start < node.envelope.end && node.envelope.start < range.end
                     });
-                    for style in &mut styles[node.envelope.clone()] {
-                        style.heading = level;
-                    }
-                    hidden[node.envelope.start..content.start].fill(!revealed);
+                    plan.set(node.envelope.clone(), Attr::Heading, level);
+                    plan.set(
+                        node.envelope.start..content.start,
+                        Attr::Hidden,
+                        (!revealed) as u8,
+                    );
                     let trimmed_end = node.envelope.start
                         + text[node.envelope.clone()]
                             .trim_end_matches(['\r', '\n'])
                             .len();
                     // Keep the final source newline, but fold ATX closing hashes or
                     // the Setext underline together with its preceding newline.
-                    hidden[content.end..trimmed_end].fill(!revealed);
+                    plan.set(content.end..trimmed_end, Attr::Hidden, (!revealed) as u8);
                     for range in [node.envelope.start..content.start, content.end..trimmed_end] {
-                        for style in &mut styles[range] {
-                            style.marker = true;
-                        }
+                        plan.set(range, Attr::Marker, 1);
                     }
                 }
             }
         }
         for (id, node) in parse.nodes.iter().enumerate() {
-            if !editable_inline(parse, id, &all_tables)
+            if !editable_inline(parse, id, all_tables)
                 || code_blocks
-                    .iter()
-                    .any(|block| block.range.contains(&node.envelope.start))
+                    .get(code_blocks.partition_point(|b| b.range.end <= node.envelope.start))
+                    .is_some_and(|b| b.range.contains(&node.envelope.start))
             {
                 continue;
             }
-            let envelope = inline_range(parse, id, &all_tables);
+            let envelope = inline_range(parse, id, all_tables);
             if formulas
-                .iter()
-                .any(|f| f.range.start <= envelope.start && envelope.end <= f.range.end)
+                .get(formulas.partition_point(|f| f.range.end < envelope.end))
+                .is_some_and(|f| f.range.start <= envelope.start && envelope.end <= f.range.end)
             {
                 continue;
             }
             let active = source_mode
                 || block_window.is_some_and(|w| w.start < envelope.end && envelope.start < w.end)
                 || window.is_some_and(|w| w.start < envelope.end && envelope.start < w.end);
-            for style in &mut styles[envelope.clone()] {
-                match node.kind {
-                    NodeKind::Strong => style.bold = true,
-                    NodeKind::Emphasis => style.italic = true,
-                    NodeKind::Strikethrough => style.strike = true,
-                    NodeKind::Code(_) => style.code = true,
-                    NodeKind::Link { .. } => style.link = true,
-                    _ => (),
-                }
+            let attr = match node.kind {
+                NodeKind::Strong => Some(Attr::Bold),
+                NodeKind::Emphasis => Some(Attr::Italic),
+                NodeKind::Strikethrough => Some(Attr::Strike),
+                NodeKind::Code(_) => Some(Attr::Code),
+                NodeKind::Link { .. } => Some(Attr::Link),
+                _ => None,
+            };
+            if let Some(attr) = attr {
+                plan.set(envelope.clone(), attr, 1);
             }
             let markers = if matches!(node.kind, NodeKind::Code(_)) && envelope != node.envelope {
                 let width = text[envelope.clone()]
@@ -386,77 +351,39 @@ impl PresentationBuilder<'_> {
                     .collect()
             };
             for range in markers {
-                hidden[range.clone()].fill(!active);
-                for style in &mut styles[range] {
-                    style.marker = true;
-                }
+                plan.set(range.clone(), Attr::Hidden, (!active) as u8);
+                plan.set(range, Attr::Marker, 1);
             }
         }
         // Inline/heading reveal never exposes the enclosing list's structural prefix.
-        for row in &list_rows {
-            for range in &row.hidden {
-                hidden[range.clone()].fill(true);
-            }
+        if !list_component::prefixes(&list_rows).apply_plan(text, &mut plan) {
+            return Display::plain_source(text);
         }
-        let mut insertions = Vec::<(usize, Range<usize>, &str)>::new();
-        for table in &tables {
-            for row in &table.rows {
-                for (c, cell) in row.cells.iter().enumerate() {
-                    if c > 0 {
-                        insertions.push((
-                            cell.content.start,
-                            row.cells[c - 1].content.end..cell.content.start,
-                            "\t",
-                        ));
-                    }
-                    // Escaped pipes are literal cell content, including inside code.
-                    let mut pos = cell.content.start;
-                    while pos < cell.content.end {
-                        let rest = &text[pos..cell.content.end];
-                        let br = ["<br>", "<br/>", "<br />"]
-                            .into_iter()
-                            .find(|br| rest.starts_with(br));
-                        let escaped_pipe = rest.starts_with("\\|")
-                            && text[cell.content.start..pos]
-                                .bytes()
-                                .rev()
-                                .take_while(|b| *b == b'\\')
-                                .count()
-                                % 2
-                                == 0;
-                        if let Some(br) = br {
-                            // A literal <br> in a code span stays literal.
-                            if !styles[pos].code {
-                                hidden[pos..pos + br.len()].fill(true);
-                                insertions.push((pos, pos..pos + br.len(), "\n"));
-                                pos += br.len();
-                                continue;
-                            }
-                        }
-                        if escaped_pipe {
-                            hidden[pos..pos + 2].fill(true);
-                            insertions.push((pos, pos..pos + 2, "|"));
-                            pos += 2;
-                        } else {
-                            pos += text[pos..].chars().next().map_or(1, char::len_utf8);
-                        }
-                    }
-                }
-            }
+        if !quote::prefixes(parse, &quotes).apply_plan(text, &mut plan) {
+            return Display::plain_source(text);
+        }
+        let initial_styles = plan.resolve(text.len());
+        let (patch, mut insertions) =
+            table_component::substitutions(text, &tables, &initial_styles);
+        if !patch.apply_plan(text, &mut plan) {
+            return Display::plain_source(text);
         }
         let mut rendered = Vec::new();
         for formula in &formulas {
             let range = &formula.range;
             // LaTeX is literal even when Markdown sees underscores or backticks.
-            hidden[range.clone()].fill(false);
-            let style = styles[range.start];
-            styles[range.clone()].fill(Style {
-                code: true,
-                marker: false,
-                ..style
-            });
-            styles[range.start].marker = true;
-            styles[range.end - 1].marker = true;
+            plan.set(range.clone(), Attr::Hidden, 0);
+            let style = initial_styles.at(range.start).0;
+            plan.style(
+                range.clone(),
+                Style {
+                    code: true,
+                    marker: false,
+                    ..style
+                },
+            );
+            plan.set(range.start..range.start + 1, Attr::Marker, 1);
+            plan.set(range.end - 1..range.end, Attr::Marker, 1);
             // LaTeX remains literal in both rendered and failed/source-edit views.
             insertions.retain(|(at, _, value)| *value == "\t" || !range.contains(at));
             let active = source_mode
@@ -467,21 +394,29 @@ impl PresentationBuilder<'_> {
             if !active
                 && let Some(view) = self.renderer.render(&text[range.start + 1..range.end - 1])
             {
-                hidden[range.clone()].fill(true);
+                plan.set(range.clone(), Attr::Hidden, 1);
                 rendered.push((range.clone(), view));
             }
         }
-        for (offset, style) in styles.iter_mut().enumerate() {
-            if source_mode || block_window.is_some_and(|range| range.contains(&offset)) {
-                style.source = true;
-                style.heading = 0;
-                style.bold = false;
-                style.italic = false;
-                style.strike = false;
-                style.link = false;
-                style.marker = false;
+        for range in source_mode
+            .then_some(0..text.len())
+            .into_iter()
+            .chain(block_window.cloned())
+        {
+            for attr in [
+                Attr::Source,
+                Attr::Heading,
+                Attr::Bold,
+                Attr::Italic,
+                Attr::Strike,
+                Attr::Link,
+                Attr::Marker,
+            ] {
+                plan.set(range.clone(), attr, matches!(attr, Attr::Source) as u8);
             }
         }
+        let resolved = plan.resolve(text.len());
+        let mut styles = resolved.cursor();
         let mut display = Display {
             tables: tables
                 .into_iter()
@@ -532,6 +467,7 @@ impl PresentationBuilder<'_> {
             .char_indices()
             .chain(std::iter::once((text.len(), '\0')))
         {
+            let (style, hidden) = styles.at(start);
             while let Some((_, t, end)) = table_bounds.next_if(|e| e.0 == start) {
                 if end {
                     display.tables[t].range.end = display.text.len();
@@ -604,7 +540,7 @@ impl PresentationBuilder<'_> {
                         code: false,
                         marker: false,
                         math: true,
-                        ..styles[start]
+                        ..style
                     },
                 });
                 display.formulas.push(MathView {
@@ -619,7 +555,7 @@ impl PresentationBuilder<'_> {
                 display.spans.push(Span {
                     source: source.clone(),
                     display: from..display.text.len(),
-                    style: styles[start],
+                    style,
                 });
             }
             if empty_code_anchors.contains(&start) {
@@ -638,7 +574,7 @@ impl PresentationBuilder<'_> {
                 break;
             }
             let end = start + ch.len_utf8();
-            if hidden[start] {
+            if hidden {
                 continue;
             }
             let from = display.text.len();
@@ -651,7 +587,6 @@ impl PresentationBuilder<'_> {
             } else {
                 display.text.push(ch);
             }
-            let style = styles[start];
             if let Some(last) = display.spans.last_mut().filter(|s| {
                 s.source.end == start
                     && s.style == style
@@ -676,6 +611,7 @@ impl PresentationBuilder<'_> {
                 });
             }
         }
+        let mapping = ryne_projection::MappingIndex::new(&display);
         display.code_blocks = structured
             .into_iter()
             .map(|block| {
@@ -683,11 +619,12 @@ impl PresentationBuilder<'_> {
                     .rows
                     .iter()
                     .map(|row| {
-                        display.position_at(row.content.start)..display.position_at(row.content.end)
+                        mapping.position_at(&display, row.content.start)
+                            ..mapping.position_at(&display, row.content.end)
                     })
                     .collect::<Vec<_>>();
                 if rows.is_empty() {
-                    let start = display.position_at(block.anchor);
+                    let start = mapping.position_at(&display, block.anchor);
                     rows.push(start..start);
                 } else if block.closing.is_none()
                     && block.range.end == text.len()
@@ -712,8 +649,27 @@ impl PresentationBuilder<'_> {
             .into_iter()
             .map(|row| {
                 // Include any still-visible quote prefix on this physical line.
-                let start = display.position_at(row.line.start);
+                let start = mapping.position_at(&display, row.line.start);
                 ListView { source: row, start }
+            })
+            .collect();
+        display.quotes = quotes
+            .into_iter()
+            .filter_map(|(_, source, depth, inset)| {
+                let range = mapping.position_at(&display, source.start)
+                    ..mapping.position_at(&display, source.end);
+                let empty_tail = ryne_syntax::quote::at(parse, source.end)
+                    .filter(|row| {
+                        row.content.end == source.end && text[row.content.clone()].trim().is_empty()
+                    })
+                    .map(|row| row.content.end);
+                (!range.is_empty()).then_some(QuoteView {
+                    source,
+                    display: range,
+                    depth,
+                    inset,
+                    empty_tail,
+                })
             })
             .collect();
         if !source_mode {
@@ -738,8 +694,8 @@ impl PresentationBuilder<'_> {
                     }
                     _ => continue,
                 };
-                let range = display.position_at(node.envelope.start)
-                    ..display.position_at(node.envelope.end);
+                let range = mapping.position_at(&display, node.envelope.start)
+                    ..mapping.position_at(&display, node.envelope.end);
                 if !range.is_empty() {
                     display.flow.push(FlowBlock {
                         range,
@@ -750,24 +706,42 @@ impl PresentationBuilder<'_> {
                     });
                 }
             }
-            // Tight lists expose inline children directly under Item, without a
-            // Paragraph node. Reuse the already-resolved semantic list rows.
-            for row in &display.lists {
-                if !row.source.first || display.flow_at(row.start).is_some() {
-                    continue;
+            if !display.lists.is_empty() {
+                // Resolve tight-list item extents once, preserving source order and innermost flow semantics.
+                let coverage = ryne_syntax::RangeIndex::new(
+                    display
+                        .flow
+                        .iter()
+                        .enumerate()
+                        .map(|(i, b)| (b.range.clone(), i))
+                        .collect(),
+                );
+                let mut item_ends = std::collections::HashMap::<usize, usize>::new();
+                for row in &display.lists {
+                    item_ends
+                        .entry(row.source.item.id)
+                        .and_modify(|end| *end = (*end).max(row.source.line.end))
+                        .or_insert(row.source.line.end);
                 }
-                let end = display
-                    .lists
-                    .iter()
-                    .filter(|candidate| candidate.source.item.id == row.source.item.id)
-                    .map(|candidate| display.position_at(candidate.source.line.end))
-                    .max()
-                    .unwrap_or(row.start);
-                display.flow.push(FlowBlock {
-                    range: row.start..end,
-                    kind: FlowKind::Item(row.source.item.list),
-                    raw: false,
-                });
+                let mut tight_end = 0;
+                for row in &display.lists {
+                    if !row.source.first
+                        || row.start < tight_end
+                        || coverage
+                            .at(row.start)
+                            .into_iter()
+                            .any(|i| display.flow[i].range.contains(&row.start))
+                    {
+                        continue;
+                    }
+                    let end = mapping.position_at(&display, item_ends[&row.source.item.id]);
+                    tight_end = end;
+                    display.flow.push(FlowBlock {
+                        range: row.start..end,
+                        kind: FlowKind::Item(row.source.item.list),
+                        raw: false,
+                    });
+                }
             }
         }
         display
@@ -836,13 +810,11 @@ mod typography_tests {
         let local = build_with_heading(&parse, None, false, None, Some(&scope));
         let second = local.text.find("second").unwrap();
         assert!(local.flow[local.flow_at(second).unwrap()].raw);
-        assert!(
-            local
-                .spans
-                .iter()
-                .filter(|span| scope.start <= span.source.start && span.source.start < scope.end)
-                .all(|span| span.style.source && !span.style.bold)
-        );
+        assert!(local
+            .spans
+            .iter()
+            .filter(|span| scope.start <= span.source.start && span.source.start < scope.end)
+            .all(|span| span.style.source && !span.style.bold));
         let title = local.text.find("标题").unwrap();
         assert!(!local.flow[local.flow_at(title).unwrap()].raw);
         assert_eq!(
@@ -862,21 +834,112 @@ mod tests {
     use editable_markdown_parser::Source;
 
     #[test]
-    fn nested_inline_reveal_keeps_block_prefixes_and_source_unchanged() {
+    fn nested_inline_reveal_keeps_quote_presentation_and_source_unchanged() {
         let parse = ParseSnapshot::new(Source::new("# **a *b* c**\n\n> [**x**](/url)\n"));
         let original = parse.source().text().to_string();
-        assert_eq!(build(&parse, None, false).text, "a b c\n\n> x\n");
+        assert_eq!(build(&parse, None, false).text, "a b c\n\nx\n");
         let window = active_window(&parse, original.find('b').unwrap()).unwrap();
         assert_eq!(
             build(&parse, Some(&window), false).text,
-            "**a *b* c**\n\n> x\n"
+            "**a *b* c**\n\nx\n"
         );
         let window = active_window(&parse, original.find('x').unwrap()).unwrap();
         assert_eq!(
             build(&parse, Some(&window), false).text,
-            "a b c\n\n> [**x**](/url)\n"
+            "a b c\n\n[**x**](/url)\n"
         );
         assert_eq!(parse.source().text(), original);
+    }
+
+    #[test]
+    fn quote_decoration_preserves_nested_mapping_literal_code_and_source_modes() {
+        for newline in ["\n", "\r\n", "\r"] {
+            let raw = "> **中😀**\n> continuation\n>\n> > nested\n>\n> - item\n>\n> ```text\n> > **literal**\n> ```\n\noutside > literal\n".replace('\n', newline);
+            let parse = ParseSnapshot::new(Source::new(&raw));
+            let display = build(&parse, None, false);
+            display.validate(&raw).unwrap();
+            assert!(
+                display.text.starts_with("中😀\ncontinuation\n\nnested\n"),
+                "{:?}",
+                display.text
+            );
+            assert!(display.text.contains("> **literal**"));
+            assert!(display.text.contains("outside > literal"));
+            assert_eq!(display.quotes.len(), 2);
+            assert_eq!(
+                display
+                    .quote_at(display.text.find("nested").unwrap())
+                    .unwrap()
+                    .depth,
+                2
+            );
+            assert!(display
+                .quote_at(display.text.find("outside").unwrap())
+                .is_none());
+            for needle in [
+                "中",
+                "😀",
+                "continuation",
+                "nested",
+                "item",
+                "> **literal**",
+                "outside",
+            ] {
+                let source = raw.find(needle).unwrap();
+                let position = display.position_at(source);
+                assert_eq!(
+                    display.source_at(position, Affinity::Downstream),
+                    source,
+                    "{needle}"
+                );
+            }
+            let caret = raw.find("😀").unwrap();
+            assert_eq!(display.deletion_range(caret, true), Some(caret..caret + 4));
+            let window = active_window(&parse, caret).unwrap();
+            let active = build(&parse, Some(&window), false);
+            assert!(active.text.starts_with("**中😀**"));
+            assert_eq!(active.quotes.len(), 2);
+            let scope = ryne_syntax::block::at(&parse, caret).unwrap().scope;
+            let local = build_with_heading(&parse, None, false, None, Some(&scope));
+            assert!(local.quotes.is_empty());
+            assert!(local.text.starts_with("> **中😀**\n> continuation"));
+            let source = build(&parse, None, true);
+            assert!(source.quotes.is_empty());
+            assert_eq!(source.text, raw.replace("\r\n", "\n").replace('\r', "\n"));
+            assert_eq!(parse.source().text(), raw);
+        }
+    }
+
+    #[test]
+    fn quotes_in_lists_and_lazy_continuations_use_the_container_range() {
+        for raw in [
+            "> first\nlazy continuation\n\noutside",
+            "- item\n\n  > first\n  > second\n\noutside",
+        ] {
+            let parse = ParseSnapshot::new(Source::new(raw));
+            let display = build(&parse, None, false);
+            display.validate(raw).unwrap();
+            let quote = display
+                .quote_at(display.text.find("first").unwrap())
+                .unwrap();
+            assert_eq!(quote.inset, if raw.starts_with('-') { 64 } else { 32 });
+            assert!(display
+                .quote_at(display.text.find("outside").unwrap())
+                .is_none());
+            if let Some(lazy) = display.text.find("lazy") {
+                assert_eq!(display.quote_at(lazy), Some(quote));
+            }
+        }
+    }
+
+    #[test]
+    fn empty_quote_drafts_remain_visible_and_editable() {
+        for raw in [">", "> ", ">\n", "> >"] {
+            let parse = ParseSnapshot::new(Source::new(raw));
+            let display = build(&parse, None, false);
+            display.validate(raw).unwrap();
+            assert!(!display.text.trim().is_empty(), "{raw:?}");
+        }
     }
 
     #[test]
@@ -1182,12 +1245,11 @@ mod math_tests {
         assert_eq!(active, 0..raw.len());
         let open = build(&parse, Some(&active), false);
         assert_eq!(open.text, raw);
-        assert!(
-            open.spans
-                .iter()
-                .filter(|s| s.source.contains(&raw.find("frac").unwrap()))
-                .all(|s| s.style.code)
-        );
+        assert!(open
+            .spans
+            .iter()
+            .filter(|s| s.source.contains(&raw.find("frac").unwrap()))
+            .all(|s| s.style.code));
     }
 
     #[test]

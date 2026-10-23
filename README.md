@@ -27,7 +27,8 @@ cargo run --locked -- /absolute/path/to/note.md
 
 Build a locally launchable app with `sh scripts/bundle-macos.sh` (append `debug`
 for a debug build). The output is `target/Ryne.app`, ad-hoc signed for local
-use, without notarization or file associations.
+use, without notarization. The bundle registers `.md`, `.markdown`, `.mdown`,
+and `.mkd` files with Finder and accepts files opened through “Open With”.
 The bundle's app icon is generated from `assets/logo.svg` at standard and Retina sizes.
 Bundling refreshes this app's Launch Services registration after replacing its resources.
 
@@ -36,6 +37,7 @@ for a debug build). The output is `dist/Ryne-windows-x64.zip`; extract it and
 launch `Ryne/Ryne.exe`. The portable package includes the MSVC runtime statically
 and ships the embedded Lete Sans Math and STIX Two Math license notices. Release builds discover
 `fxc.exe` from the installed Windows SDK; `GPUI_FXC_PATH` can override its location.
+Release builds start without opening a console window; debug builds retain the console.
 Windows packages are unsigned.
 
 If a registry mirror has not synchronized `editable_markdown_parser` 0.0.4,
@@ -43,8 +45,13 @@ use the official crates.io registry or wait for the mirror to synchronize.
 
 ## GitHub Actions packages
 
-The **Package desktop apps** workflow runs on pushes, pull requests and manual
-**Run workflow** requests. It builds release packages with the locked dependencies,
+The **Check workspace** workflow runs on branch pushes and pull requests using a
+single macOS runner for architecture, formatting, tests and Clippy checks. It does
+not build release packages or upload artifacts; newer runs cancel older checks on
+the same branch or pull request.
+
+The **Package desktop apps** workflow runs only on manual **Run workflow** requests
+or when called by the version-tag release workflow. It builds release packages with the locked dependencies,
 checks architecture boundaries and Rust formatting, and uploads ZIP files plus
 SHA-256 checksums to the run's **Artifacts** section (retained for 14 days).
 
@@ -83,8 +90,9 @@ settings, commands and signing behavior.
   from File and their shortcuts. The editor toolbar provides an icon-only **Format** button (`format.svg`, with a localized tooltip) before the mode toggle: eye in
   preview mode and code in source mode; click to switch. The button has no
   background and shows the current mode name on hover.
-  Recent files persist the last ten
-  successful opens/saves, with a clear-history command. New/open/reload confirm before
+  Recent files are deduplicated by path and persist up to 10 successfully opened/saved
+  files. Revisiting moves a file to the top; older entries beyond the limit are removed.
+  A clear-history command is also available. New/open/reload confirm before
   discarding unsaved changes and reject results if editing continued during the operation.
   Update checks query stable releases of `tiyee/ryne` and offer the release page; they do not install updates.
 - **Format** explicitly formats the whole Markdown source in either mode, with one
@@ -102,7 +110,8 @@ settings, commands and signing behavior.
   aligned tables, formulas and valid Mermaid previews. Invalid/unsupported structures
   retain their current source fallback. Export does not change the document path, dirty
   flag, selection, history or source mode; pending IME text is committed before export.
-  Quotes, images and raw HTML follow the editor's current source-only support.
+  Quote text is included without the editor's decorative quote icon/background;
+  images and raw HTML retain source fallback.
   PDF export is limited to 4 MiB of source and 500 pages, with the existing bounded
   diagram renderer; unavailable font glyphs report an error instead of silently disappearing.
   Long code and table content wrap and continue across pages. PDF layout is independent
@@ -130,6 +139,10 @@ settings, commands and signing behavior.
   dialog controls follow macOS language settings.
 - The macOS titlebar uses the editor's background color and shows no title text;
   native window buttons remain available.
+  Windows draws minimize, maximize/restore and close buttons on the right of a
+  matching 22 px top strip; its empty area supports native window dragging and
+  double-click maximization. Closing uses the existing unsaved-changes prompt.
+  Dedicated Windows SVGs follow the other icons' rounded 1024-unit outlines.
   The editor toolbar leaves 2 px of padding above and below its mode button.
 - The document uses Helvetica Neue with PingFang SC fallback, 18 px body text
   and a centered reading column up to 760 px wide. Headings use a lighter
@@ -155,7 +168,7 @@ settings, commands and signing behavior.
   control just outside its upper-left corner: H1–H6, paragraph, list, quote,
   image, code, Mermaid or table. Controls use embedded SVGs from `assets/icons` for
   H1–H6, text, ordered/unordered/task lists, code/raw blocks, images and tables.
-  Matching outline icons identify quotes (indented text with a vertical bar),
+  Matching icons identify quotes (`quote_bubble.svg`),
   Mermaid (connected flowchart nodes) and separators (a horizontal rule).
   Lists show one type control at the upper-left corner of the entire outer list;
   individual items, including nested items, show only their own three-dot button.
@@ -248,12 +261,18 @@ settings, commands and signing behavior.
 - Tree-sitter highlights fenced Rust, Python, JavaScript/JSX, TypeScript/TSX, JSON
   and Bash code, including common aliases (`rs`, `py`, `js`, `ts`, `sh`). Highlights
   update while editing and remain visible in block and whole-document source modes.
-  Pasting code or inserting a code newline automatically fills an empty fence language
-  when the bundled grammars identify distinctive, valid syntax. The language and input
-  share one undo step; existing language fields and source modes remain literal.
-  Detection skips ambiguous, incomplete and over-32-KiB bodies, with at most eight
-  attempts per input and a 50 ms deadline per attempt. JSX uses `javascript`.
-  Unlabelled, unknown-language and indented code keeps plain monospaced styling.
+  Fenced code has a language dropdown at its upper left, with common languages
+  and default `auto`. Choosing `auto` clears the fence info string. Automatic
+  detection uses the bundled grammars for highlighting without rewriting the fence;
+  ambiguous, incomplete or over-32-KiB bodies keep plain styling. Detection is cached,
+  with at most eight uncached attempts per frame and a 50 ms deadline per attempt.
+  Explicit language choices edit only the language token and preserve trailing metadata;
+  `auto` clears all info so metadata cannot become a language. Code body bytes, containers,
+  selection and line endings are preserved in one undo step. The SVG dropdown arrow is
+  centered in the header; popups paint above content controls and hide the block type entry.
+  The picker is hidden in source mode and unavailable during composition or dragging. C, C++, Java, Go, HTML, CSS, SQL and YAML
+  can be labelled; highlighting currently covers the bundled grammars listed above.
+  Unknown languages and indented code keep plain monospaced styling.
   Highlighting caches unchanged code independently of source positions and never
   changes source or history. Blocks above 256 KiB use plain styling; language injections
   and incremental parsing of an edited block are not yet implemented.
@@ -272,7 +291,18 @@ settings, commands and signing behavior.
 - In any content block, hover over its type control and choose local source or press Cmd+Shift+B to edit
   columns and alignment, list markers, fences and language information. Toggle again or press Escape to return to preview.
   Nested block source includes its outer container context.
-- Quotes, images and unsupported syntax remain editable source.
+- Quotes hide recognized `>` prefixes and show `quoter.svg` before the body,
+  with one pale background across the complete multiline quote. Its upper-left type
+  control uses `quote_bubble.svg`. All prose lines, paragraphs and nested quotes share
+  the outer quote's control and selection/copy range, with one body icon at its start.
+  Nested indentation, inline formatting and direct body editing share the
+  original source mapping; local/whole-document source reveals the structural markers.
+  Empty quote drafts retain visible source. Enter continues a nonempty quote with its
+  container prefix; the empty new row keeps the same background and indentation.
+  Enter on an empty quote row exits one level; Shift+Enter adds a hard break inside the quote.
+  Nested/list context and original line endings are preserved, with one undo step.
+  Local/whole-document source mode keeps literal newline input.
+- Images and unsupported syntax remain editable source.
   Enter / Shift+Enter insert a literal newline in these blocks and in local or whole-document source mode.
 - One document owns the text, selection and undo history. Viewing source does
   not modify the file or add an undo entry.
@@ -300,14 +330,20 @@ settings, commands and signing behavior.
 | Up / Down, Shift+Up / Down | Move by visual row / extend selection |
 | Home / End or Cmd+Left / Right | Visual row start / end (add Shift to select) |
 
-Content edits still use full parsing. Unchanged body layout is reused for caret
-blinking and other overlay updates, but there is no large-document performance
-guarantee. Copy currently copies the exact source selection; Markdown fragment
-serialization is a later feature. It does not implement quote
-continuation,
-table column resizing, multi-cell TSV paste, full bidi caret behavior, accessibility text editing, or file watching.
+Content edits still use full parsing. Caret movement reuses immutable projection
+and controls when source, marker visibility and renderer resources are unchanged;
+list and code panel geometry uses indexes retained with the text layout. Snapshot-owned
+semantic, source/display, grapheme and UTF-16 indexes avoid repeated scans. Styles
+are composed from intervals, and decorations, selection painting and text drawing
+query only viewport-intersecting geometry; see the [P1/P2 implementation and measurements](docs/32_Large_File_P1_P2_Implementation.md). Preedit,
+visibility changes and edits rebuild the affected view. Layout is still built for
+the whole document, so there is no large-document performance guarantee. Copy currently copies the exact source selection; Markdown fragment
+serialization is a later feature. It does not implement table column resizing,
+multi-cell TSV paste, full bidi caret behavior, accessibility text editing, or file watching.
 
 ## Internal architecture
+
+Static feature modules now register executable contributions together. Block presentation components share one source-map composer; UI interaction state is grouped by responsibility. PDF menus are built from registered adapter descriptions. See [component and adapter boundaries](docs/28_Static_Feature_Components.md).
 
 The application uses nine private Rust workspace packages, all with the `ryne-`
 prefix: `ryne-app`, `ryne-core`, `ryne-syntax`, `ryne-projection`, `ryne-extensions`,
@@ -329,6 +365,14 @@ formula caching uses bounded retention and reuses resources held by live views.
 Diagram timeouts remain cached failures until the content or service changes.
 See the [architecture review fixes](docs/25_Architecture_Review_Fixes.md) for
 regression coverage, measured performance and remaining limits.
+
+List controls share physical-line and code context within each batch. Generic delete,
+Enter and Tab intents follow ordered feature handlers before one session publication.
+The session owns IME updates, temporary projections and confirmation; a rejected
+confirmation keeps the preedit intact. Block identity uses semantic types independently
+of icons and translations. Main projection failures fall back to mapped source text;
+invalid or failed highlighting retains plain code with diagnostics.
+See [boundary improvements and measurements](docs/26_Architecture_Boundary_Improvements.md).
 
 See [implementation and validation](docs/18_Ryne_Architecture_Implementation.md)
 for the dependency graph, regression coverage and internal extension limits. This

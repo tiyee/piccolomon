@@ -1,5 +1,6 @@
 //! Input completion proposes edits; the parser still decides their meaning.
-use editable_markdown_parser::{Edit, NodeKind, ParseSnapshot, TokenKind};
+use editable_markdown_parser::{Edit, NodeKind, TokenKind};
+use ryne_syntax::ParseSnapshot;
 use std::ops::Range;
 
 use ryne_syntax::parser::normalized;
@@ -15,7 +16,7 @@ pub fn inline(parse: &ParseSnapshot, caret: usize, input: &str) -> Option<Inline
         return None;
     }
     if let Some(parse) = normalized(parse) {
-        return inline(&parse, caret, input);
+        return inline(parse, caret, input);
     }
     let source = parse.source();
     let text = source.text();
@@ -134,55 +135,74 @@ pub struct Fence {
 /// An unclosed opening line stays source until Return, including inside containers.
 pub fn fence(parse: &ParseSnapshot, caret: usize) -> Option<Fence> {
     if let Some(parse) = normalized(parse) {
-        return fence(&parse, caret);
+        return fence(parse, caret);
     }
     let text = parse.source().text();
-    let lines = ryne_syntax::code_block::lines(text);
-    parse.nodes.iter().find_map(|node| {
-        if !matches!(node.kind, NodeKind::CodeBlock(_)) {
-            return None;
-        }
-        let first = lines
-            .iter()
-            .find(|line| line.contains(&node.envelope.start))?;
-        let end = first.start + text[first.clone()].trim_end_matches(['\r', '\n']).len();
-        if caret != end
-            || node
-                .children
-                .iter()
-                .any(|id| parse.nodes[*id].envelope.start < first.end)
-            || ryne_syntax::code_block::blocks(parse)
-                .iter()
-                .any(|block| block.range.start == first.start && block.closing.is_some())
-        {
-            return None;
-        }
-        let raw = text[node.envelope.start..end].trim_start_matches(' ');
-        let marker = *raw.as_bytes().first()?;
-        if !matches!(marker, b'`' | b'~') {
-            return None;
-        }
-        let width = raw.bytes().take_while(|b| *b == marker).count();
-        if width < 3 {
-            return None;
-        }
-        let mut continuation = text[first.start..end - raw.len()].to_owned();
-        for token in &parse.syntax.tokens {
-            if token.kind == TokenKind::ContainerPrefix
-                && token.range.start >= first.start
-                && token.range.end <= first.start + continuation.len()
-                && parse.nodes[token.owner].kind == NodeKind::Item
-            {
-                continuation.replace_range(
-                    token.range.start - first.start..token.range.end - first.start,
-                    &" ".repeat(token.range.len()),
-                );
-            }
-        }
-        Some(Fence {
-            range: first.start..end,
-            closing: (marker as char).to_string().repeat(width),
-            continuation,
+    // A fence draft can only end under the caret inside a code node. Avoid
+    // allocating all physical line ranges for ordinary caret-only refreshes.
+    if !parse
+        .index()
+        .codes
+        .at(caret)
+        .into_iter()
+        .map(|id| &parse.nodes[id])
+        .any(|node| {
+            matches!(node.kind, NodeKind::CodeBlock(_))
+                && node.envelope.start <= caret
+                && caret <= node.envelope.end
         })
-    })
+    {
+        return None;
+    }
+    parse
+        .index()
+        .codes
+        .at(caret)
+        .into_iter()
+        .map(|id| &parse.nodes[id])
+        .find_map(|node| {
+            if !matches!(node.kind, NodeKind::CodeBlock(_)) {
+                return None;
+            }
+            let first = parse.index().line(node.envelope.start)?;
+            let end = first.start + text[first.clone()].trim_end_matches(['\r', '\n']).len();
+            if caret != end
+                || node
+                    .children
+                    .iter()
+                    .any(|id| parse.nodes[*id].envelope.start < first.end)
+                || ryne_syntax::code_block::blocks(parse)
+                    .iter()
+                    .any(|block| block.range.start == first.start && block.closing.is_some())
+            {
+                return None;
+            }
+            let raw = text[node.envelope.start..end].trim_start_matches(' ');
+            let marker = *raw.as_bytes().first()?;
+            if !matches!(marker, b'`' | b'~') {
+                return None;
+            }
+            let width = raw.bytes().take_while(|b| *b == marker).count();
+            if width < 3 {
+                return None;
+            }
+            let mut continuation = text[first.start..end - raw.len()].to_owned();
+            for token in &parse.syntax.tokens {
+                if token.kind == TokenKind::ContainerPrefix
+                    && token.range.start >= first.start
+                    && token.range.end <= first.start + continuation.len()
+                    && parse.nodes[token.owner].kind == NodeKind::Item
+                {
+                    continuation.replace_range(
+                        token.range.start - first.start..token.range.end - first.start,
+                        &" ".repeat(token.range.len()),
+                    );
+                }
+            }
+            Some(Fence {
+                range: first.start..end,
+                closing: (marker as char).to_string().repeat(width),
+                continuation,
+            })
+        })
 }

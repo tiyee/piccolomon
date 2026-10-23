@@ -1,6 +1,6 @@
 use super::*;
 use editable_markdown_parser::{Affinity, NodeKind};
-use ryne_features::templates::{ITEMS, MarkdownTemplate};
+use ryne_features::templates::{MarkdownTemplate, ITEMS};
 use ryne_services::highlight::{Class, CodeHighlighter};
 use ryne_syntax::{code_block, list, table};
 pub(super) fn services() -> SessionServices {
@@ -25,7 +25,71 @@ pub(super) fn new_document(text: &str) -> EditorSession {
 fn open_document(path: &Path) -> std::io::Result<EditorSession> {
     EditorSession::open(path, services())
 }
-mod code_language_completion {
+#[test]
+fn code_row_index_matches_projection_across_containers_and_source_modes() {
+    for newline in ["\n", "\r\n", "\r"] {
+        let raw = concat!(
+            "```rust\n中😀\n\nnext\n```\n\n",
+            "> ~~~python\n> value = 1\n> ~~~\n\n",
+            "- item\n\n    ```\n    nested\n    ```\n\n",
+            "    indented\n\n```\n```\n\ntail"
+        )
+        .replace('\n', newline);
+        let mut doc = new_document(&raw);
+        let snapshot = doc.source.id();
+        let check = |display: Display| {
+            let index = display.code_row_index();
+            for position in 0..=display.text.len() {
+                assert_eq!(index.code_row(position), display.code_row(position));
+            }
+        };
+        check(doc.display());
+        doc.select(raw.find("value").unwrap(), false, false);
+        assert!(doc.toggle_block_source());
+        check(doc.display());
+        assert!(doc.toggle_block_source());
+        doc.set_source_mode(true);
+        check(doc.display());
+        doc.set_source_mode(false);
+        assert_eq!(doc.source.id(), snapshot);
+        assert_eq!(doc.history_len(false), 0);
+        assert!(!doc.dirty());
+    }
+}
+#[test]
+fn quote_presentation_body_editing_and_modes_preserve_bytes_and_history() {
+    for newline in ["\n", "\r\n", "\r"] {
+        let raw = "> 中😀\n> second\n> > nested\n\noutside".replace('\n', newline);
+        let mut doc = new_document(&raw);
+        doc.normalize_heading_caret();
+        assert_eq!(doc.head, 2);
+        let source = doc.source.id();
+        assert_eq!(doc.display().quotes.len(), 2);
+        doc.select(raw.find("😀").unwrap(), false, false);
+        let selection = doc.selection();
+        assert!(doc.toggle_block_source());
+        assert!(doc.display().quotes.is_empty());
+        assert!(doc.display().text.starts_with("> 中😀\n> second"));
+        assert!(doc.toggle_block_source());
+        doc.set_source_mode(true);
+        assert!(doc.display().quotes.is_empty());
+        doc.set_source_mode(false);
+        assert_eq!(doc.source.id(), source);
+        assert_eq!(doc.selection(), selection);
+        assert_eq!(doc.history_len(false), 0);
+        assert!(!doc.dirty());
+        doc.insert_text(doc.selection(), "新增").unwrap();
+        assert_eq!(doc.source.text(), raw.replacen("😀", "新增😀", 1));
+        assert_eq!(doc.history_len(false), 1);
+        doc.undo(false);
+        assert_eq!(doc.source.text(), raw);
+        assert_eq!(doc.selection(), selection);
+        assert!(!doc.dirty());
+        doc.undo(true);
+        assert_eq!(doc.source.text(), raw.replacen("😀", "新增😀", 1));
+    }
+}
+mod automatic_code_language {
     use super::*;
     fn document(raw: &str) -> EditorSession {
         let mut ports = services();
@@ -34,15 +98,12 @@ mod code_language_completion {
                 Arc::new(ryne_services::math::FormularyRenderer::default()),
                 vec![],
             )
-            .unwrap()
-            .with_language_detector(Arc::new(
-                ryne_services::language::TreeSitterLanguageDetector,
-            )),
+            .unwrap(),
         );
         EditorSession::new(raw, ports)
     }
     #[test]
-    fn pasted_code_and_language_are_one_edit_with_exact_history_and_mapping() {
+    fn pasted_code_keeps_auto_with_exact_history_and_mapping() {
         for newline in ["\n", "\r\n", "\r"] {
             for (opening, prefix, closing) in [
                 ("```", "", "```"),
@@ -64,22 +125,16 @@ mod code_language_completion {
                 .unwrap();
                 let mut expected = raw.clone();
                 expected.insert_str(caret, "fn main() { let s = \"中😀\"; }");
-                let expected =
-                    expected.replacen(&format!("{opening}  "), &format!("{opening}rust  "), 1);
                 assert_eq!(doc.source.text(), expected);
-                assert_eq!(
-                    doc.head,
-                    caret + "rust".len() + "fn main() { let s = \"中😀\"; }".len()
-                );
+                assert_eq!(doc.head, caret + "fn main() { let s = \"中😀\"; }".len());
                 assert_eq!(doc.history_len(false), 1);
-                assert_eq!(code_block::blocks(&doc.parse)[0].language, "rust");
+                assert!(code_block::blocks(&doc.parse)[0].language.is_empty());
                 let mut highlights = CodeHighlighter::default();
-                assert!(
-                    doc.highlighted_display(&mut highlights)
-                        .spans
-                        .iter()
-                        .any(|s| s.style.syntax == Some(Class::Keyword))
-                );
+                assert!(doc
+                    .highlighted_display(&mut highlights)
+                    .spans
+                    .iter()
+                    .any(|s| s.style.syntax == Some(Class::Keyword)));
                 doc.undo(false);
                 assert_eq!(doc.source.text(), raw);
                 assert_eq!(doc.selection(), caret..caret);
@@ -101,12 +156,8 @@ mod code_language_completion {
         assert_eq!(doc.history_len(false), 0);
         doc.select(at, false, false);
         doc.line_break(false).unwrap();
-        assert_eq!(
-            doc.source.text(),
-            raw.replacen("```", "```rust", 1)
-                .replacen("{}\n", "{}\n\n", 1)
-        );
-        assert_eq!(doc.head, at + 5);
+        assert_eq!(doc.source.text(), raw.replacen("{}\n", "{}\n\n", 1));
+        assert_eq!(doc.head, at + 1);
         assert_eq!(doc.history_len(false), 1);
         doc.undo(false);
         assert_eq!(doc.source.text(), raw);
@@ -154,14 +205,9 @@ mod code_language_completion {
         let pasted = "```\r\nconst n = 42;\r\n```\r\n\r\n~~~\r\n{\"中😀\": 1}\r\n~~~\r\n";
         doc.insert_text_from(selection.clone(), pasted, InputOrigin::Paste)
             .unwrap();
-        let expected = format!(
-            "{}\r\n尾",
-            pasted
-                .replacen("```", "```javascript", 1)
-                .replacen("~~~", "~~~json", 1)
-        );
+        let expected = format!("{pasted}\r\n尾");
         assert_eq!(doc.source.text(), expected);
-        assert_eq!(doc.head, pasted.len() + "javascriptjson".len());
+        assert_eq!(doc.head, pasted.len());
         let path =
             std::env::temp_dir().join(format!("ryne-language-test-{}.md", std::process::id()));
         doc.save(&path).unwrap();
@@ -248,11 +294,9 @@ mod original {
         for raw in ["```rust\nlet a = 1;", "~~~\ncode", "<!-- unfinished"] {
             let mut document = new_document(raw);
             let snapshot = document.source.id();
-            assert!(
-                document
-                    .append_block(ryne_extensions::InsertBlock::Heading(2))
-                    .is_err()
-            );
+            assert!(document
+                .append_block(ryne_extensions::InsertBlock::Heading(2))
+                .is_err());
             assert_eq!(document.source.id(), snapshot);
             assert_eq!(document.source.text(), raw);
             assert!(!document.dirty());
@@ -279,12 +323,10 @@ mod original {
             .unwrap();
         document.insert_text(document.selection(), "新列").unwrap();
         assert_eq!(table::tables(&document.parse).len(), 1);
-        assert!(
-            document
-                .source
-                .text()
-                .ends_with("| 新列 | 列二 |\n| --- | --- |\n|  |  |")
-        );
+        assert!(document
+            .source
+            .text()
+            .ends_with("| 新列 | 列二 |\n| --- | --- |\n|  |  |"));
     }
     #[test]
     fn inline_input_completes_after_body_and_keeps_caret_inside() {
@@ -362,13 +404,11 @@ mod original {
         document.insert_text(document.selection(), "**").unwrap();
         assert_eq!(document.source.text(), "**粗 _斜_**");
         assert_eq!(document.display().text, "粗 斜");
-        assert!(
-            document
-                .display()
-                .spans
-                .iter()
-                .any(|span| span.style.bold && span.style.italic)
-        );
+        assert!(document
+            .display()
+            .spans
+            .iter()
+            .any(|span| span.style.bold && span.style.italic));
 
         let mut document = new_document("before ");
         document.select(7, false, false);
@@ -514,12 +554,10 @@ mod original {
                     document
                         .insert_text(document.selection(), "_literal_")
                         .unwrap();
-                    assert!(
-                        document
-                            .source
-                            .text()
-                            .contains(&format!("**literal**{newline}{continuation}_literal_"))
-                    );
+                    assert!(document
+                        .source
+                        .text()
+                        .contains(&format!("**literal**{newline}{continuation}_literal_")));
                     assert_eq!(code_block::blocks(&document.parse).len(), 1);
                     for _ in 0..4 {
                         document.undo(false);
@@ -767,7 +805,7 @@ mod original {
     }
     #[test]
     fn source_and_unsupported_blocks_keep_literal_newline_behavior() {
-        for raw in ["abcd", "> abcd", "```\nabcd\n```"] {
+        for raw in ["abcd", "<div>abcd</div>", "```\nabcd\n```"] {
             for hard in [false, true] {
                 let mut document = new_document(raw);
                 let caret = raw.find("abcd").map_or(3, |start| start + 2);
@@ -852,13 +890,11 @@ mod original {
                 assert_eq!(document.head, raw.len());
                 assert_eq!(document.display().text, first.trim_start());
                 assert!(document.heading_reveal.is_none());
-                assert!(
-                    document
-                        .display()
-                        .spans
-                        .iter()
-                        .any(|span| span.style.heading == level as u8)
-                );
+                assert!(document
+                    .display()
+                    .spans
+                    .iter()
+                    .any(|span| span.style.heading == level as u8));
                 assert_eq!(document.history_len(false), level + 1);
                 assert_ne!(document.source.id(), snapshot);
                 let display = document.display();
@@ -996,13 +1032,11 @@ mod original {
         document.insert_text(document.selection(), "正文").unwrap();
         assert_eq!(document.source.text(), "#######正文");
         assert_eq!(document.display().text, "#######正文");
-        assert!(
-            document
-                .parse
-                .nodes
-                .iter()
-                .all(|node| !matches!(node.kind, NodeKind::Heading(_)))
-        );
+        assert!(document
+            .parse
+            .nodes
+            .iter()
+            .all(|node| !matches!(node.kind, NodeKind::Heading(_))));
 
         let mut document = new_document("## existing");
         document.select(2, false, false);
@@ -1057,14 +1091,12 @@ mod original {
             let snapshot = document.source.id();
             document.reveal_clicked_heading();
             assert!(document.heading_reveal.is_some());
-            assert!(
-                document.display().text.contains(
-                    &heading
-                        .trim_start_matches("- ")
-                        .trim_end()
-                        .replace("\r\n", "\n")
-                )
-            );
+            assert!(document.display().text.contains(
+                &heading
+                    .trim_start_matches("- ")
+                    .trim_end()
+                    .replace("\r\n", "\n")
+            ));
             assert_eq!(document.source.id(), snapshot);
             assert!(!document.dirty());
             document.select(title + "标".len(), false, false);
@@ -1284,13 +1316,11 @@ mod original {
             assert!(document.indent_list(false).unwrap());
             assert_eq!(document.source.text(), expected);
             assert_eq!(list::items(&document.parse).len(), 2);
-            assert!(
-                !document
-                    .parse
-                    .nodes
-                    .iter()
-                    .any(|n| matches!(n.kind, NodeKind::Heading(_)))
-            );
+            assert!(!document
+                .parse
+                .nodes
+                .iter()
+                .any(|n| matches!(n.kind, NodeKind::Heading(_))));
             document.line_break(false).unwrap();
             assert!(document.source.text().ends_with("- "));
             assert_eq!(list::items(&document.parse).last().unwrap().parent, None);
@@ -1338,10 +1368,10 @@ mod original {
         assert_eq!(document.source.text(), raw);
     }
     #[test]
-    fn visible_quote_prefix_in_a_list_remains_editable_and_hidden_item_prefix_is_skipped() {
+    fn hidden_quote_and_list_prefixes_are_skipped_and_local_source_remains_editable() {
         let mut document = new_document("> - body\n>   continuation");
         document.normalize_heading_caret();
-        assert_eq!(document.head, 0);
+        assert_eq!(document.head, 4);
         document.select(2, false, false);
         document.normalize_heading_caret();
         assert_eq!(document.head, 4);
@@ -1369,13 +1399,11 @@ mod original {
             document.select(raw.find("ab").unwrap() + 1, false, false);
             document.line_break(false).unwrap();
             assert_eq!(document.source.text(), expected);
-            assert!(
-                list::items(&document.parse)
-                    .last()
-                    .unwrap()
-                    .parent
-                    .is_some()
-            );
+            assert!(list::items(&document.parse)
+                .last()
+                .unwrap()
+                .parent
+                .is_some());
             document.undo(false);
             assert_eq!(document.source.text(), raw);
         }
@@ -1584,12 +1612,10 @@ mod highlighting {
                     plain.position_at(position)
                 );
             }
-            assert!(
-                highlighted
-                    .spans
-                    .iter()
-                    .any(|span| span.style.syntax == Some(Class::String))
-            );
+            assert!(highlighted
+                .spans
+                .iter()
+                .any(|span| span.style.syntax == Some(Class::String)));
             assert_eq!(document.selection(), selection);
             assert_eq!(document.source.revision(), revision);
             assert!(!document.dirty());
@@ -1599,42 +1625,34 @@ mod highlighting {
         let local = document.highlighted_display(&mut highlighter);
         assert_eq!(local.text, document.display().text);
         assert!(local.text.contains("> ```rust"));
-        assert!(
-            local
-                .spans
-                .iter()
-                .any(|span| span.style.syntax == Some(Class::String))
-        );
+        assert!(local
+            .spans
+            .iter()
+            .any(|span| span.style.syntax == Some(Class::String)));
         assert!(document.toggle_block_source());
         assert_eq!(document.source.revision(), revision);
         assert!(!document.dirty());
         document.replace(at..at + "\"中😀\"".len(), "42").unwrap();
         let changed = document.highlighted_display(&mut highlighter);
-        assert!(
-            changed
-                .spans
-                .iter()
-                .any(|span| &changed.text[span.display.clone()] == "42"
-                    && span.style.syntax == Some(Class::Constant))
-        );
+        assert!(changed
+            .spans
+            .iter()
+            .any(|span| &changed.text[span.display.clone()] == "42"
+                && span.style.syntax == Some(Class::Constant)));
         document.undo(false);
         assert_eq!(document.source.text(), raw);
         assert!(!document.dirty());
-        assert!(
-            document
-                .highlighted_display(&mut highlighter)
-                .spans
-                .iter()
-                .any(|span| span.style.syntax == Some(Class::String))
-        );
+        assert!(document
+            .highlighted_display(&mut highlighter)
+            .spans
+            .iter()
+            .any(|span| span.style.syntax == Some(Class::String)));
         document.undo(true);
-        assert!(
-            document
-                .highlighted_display(&mut highlighter)
-                .spans
-                .iter()
-                .any(|span| span.style.syntax == Some(Class::Constant))
-        );
+        assert!(document
+            .highlighted_display(&mut highlighter)
+            .spans
+            .iter()
+            .any(|span| span.style.syntax == Some(Class::Constant)));
     }
 }
 
@@ -1682,13 +1700,11 @@ mod mixed_highlighting {
         let raw = "```rust\nfn main() {\n    let s = \"未完成😀\n";
         let document = new_document(raw);
         let display = document.highlighted_display(&mut highlighter);
-        assert!(
-            display
-                .spans
-                .iter()
-                .any(|span| span.style.syntax == Some(Class::Keyword)
-                    && display.text[span.display.clone()].contains("fn"))
-        );
+        assert!(display
+            .spans
+            .iter()
+            .any(|span| span.style.syntax == Some(Class::Keyword)
+                && display.text[span.display.clone()].contains("fn")));
         assert!(display.text.contains("未完成😀"));
         assert_eq!(document.source.text(), raw);
 
@@ -1696,28 +1712,22 @@ mod mixed_highlighting {
         let document = new_document(raw);
         let display = document.highlighted_display(&mut highlighter);
         assert_eq!(display.code_blocks.len(), 3);
-        assert!(
-            display
-                .spans
-                .iter()
-                .any(|span| span.style.syntax == Some(Class::Comment)
-                    && display.text[span.display.clone()].contains("注释😀"))
-        );
+        assert!(display
+            .spans
+            .iter()
+            .any(|span| span.style.syntax == Some(Class::Comment)
+                && display.text[span.display.clone()].contains("注释😀")));
         let unknown = &display.code_blocks[2].source.range;
-        assert!(
-            display
-                .spans
-                .iter()
-                .filter(|span| unknown.contains(&span.source.start))
-                .all(|span| span.style.syntax.is_none() && !span.style.bold)
-        );
-        assert!(
-            display
-                .spans
-                .iter()
-                .filter(|span| span.style.code)
-                .all(|span| span.style.syntax.is_none())
-        );
+        assert!(display
+            .spans
+            .iter()
+            .filter(|span| unknown.contains(&span.source.start))
+            .all(|span| span.style.syntax.is_none() && !span.style.bold));
+        assert!(display
+            .spans
+            .iter()
+            .filter(|span| span.style.code)
+            .all(|span| span.style.syntax.is_none()));
         assert!(display.text.contains("**plain**"));
         assert_eq!(highlighter.cache_entries(), 2);
         assert!(!document.dirty());

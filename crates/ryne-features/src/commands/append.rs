@@ -11,11 +11,14 @@ impl Planner<'_> {
         if self.state.source_mode {
             return Err("block insertion is unavailable in source mode".into());
         }
-        let block = block::at(&self.state.parse, range.start)
+        let semantics = ryne_syntax::SemanticQuery::new(&self.state.parse);
+        let block = semantics
+            .block_at(range.start)
             .filter(|block| block.range == range)
             .or_else(|| {
                 self.state.parse.nodes.iter().find_map(|node| {
-                    block::at(&self.state.parse, node.envelope.start)
+                    semantics
+                        .block_at(node.envelope.start)
                         .filter(|block| block.range == range)
                 })
             })
@@ -23,8 +26,9 @@ impl Planner<'_> {
         if before && !block::can_insert_above(&self.state.parse, &block) {
             return Err("the first block only supports adding below".into());
         }
-        let (boundary, prefix) =
-            block::insertion_context(&self.state.parse, &block).ok_or("invalid block boundary")?;
+        let (boundary, prefix) = semantics
+            .insertion_context(&block)
+            .ok_or("invalid block boundary")?;
         let at = if before { boundary.start } else { boundary.end };
         let text = self.state.source.text();
         let newline = self.newline_at(at);

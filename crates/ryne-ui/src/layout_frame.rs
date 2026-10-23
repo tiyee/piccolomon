@@ -8,11 +8,13 @@ impl EditorElement {
     ) -> Frame {
         let _profile = profile::Scope::new("layout_frame");
         let editor = self.editor.read(cx);
-        let display = &editor.display;
+        let display = &editor.viewport.display;
         let page = theme::Page::new(f32::from(bounds.size.width), editor.document.source_mode);
-        let control_index = text_layout::control_index(&editor.render_controls);
-        let key = text_layout::LayoutKey::new(editor, page, window, &control_index);
+        let controls = &editor.viewport.control_index;
+        let control_index = &controls.cells;
+        let key = text_layout::LayoutKey::new(editor, page, window, control_index);
         let layout = editor
+            .viewport
             .geometry
             .as_ref()
             .map(|g| &g.text_layout)
@@ -23,7 +25,7 @@ impl EditorElement {
             });
         let mut geometry = Geometry {
             snapshot: editor.document.source.id(),
-            frame_epoch: editor.frame_epoch,
+            frame_epoch: editor.viewport.frame_epoch,
             display: layout.display.clone(),
             rows: layout.rows.clone(),
             text_layout: layout.clone(),
@@ -31,11 +33,11 @@ impl EditorElement {
             page,
             source_mode: editor.document.source_mode,
             lines: layout.lines.clone(),
-            scroll: editor.scroll,
+            scroll: editor.viewport.scroll,
             height: layout.height,
             math_painted: 0,
             diagrams_painted: 0,
-            diagram_images: editor.diagram_images.clone(),
+            diagram_images: editor.viewport.diagram_images.clone(),
             diagram_paint_error: None,
             math_error: None,
             block_control: None,
@@ -49,7 +51,7 @@ impl EditorElement {
             render_buttons: Vec::new(),
             render_menu_bounds: Vec::new(),
         };
-        if let Some(previous) = editor.geometry.as_ref().filter(|previous| {
+        if let Some(previous) = editor.viewport.geometry.as_ref().filter(|previous| {
             previous.snapshot == editor.document.source.id()
                 && (previous.page != page
                     || previous.source_mode != editor.document.source_mode
@@ -70,8 +72,9 @@ impl EditorElement {
             }
         }
         let caret = display.snap(display.position_at(editor.caret()));
-        if editor.ensure_caret {
-            let position = geometry.position_with_affinity(caret, editor.caret_affinity);
+        if editor.viewport.ensure_caret {
+            let position =
+                geometry.position_with_affinity(caret, editor.caret_state.caret_affinity);
             if position.y < bounds.top() + px(8.) {
                 geometry.scroll =
                     (geometry.scroll - (bounds.top() + px(8.) - position.y)).max(px(0.));
@@ -83,16 +86,16 @@ impl EditorElement {
         geometry.scroll = geometry
             .scroll
             .clamp(px(0.), (geometry.height - bounds.size.height).max(px(0.)));
+        let visible_top = geometry.scroll - px(page.top);
+        let visible_bottom = visible_top + bounds.size.height;
         let mut code_panels = Vec::new();
-        for (index, block) in display.code_blocks.iter().enumerate() {
-            let mut block_lines = geometry
-                .lines
-                .iter()
-                .filter(|line| line.code == Some(index));
-            let Some(first) = block_lines.next() else {
+        for index in layout.visibility.codes.visible(visible_top, visible_bottom) {
+            let block = &display.code_blocks[index];
+            let Some(&(first, last)) = layout.index.code_lines.get(&index) else {
                 continue;
             };
-            let last = block_lines.next_back().unwrap_or(first);
+            let first = &geometry.lines[first];
+            let last = &geometry.lines[last];
             let label = block
                 .source
                 .language
@@ -126,7 +129,7 @@ impl EditorElement {
                 }],
                 None,
             );
-            let indent = px(block.source.indent as f32 * 18.);
+            let indent = first.inset - px(16.);
             code_panels.push(CodePanel {
                 bounds: Bounds::new(
                     bounds.origin
@@ -140,11 +143,49 @@ impl EditorElement {
                             + px(32.),
                     ),
                 ),
-                label,
+                label: if let Some(control) = controls
+                    .headers
+                    .get(&(block.source.range.start, block.source.range.end))
+                {
+                    let mut control = control.clone();
+                    if block.diagnostic.is_some() {
+                        control.placement = ryne_extensions::RenderControlPlacement::Header {
+                            label: label.text.to_string(),
+                        };
+                    }
+                    let ryne_extensions::RenderControlPlacement::Header { label: title } =
+                        &control.placement
+                    else {
+                        continue;
+                    };
+                    let width = (menu_text_width(title, 12., window) + px(32.))
+                        .min((px(page.width) - indent - px(24.)).max(px(24.)));
+                    let trigger = Bounds::new(
+                        bounds.origin
+                            + point(
+                                px(page.left) + indent + px(8.),
+                                px(page.top) + first.top - px(28.) - geometry.scroll,
+                            ),
+                        size(width, px(24.)),
+                    );
+                    geometry.render_regions.push(RenderRegion {
+                        bounds: trigger,
+                        trigger,
+                        controls: vec![control],
+                    });
+                    if editor.viewport.dragging || editor.document.composition().is_some() {
+                        Some(label)
+                    } else {
+                        None
+                    }
+                } else {
+                    Some(label)
+                },
             });
         }
         let mut table_quads = Vec::new();
-        for &(mut cell, header, control_key) in &layout.cells {
+        for i in layout.visibility.cells.visible(visible_top, visible_bottom) {
+            let (mut cell, header, control_key) = layout.cells[i];
             let contributions = control_index.get(&control_key).cloned().unwrap_or_default();
             cell.origin += bounds.origin + point(px(page.left), px(page.top) - geometry.scroll);
             if !contributions.is_empty() {
@@ -174,13 +215,15 @@ impl EditorElement {
             }
         }
         let mut list_labels = Vec::new();
-        for row in &display.lists {
+        for i in layout.visibility.lists.visible(visible_top, visible_bottom) {
+            let row = &display.lists[i];
             if !row.source.first {
                 continue;
             }
-            let Some(line) = geometry.lines.iter().find(|line| line.start == row.start) else {
+            let Some(&line) = layout.index.first_line.get(&row.start) else {
                 continue;
             };
+            let line = &geometry.lines[line];
             let label = &row.source.item.label;
             let shaped = window.text_system().shape_line(
                 label.clone().into(),
@@ -216,16 +259,11 @@ impl EditorElement {
                 row.source.item.range.clone(),
                 Bounds::new(origin, size(marker_width, line.line_height)),
             ));
-            let contributions = editor
-                .render_controls
-                .iter()
-                .filter(|c| {
-                    c.placement == ryne_extensions::RenderControlPlacement::Leading
-                        && c.target.part == [row.source.item.marker.start]
-                        && c.target.owner.start == row.source.item.range.start
-                })
+            let contributions = controls
+                .leading
+                .get(&(row.source.item.range.start, row.source.item.marker.start))
                 .cloned()
-                .collect::<Vec<_>>();
+                .unwrap_or_default();
             if !contributions.is_empty() {
                 let trigger = Bounds::new(
                     point(
@@ -234,19 +272,13 @@ impl EditorElement {
                     ),
                     size(px(24.), px(24.)),
                 );
-                let end = display
-                    .lists
-                    .iter()
-                    .filter(|r| r.source.item.id == row.source.item.id)
-                    .filter_map(|r| geometry.lines.iter().find(|l| l.start == r.start))
-                    .map(|l| {
-                        geometry.bounds.top()
-                            + px(page.top)
-                            + l.top
-                            + l.shaped.size(l.line_height).height
-                            - geometry.scroll
-                    })
-                    .fold(origin.y + line.line_height, Pixels::max);
+                let end = layout.index.item_bottom.get(&row.source.item.id).map_or(
+                    origin.y + line.line_height,
+                    |bottom| {
+                        (geometry.bounds.top() + px(page.top) + *bottom - geometry.scroll)
+                            .max(origin.y + line.line_height)
+                    },
+                );
                 let bounds = Bounds::new(
                     point(trigger.left(), origin.y),
                     size(
@@ -262,18 +294,11 @@ impl EditorElement {
                 });
             }
             if row.source.item.task.is_some() {
-                let contributions = editor
-                    .render_controls
-                    .iter()
-                    .filter(|c| {
-                        matches!(
-                            c.placement,
-                            ryne_extensions::RenderControlPlacement::Marker { .. }
-                        ) && c.target.part == [row.source.item.marker.start]
-                            && c.target.owner.start == row.source.item.range.start
-                    })
+                let contributions = controls
+                    .markers
+                    .get(&(row.source.item.range.start, row.source.item.marker.start))
                     .cloned()
-                    .collect::<Vec<_>>();
+                    .unwrap_or_default();
                 if !contributions.is_empty() {
                     let trigger = Bounds::new(
                         point(
@@ -294,18 +319,20 @@ impl EditorElement {
             }
         }
         let selected = editor.selected();
+        let placed = geometry
+            .render_regions
+            .iter()
+            .flat_map(|r| r.controls.iter().map(|c| (c.provider, c.id.clone())))
+            .collect::<std::collections::BTreeSet<_>>();
         // Items whose first child is a code/table/diagram panel have no first
         // ListView text row. Their source body still provides a layout anchor.
-        for contribution in editor
-            .render_controls
-            .iter()
-            .filter(|c| c.placement == ryne_extensions::RenderControlPlacement::Leading)
+        for i in layout
+            .visibility
+            .leading
+            .visible(visible_top, visible_bottom)
         {
-            if geometry.render_regions.iter().any(|r| {
-                r.controls
-                    .iter()
-                    .any(|c| c.provider == contribution.provider && c.id == contribution.id)
-            }) {
+            let contribution = &editor.viewport.render_controls[i];
+            if placed.contains(&(contribution.provider, contribution.id.clone())) {
                 continue;
             }
             let start = display.position_at(contribution.focus.start);
@@ -341,18 +368,19 @@ impl EditorElement {
         let selected = display.position_at(selected.start)..display.position_at(selected.end);
         let selections = geometry.selection_quads(selected, rgba(0x9abfe966).into());
         let cursor = fill(
-            geometry.caret_bounds(caret, editor.caret_affinity),
+            geometry.caret_bounds(caret, editor.caret_state.caret_affinity),
             rgb(theme::LINK),
         );
-        let focused_block = (!editor.document.source_mode
-            && !editor.append_hovered
-            && (editor.focus.is_focused(window) || editor.hovered_block.is_some())
-            && !editor.dragging
-            && editor.document.composition.is_none())
+        let focused_block = (editor.menus.render_menu.is_none()
+            && !editor.document.source_mode
+            && !editor.menus.append_hovered
+            && (editor.focus.is_focused(window) || editor.menus.hovered_block.is_some())
+            && !editor.viewport.dragging
+            && editor.document.composition().is_none())
         .then(|| editor.active_block())
         .flatten();
-        let menu_open = editor.block_menu.is_some();
-        let block_insert = editor.block_insert;
+        let menu_open = editor.menus.block_menu.is_some();
+        let block_insert = editor.menus.block_insert;
         let can_insert_above = menu_open
             && focused_block
                 .as_ref()
@@ -370,11 +398,11 @@ impl EditorElement {
         let language = editor.locale.language;
         let insert_templates = editor.document.insert_templates().to_vec();
         let snapshot = editor.document.source.id();
-        let append_menu_open = editor.append_menu == Some(snapshot);
+        let append_menu_open = editor.menus.append_menu == Some(snapshot);
         let append_available = !editor.document.source_mode
-            && !editor.dragging
-            && editor.document.composition.is_none();
-        let append_hovered = editor.append_hovered;
+            && !editor.viewport.dragging
+            && editor.document.composition().is_none();
+        let append_hovered = editor.menus.append_hovered;
         let render_view = RenderViewState::new(editor, window);
         let mut controls = Vec::new();
         prepaint_render_controls(
@@ -547,7 +575,7 @@ impl EditorElement {
                 controls.push(control);
                 if menu_open {
                     let source_open = source_scope.as_ref() == Some(&block.scope);
-                    let title = language.block_name(spec.metadata.icon, spec.metadata.name);
+                    let title = language.block_name(spec.metadata.kind, spec.metadata.name);
                     let items: Vec<_> = spec
                         .menu
                         .iter()
@@ -626,7 +654,7 @@ impl EditorElement {
                                     .on_mouse_down(MouseButton::Left, move |_, _, cx| {
                                         cx.stop_propagation();
                                         entity.update(cx, |editor, cx| {
-                                            editor.block_insert = None;
+                                            editor.menus.block_insert = None;
                                             cx.notify();
                                         });
                                     })
@@ -676,6 +704,14 @@ impl EditorElement {
                 }
             }
         }
+        prepaint_render_menu(
+            &render_view,
+            &self.editor,
+            &mut geometry,
+            &mut controls,
+            window,
+            cx,
+        );
         Frame {
             geometry,
             selections,

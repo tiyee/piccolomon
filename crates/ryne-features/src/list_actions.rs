@@ -6,32 +6,52 @@ use std::{ops::Range, sync::Arc};
 pub(crate) struct ListActions {
     pub formulas: Arc<dyn FormulaRenderer>,
 }
-pub(crate) fn extent(state: &EditingState, item: &list::Item) -> Range<usize> {
-    let text = state.source.text();
-    let end = item.range.end.max(item.body);
-    let lines = code_block::lines(text);
-    let mut end = lines
-        .iter()
-        .find(|l| l.start < end && end <= l.end)
-        .map_or(end, |l| l.end);
-    let code = code_block::blocks(&state.parse);
-    for line in lines
-        .iter()
-        .rev()
-        .filter(|l| item.range.start < l.start && l.start < end)
-        .cloned()
-        .collect::<Vec<_>>()
-    {
-        if code.iter().any(|b| b.range.contains(&line.start)) {
-            break;
+/// Per-snapshot physical context, shared by all item controls in a batch.
+struct Extents<'a> {
+    state: &'a EditingState,
+    lines: Vec<Range<usize>>,
+    code: Vec<code_block::CodeBlock>,
+}
+impl<'a> Extents<'a> {
+    fn new(state: &'a EditingState) -> Self {
+        Self {
+            state,
+            lines: code_block::lines(state.source.text()),
+            code: code_block::blocks(&state.parse),
         }
-        let start = list::quote_end(&state.parse, &line);
-        if !text[start..line.end].trim().is_empty() {
-            break;
-        }
-        end = line.start;
     }
-    item.range.start..end
+    fn get(&self, item: &list::Item) -> Range<usize> {
+        let text = self.state.source.text();
+        let boundary = item.range.end.max(item.body);
+        let index = self.lines.partition_point(|line| line.end < boundary);
+        let mut end = self
+            .lines
+            .get(index)
+            .filter(|line| line.start < boundary && boundary <= line.end)
+            .map_or(boundary, |line| line.end);
+        let first = self
+            .lines
+            .partition_point(|line| line.start <= item.range.start);
+        let last = self.lines.partition_point(|line| line.start < end);
+        for line in self.lines[first.min(last)..last].iter().rev() {
+            if self
+                .code
+                .iter()
+                .any(|block| block.range.contains(&line.start))
+            {
+                break;
+            }
+            let start = list::quote_end(&self.state.parse, line);
+            if !text[start..line.end].trim().is_empty() {
+                break;
+            }
+            end = line.start;
+        }
+        item.range.start..end
+    }
+}
+pub(crate) fn extent(state: &EditingState, item: &list::Item) -> Range<usize> {
+    Extents::new(state).get(item)
 }
 impl RenderActionProvider for ListActions {
     fn id(&self) -> &'static str {
@@ -51,16 +71,27 @@ impl RenderActionProvider for ListActions {
     }
     fn controls(&self, state: &EditingState) -> Result<Vec<RenderControl>, String> {
         let items = list::items(&state.parse);
+        let context = Extents::new(state);
+        let owners = items
+            .iter()
+            .map(|item| context.get(item))
+            .collect::<Vec<_>>();
+        let mut siblings = std::collections::BTreeMap::new();
+        for item in &items {
+            let bounds = siblings
+                .entry(item.list)
+                .or_insert((item.marker.start, item.marker.start));
+            bounds.0 = bounds.0.min(item.marker.start);
+            bounds.1 = bounds.1.max(item.marker.start);
+        }
         let mut controls = items
             .iter()
-            .map(|item| {
-                let before = items
-                    .iter()
-                    .any(|i| i.list == item.list && i.marker.start < item.marker.start);
-                let after = items
-                    .iter()
-                    .any(|i| i.list == item.list && i.marker.start > item.marker.start);
-                let owner = extent(state, item);
+            .zip(&owners)
+            .map(|(item, owner)| {
+                let (first, last) = siblings[&item.list];
+                let before = first < item.marker.start;
+                let after = item.marker.start < last;
+                let owner = owner.clone();
                 let action = |command, fallback, enabled, group, icon| RenderAction {
                     command,
                     label: command,
@@ -114,11 +145,11 @@ impl RenderActionProvider for ListActions {
                 }
             })
             .collect::<Vec<_>>();
-        for item in &items {
+        for (item, owner) in items.iter().zip(&owners) {
             let Some(task) = &item.task else {
                 continue;
             };
-            let owner = extent(state, item);
+            let owner = owner.clone();
             controls.push(RenderControl {
                 provider: "list",
                 id: format!("task-{}", item.marker.start),

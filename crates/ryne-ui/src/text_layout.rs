@@ -19,7 +19,7 @@ fn cell_key(table: &ryne_projection::TableView, row: usize, column: usize) -> Co
         cell.content.end,
     )
 }
-pub(super) fn control_index(
+fn control_index(
     controls: &[ryne_extensions::RenderControl],
 ) -> BTreeMap<ControlKey, Vec<ryne_extensions::RenderControl>> {
     let mut index: BTreeMap<_, Vec<_>> = BTreeMap::new();
@@ -31,31 +31,56 @@ pub(super) fn control_index(
     }
     index
 }
-#[derive(Clone, PartialEq)]
-pub(super) struct LayoutKey {
-    snapshot: SnapshotId,
-    epoch: u64,
-    page: theme::Page,
-    source_mode: bool,
-    fonts: theme::Fonts,
-    scale: f32,
-    reserved: Vec<(ControlKey, u32)>,
+#[derive(Default)]
+pub(super) struct ControlIndex {
+    pub cells: BTreeMap<ControlKey, Vec<ryne_extensions::RenderControl>>,
+    reserved: Arc<Vec<(ControlKey, u32)>>,
+    generation: u64,
+    pub headers: BTreeMap<(usize, usize), ryne_extensions::RenderControl>,
+    pub leading: BTreeMap<(usize, usize), Vec<ryne_extensions::RenderControl>>,
+    pub markers: BTreeMap<(usize, usize), Vec<ryne_extensions::RenderControl>>,
 }
-impl LayoutKey {
-    pub(super) fn new(
-        editor: &Editor,
-        page: theme::Page,
-        window: &Window,
-        controls: &BTreeMap<ControlKey, Vec<ryne_extensions::RenderControl>>,
-    ) -> Self {
-        Self {
-            snapshot: editor.document.source.id(),
-            epoch: editor.frame_epoch,
-            page,
-            source_mode: editor.document.source_mode,
-            fonts: editor.fonts.clone(),
-            scale: window.scale_factor(),
-            reserved: controls
+impl ControlIndex {
+    pub fn new(controls: &[ryne_extensions::RenderControl]) -> Self {
+        use ryne_extensions::RenderControlPlacement;
+        let mut index = Self {
+            cells: control_index(controls),
+            ..Self::default()
+        };
+        // Preserve the previous sorted-cell precedence for competing headers.
+        for control in index.cells.values().flatten() {
+            if matches!(control.placement, RenderControlPlacement::Header { .. }) {
+                let owner = &control.target.owner;
+                index
+                    .headers
+                    .entry((owner.start, owner.end))
+                    .or_insert_with(|| control.clone());
+            }
+        }
+        for control in controls {
+            let owner = &control.target.owner;
+            match control.placement {
+                RenderControlPlacement::Leading | RenderControlPlacement::Marker { .. } => {
+                    if let [marker] = control.target.part.as_slice() {
+                        let target = if control.placement == RenderControlPlacement::Leading {
+                            &mut index.leading
+                        } else {
+                            &mut index.markers
+                        };
+                        target
+                            .entry((owner.start, *marker))
+                            .or_default()
+                            .push(control.clone());
+                    }
+                }
+                _ => {}
+            }
+        }
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+        index.generation = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        index.reserved = Arc::new(
+            index
+                .cells
                 .iter()
                 .map(|(key, controls)| {
                     (
@@ -68,23 +93,70 @@ impl LayoutKey {
                     )
                 })
                 .collect(),
+        );
+        index
+    }
+}
+#[derive(Clone, PartialEq)]
+pub(super) struct LayoutKey {
+    snapshot: SnapshotId,
+    control_generation: u64,
+    epoch: u64,
+    page: theme::Page,
+    source_mode: bool,
+    fonts: theme::Fonts,
+    scale: f32,
+    reserved: Arc<Vec<(ControlKey, u32)>>,
+}
+impl LayoutKey {
+    pub(super) fn new(
+        editor: &Editor,
+        page: theme::Page,
+        window: &Window,
+        _controls: &BTreeMap<ControlKey, Vec<ryne_extensions::RenderControl>>,
+    ) -> Self {
+        Self {
+            snapshot: editor.document.source.id(),
+            control_generation: editor.viewport.control_index.generation,
+            epoch: editor.viewport.frame_epoch,
+            page,
+            source_mode: editor.document.source_mode,
+            fonts: editor.fonts.clone(),
+            scale: window.scale_factor(),
+            reserved: editor.viewport.control_index.reserved.clone(),
         }
     }
 }
 pub(super) struct TextLayout {
+    pub index: crate::frame_index::FrameIndex,
+    pub visibility: crate::visibility::Visibility,
     pub key: LayoutKey,
-    pub display: Arc<Display>,
+    pub display: Arc<ryne_projection::IndexedDisplay>,
     pub lines: Arc<Vec<Line>>,
     pub rows: Arc<Vec<VisualRow>>,
     pub cells: Vec<(Bounds<Pixels>, bool, ControlKey)>,
     pub height: Pixels,
     pub body_height: Pixels,
+    pub quote_panels: Vec<QuotePanel>,
+}
+pub(super) struct QuotePanel {
+    pub bounds: Bounds<Pixels>,
+    pub icon: Bounds<Pixels>,
 }
 impl TextLayout {
     pub(super) fn build(editor: &Editor, key: LayoutKey, window: &mut Window) -> Self {
         let _profile = profile::Scope::new("text_layout_build");
-        let display = &editor.display;
+        let display = &editor.viewport.display;
         let page = key.page;
+        let mut header_ranges: Vec<_> = display
+            .tables
+            .iter()
+            .filter_map(|t| t.rows.first())
+            .flatten()
+            .filter(|r| !r.is_empty())
+            .cloned()
+            .collect();
+        header_ranges.sort_by_key(|r| r.start);
         let runs = display
             .spans
             .iter()
@@ -96,12 +168,9 @@ impl TextLayout {
                     editor.fonts.body.clone()
                 };
                 if style.bold {
-                    let header = display
-                        .tables
-                        .iter()
-                        .filter_map(|table| table.rows.first())
-                        .flatten()
-                        .any(|cell| cell.start < span.display.end && span.display.start < cell.end);
+                    let header = header_ranges
+                        .get(header_ranges.partition_point(|r| r.end <= span.display.start))
+                        .is_some_and(|r| r.start < span.display.end);
                     face.weight = if header {
                         FontWeight::SEMIBOLD
                     } else {
@@ -149,12 +218,13 @@ impl TextLayout {
         let mut previous_code = None;
         let mut table_cells = Vec::new();
         let mut spacing = presentation::FlowSpacing::default();
+        let code_rows = display.code_row_index();
         while start <= display.text.len() {
-            let code = display.code_row(start);
+            let code = code_rows.code_row(start);
             if previous_code.is_some() && code != previous_code {
                 top += px(12.);
             }
-            top += px(spacing.enter(display, start));
+            top += px(spacing.enter_indexed(display, start));
             if code.is_some() && code != previous_code {
                 top += px(32.);
             }
@@ -165,7 +235,10 @@ impl TextLayout {
                 .enumerate()
                 .find(|(_, view)| view.display.start == start)
             {
-                let inset = px(diagram.source.indent as f32 * 18.);
+                let quote = display.quote_at(start);
+                let inset =
+                    px((diagram.source.indent * 18 + quote.map_or(0, |q| q.depth * 14)) as f32)
+                        .max(px(quote.map_or(0, |q| q.inset) as f32));
                 let available = (px(page.width) - inset).max(px(40.));
                 let scale = (f32::from(available) / diagram.diagram.width).min(1.);
                 let height = px(diagram.diagram.height * scale + 24.);
@@ -209,10 +282,13 @@ impl TextLayout {
             }
             if let Some(table) = display
                 .tables
-                .iter()
-                .find(|table| table.range.start == start)
+                .binary_search_by_key(&start, |table| table.range.start)
+                .ok()
+                .map(|i| &display.tables[i])
             {
-                let inset = px(table.source.inset as f32);
+                let quote = display.quote_at(start);
+                let inset = px((table.source.inset + quote.map_or(0, |q| q.depth * 14)) as f32)
+                    .max(px(quote.map_or(0, |q| q.inset) as f32));
                 let cell_width =
                     ((px(page.width) - inset) / table.source.align.len() as f32).max(px(24.));
                 for (row_index, row) in table.rows.iter().enumerate() {
@@ -312,20 +388,40 @@ impl TextLayout {
                 heading_metrics(heading)
             };
             if text.is_empty() && code.is_none() && !raw {
-                line_height = spacing.empty_height(display, start);
+                line_height = spacing.empty_height_indexed(display, start);
             }
             let list = display.list_row(start);
-            let inset = code.map_or(
-                list.map_or(px(0.), |row| px(row.source.item.inset as f32)),
-                |index| px(16. + display.code_blocks[index].source.indent as f32 * 18.),
-            );
+            let quote = display.quote_at(start);
+            let inset = code
+                .map_or(
+                    list.map_or(px(0.), |row| {
+                        px(row.source.item.inset as f32 + quote.map_or(0, |q| q.depth * 32) as f32)
+                    }),
+                    |index| {
+                        px(16.
+                            + display.code_blocks[index].source.indent as f32 * 18.
+                            + quote.map_or(0, |q| q.depth * 14) as f32)
+                    },
+                )
+                .max(
+                    px(quote.map_or(0, |q| q.inset) as f32)
+                        + if code.is_some() { px(16.) } else { px(0.) },
+                );
             for layout in shape_inline(
                 display,
                 &runs,
                 start..end,
                 (font_size, line_height),
-                (px(page.width) - inset - if code.is_some() { px(16.) } else { px(0.) })
-                    .max(px(40.)),
+                (px(page.width)
+                    - inset
+                    - if code.is_some() {
+                        px(16.)
+                    } else if quote.is_some() {
+                        px(12.)
+                    } else {
+                        px(0.)
+                    })
+                .max(px(40.)),
                 window,
             ) {
                 let height = layout.shaped.size(layout.line_height).height;
@@ -387,7 +483,145 @@ impl TextLayout {
                 });
             }
         }
+        let quote_panels: Vec<QuotePanel> = display
+            .quotes
+            .iter()
+            // One panel and leading icon for the complete outer quote. Nested
+            // quote views still provide their indentation and source mapping.
+            .filter(|quote| quote.depth == 1)
+            .filter_map(|quote| {
+                let first = lines.partition_point(|line| line.start < quote.display.start);
+                let last = lines.partition_point(|line| {
+                    line.start < quote.display.end
+                        || (quote.empty_tail.is_some() && line.start == quote.display.end)
+                });
+                let content = lines.get(first..last)?;
+                let first = content.first()?;
+                let last = content.last()?;
+                let left = px(quote.inset as f32 - 32.);
+                let top = first.cell.map_or(first.top, |cell| cell.top())
+                    - if first.code.is_some() {
+                        px(32.)
+                    } else {
+                        px(0.)
+                    };
+                let bottom = (last.top
+                    + last.shaped.size(last.line_height).height
+                    + if last.code.is_some() { px(12.) } else { px(0.) })
+                .max(last.cell.map_or(px(0.), |cell| cell.bottom()));
+                Some(QuotePanel {
+                    bounds: Bounds::new(
+                        point(left, top),
+                        size((px(page.width) - left).max(px(40.)), bottom - top),
+                    ),
+                    icon: Bounds::new(
+                        point(
+                            left + px(8.),
+                            first.top
+                                + (if first.diagram.is_some() {
+                                    px(30.)
+                                } else {
+                                    first.line_height
+                                } - px(18.))
+                                    / 2.,
+                        ),
+                        size(px(18.), px(18.)),
+                    ),
+                })
+            })
+            .collect();
+        let mut index = crate::frame_index::FrameIndex::build(
+            lines.iter().map(|line| {
+                (
+                    line.start,
+                    line.code,
+                    line.top + line.shaped.size(line.line_height).height,
+                )
+            }),
+            display
+                .lists
+                .iter()
+                .map(|row| (row.source.item.id, row.start)),
+        );
+        index.visual_rows = ryne_syntax::RangeIndex::new(
+            rows.iter()
+                .enumerate()
+                .map(|(i, r)| (r.range.clone(), i))
+                .collect(),
+        );
+        let mut visibility = crate::visibility::Visibility::default();
+        visibility.lines = crate::visibility::YIndex::new(
+            lines
+                .iter()
+                .enumerate()
+                .map(|(i, l)| (i, l.top, l.top + l.shaped.size(l.line_height).height)),
+        );
+        visibility.rows = crate::visibility::YIndex::new(
+            rows.iter()
+                .enumerate()
+                .map(|(i, r)| (i, r.top, r.top + r.line_height)),
+        );
+        visibility.cells = crate::visibility::YIndex::new(
+            table_cells
+                .iter()
+                .enumerate()
+                .map(|(i, (b, _, _))| (i, b.top(), b.bottom())),
+        );
+        visibility.codes =
+            crate::visibility::YIndex::new(index.code_lines.iter().map(|(&i, &(first, last))| {
+                (
+                    i,
+                    lines[first].top - px(32.),
+                    lines[last].top
+                        + lines[last].shaped.size(lines[last].line_height).height
+                        + px(12.),
+                )
+            }));
+        visibility.lists = crate::visibility::YIndex::new(
+            display
+                .lists
+                .iter()
+                .enumerate()
+                .filter(|(_, r)| r.source.first)
+                .filter_map(|(i, r)| {
+                    index.first_line.get(&r.start).map(|&l| {
+                        (
+                            i,
+                            lines[l].top,
+                            *index
+                                .item_bottom
+                                .get(&r.source.item.id)
+                                .unwrap_or(&(lines[l].top + lines[l].line_height)),
+                        )
+                    })
+                }),
+        );
+        visibility.quotes = crate::visibility::YIndex::new(
+            quote_panels
+                .iter()
+                .enumerate()
+                .map(|(i, p)| (i, p.bounds.top(), p.bounds.bottom())),
+        );
+        visibility.leading = crate::visibility::YIndex::new(
+            editor
+                .viewport
+                .render_controls
+                .iter()
+                .enumerate()
+                .filter(|(_, c)| c.placement == ryne_extensions::RenderControlPlacement::Leading)
+                .filter_map(|(i, c)| {
+                    let start = display.position_at(c.focus.start);
+                    let end = display.position_at(c.focus.end);
+                    let starts = index.visual_rows.at(start);
+                    let ends = index.visual_rows.at(end);
+                    let first = rows.get(*starts.last()?)?;
+                    let last = rows.get(*ends.first()?)?;
+                    Some((i, first.top, last.top + last.line_height))
+                }),
+        );
         Self {
+            index,
+            visibility,
             body_height: top,
             height: top
                 + px(page.top + theme::BOTTOM)
@@ -397,10 +631,11 @@ impl TextLayout {
                     px(APPEND_HEIGHT)
                 },
             key,
-            display: Arc::new(display.clone()),
+            display: display.clone(),
             lines: Arc::new(lines),
             rows: Arc::new(rows),
             cells: table_cells,
+            quote_panels,
         }
     }
 }

@@ -62,6 +62,23 @@ cat > "$bundle/Contents/Info.plist" <<PLIST
 <key>CFBundleVersion</key><string>1</string>
 <key>LSMinimumSystemVersion</key><string>12.0</string>
 <key>NSHighResolutionCapable</key><true/>
+<key>UTImportedTypeDeclarations</key><array><dict>
+<key>UTTypeIdentifier</key><string>net.daringfireball.markdown</string>
+<key>UTTypeDescription</key><string>Markdown document</string>
+<key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
+<key>UTTypeTagSpecification</key><dict>
+<key>public.filename-extension</key><array>
+<string>md</string><string>markdown</string><string>mdown</string><string>mkd</string>
+</array>
+<key>public.mime-type</key><array><string>text/markdown</string><string>text/x-markdown</string></array>
+</dict>
+</dict></array>
+<key>CFBundleDocumentTypes</key><array><dict>
+<key>CFBundleTypeName</key><string>Markdown document</string>
+<key>CFBundleTypeRole</key><string>Editor</string>
+<key>LSHandlerRank</key><string>Alternate</string>
+<key>LSItemContentTypes</key><array><string>net.daringfireball.markdown</string></array>
+</dict></array>
 </dict></plist>
 PLIST
 codesign --force --sign - "$bundle"

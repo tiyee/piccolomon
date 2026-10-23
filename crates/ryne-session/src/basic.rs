@@ -1,8 +1,9 @@
 //! Basic source editing remains usable with no Markdown feature registrations.
-use editable_markdown_parser::{Edit, Error, ParseSnapshot};
+use editable_markdown_parser::{Edit, Error};
 use ryne_core::PreparedEdit;
 use ryne_extensions::*;
 use ryne_projection::*;
+use ryne_syntax::ParseSnapshot;
 use std::ops::Range;
 pub struct SourceEditing;
 impl FeatureEngine for SourceEditing {
@@ -18,6 +19,39 @@ impl FeatureEngine for SourceEditing {
                     replacement: text,
                 })
             }
+            EditIntent::Delete { forward } => {
+                let range = if state.selection().is_empty() {
+                    let len = state.source.text().len();
+                    Display {
+                        text: state.source.text().into(),
+                        source_len: len,
+                        spans: if len == 0 {
+                            vec![]
+                        } else {
+                            vec![Span {
+                                source: 0..len,
+                                display: 0..len,
+                                style: Style {
+                                    source: true,
+                                    ..Style::default()
+                                },
+                            }]
+                        },
+                        ..Display::default()
+                    }
+                    .deletion_range(state.head, forward)
+                } else {
+                    Some(state.selection())
+                };
+                range.map(|range| Edit {
+                    range,
+                    replacement: String::new(),
+                })
+            }
+            EditIntent::Tab { backward: false } => Some(Edit {
+                range: state.selection(),
+                replacement: "\t".into(),
+            }),
             EditIntent::LineBreak { .. } => Some(Edit {
                 range: state.selection(),
                 replacement: "\n".into(),
@@ -74,17 +108,22 @@ impl FeatureEngine for SourceEditing {
         Display {
             text: state.source.text().into(),
             source_len: len,
-            spans: vec![Span {
-                source: 0..len,
-                display: 0..len,
-                style: Style {
-                    source: true,
-                    ..Style::default()
-                },
-            }],
+            spans: if len == 0 {
+                vec![]
+            } else {
+                vec![Span {
+                    source: 0..len,
+                    display: 0..len,
+                    style: Style {
+                        source: true,
+                        ..Style::default()
+                    },
+                }]
+            },
             ..Display::default()
         }
     }
+
     fn block_window(&self, _: &EditingState) -> Option<Range<usize>> {
         None
     }
@@ -96,11 +135,7 @@ impl FeatureEngine for SourceEditing {
     }
     fn block_ui(&self, block: &ryne_syntax::block::Block, _: bool) -> AdornmentSpec {
         AdornmentSpec {
-            metadata: BlockMetadata {
-                name: block.name,
-                icon: block.icon,
-                label: block.label,
-            },
+            metadata: BlockMetadata::from(block.kind),
             menu: Vec::new(),
         }
     }

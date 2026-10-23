@@ -1,8 +1,9 @@
 //! The only publisher of document content, session state and post-commit facts.
-use editable_markdown_parser::{ParseSnapshot, Source};
+use editable_markdown_parser::Source;
 use ryne_core::DocumentCore;
 use ryne_extensions::*;
 use ryne_projection::{DiagramViewInput, Display};
+use ryne_syntax::ParseSnapshot;
 use std::{
     ops::{Deref, Range},
     path::Path,
@@ -12,6 +13,8 @@ pub mod basic;
 pub mod composition;
 pub use composition::Composition;
 mod export;
+mod presentation_cache;
+pub use presentation_cache::{CachedControls, CachedProjection};
 pub mod jobs;
 pub use export::ExportSnapshot;
 
@@ -38,8 +41,9 @@ pub struct SessionServices {
 pub mod files;
 pub use files::{FileSession, SaveCompletion, SaveReceipt, SaveRequest};
 pub struct EditorSession {
+    presentation_cache: std::cell::RefCell<presentation_cache::PresentationCache>,
     core: DocumentCore<Checkpoint>,
-    pub composition: Option<Composition>,
+    composition: Option<Composition>,
     state: EditingState,
     services: SessionServices,
     pub files: FileSession,
@@ -63,6 +67,7 @@ impl EditorSession {
         let state = EditingState::new(core.source().clone());
         let jobs = jobs::JobHost::default();
         Self {
+            presentation_cache: Default::default(),
             core,
             composition: None,
             state,
@@ -158,6 +163,17 @@ impl EditorSession {
         self.publish_plan(plan)
     }
     pub fn publish_plan(&mut self, plan: CommandPlan) -> Result<bool, String> {
+        self.publish_plan_inner(plan, false)
+    }
+    fn publish_plan_inner(
+        &mut self,
+        plan: CommandPlan,
+        completing_ime: bool,
+    ) -> Result<bool, String> {
+        if self.composition.is_some() && !completing_ime && matches!(plan, CommandPlan::Edit { .. })
+        {
+            return Err("confirm or cancel composition before editing".into());
+        }
         let (base, state) = match &plan {
             CommandPlan::Edit {
                 prepared, state, ..
@@ -227,8 +243,16 @@ impl EditorSession {
                 self.state = state;
                 (handled, EventKind::ViewChanged)
             }
-            CommandPlan::Consume => return Ok(true),
+            CommandPlan::Consume => {
+                if completing_ime {
+                    self.composition = None;
+                }
+                return Ok(true);
+            }
         };
+        if completing_ime {
+            self.composition = None;
+        }
         self.notify(kind, "command");
         Ok(handled)
     }
@@ -302,12 +326,10 @@ impl EditorSession {
         self.services.features.block_window(&self.state)
     }
     pub fn display(&self) -> Display {
-        self.services.features.display(&self.state, None, &[])
+        self.project(&self.state, None, &[])
     }
     pub fn highlighted_display(&self, highlighter: &mut dyn SyntaxHighlighter) -> Display {
-        self.services
-            .features
-            .display(&self.state, Some(highlighter), &[])
+        self.project(&self.state, Some(highlighter), &[])
     }
     pub fn project(
         &self,
@@ -315,7 +337,20 @@ impl EditorSession {
         highlighter: Option<&mut dyn SyntaxHighlighter>,
         diagrams: &[DiagramViewInput],
     ) -> Display {
-        self.services.features.display(state, highlighter, diagrams)
+        self.project_batch(state, highlighter, diagrams).display
+    }
+    pub fn project_batch(
+        &self,
+        state: &EditingState,
+        highlighter: Option<&mut dyn SyntaxHighlighter>,
+        diagrams: &[DiagramViewInput],
+    ) -> ProjectionBatch {
+        project_checked(
+            self.services.features.as_ref(),
+            state,
+            highlighter,
+            diagrams,
+        )
     }
     pub fn diagram_views(
         &mut self,
@@ -370,6 +405,12 @@ impl EditorSession {
     pub fn line_break(&mut self, hard: bool) -> Result<(), String> {
         self.dispatch(EditIntent::LineBreak { hard }).map(|_| ())
     }
+    pub fn delete(&mut self, forward: bool) -> Result<bool, String> {
+        self.dispatch(EditIntent::Delete { forward })
+    }
+    pub fn tab(&mut self, backward: bool) -> Result<bool, String> {
+        self.dispatch(EditIntent::Tab { backward })
+    }
     pub fn navigate_table(&mut self, backward: bool, next_row: bool) -> Result<bool, String> {
         self.dispatch(EditIntent::NavigateTable { backward, next_row })
     }
@@ -394,6 +435,9 @@ impl EditorSession {
         self.dispatch(EditIntent::Append { template }).map(|_| ())
     }
     pub fn undo(&mut self, redo: bool) {
+        if self.composition.is_some() {
+            return;
+        }
         let Ok(Some((prepared, checkpoint))) = self.core.prepare_history(redo) else {
             return;
         };
@@ -526,8 +570,12 @@ impl EditorSession {
 }
 
 #[cfg(test)]
+mod quote_tests;
+#[cfg(test)]
 mod regression_tests;
 
+#[cfg(test)]
+mod code_render_action_tests;
 #[cfg(test)]
 mod contract_tests;
 #[cfg(test)]
@@ -542,3 +590,6 @@ mod adjacent_block_tests;
 
 #[cfg(test)]
 mod format_tests;
+
+#[cfg(test)]
+mod architecture_tests;

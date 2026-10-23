@@ -1,4 +1,5 @@
-use editable_markdown_parser::{NodeKind, ParseSnapshot};
+use crate::ParseSnapshot;
+use editable_markdown_parser::NodeKind;
 use std::ops::Range;
 
 #[derive(Clone, Debug)]
@@ -8,6 +9,12 @@ pub struct SourceFormula {
 
 /// Consume authoritative parser nodes; there is no second Markdown scanner.
 pub fn formulas(parse: &ParseSnapshot) -> Vec<SourceFormula> {
+    cached(parse).to_vec()
+}
+pub fn cached(parse: &ParseSnapshot) -> &[SourceFormula] {
+    parse.formulas.get_or_init(|| build(parse))
+}
+fn build(parse: &ParseSnapshot) -> Vec<SourceFormula> {
     parse
         .nodes
         .iter()

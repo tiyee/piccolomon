@@ -138,6 +138,9 @@ pub struct CodeHighlighter {
     highlighter: Highlighter,
     configurations: HashMap<Language, Option<HighlightConfiguration>>,
     cache: Vec<CachedBlock>,
+    detections: Vec<(String, Option<Language>)>,
+    detection_attempts: usize,
+    deferred: bool,
     #[cfg(test)]
     parses: usize,
 }
@@ -147,6 +150,8 @@ impl CodeHighlighter {
         self.cache.len()
     }
     pub fn begin_frame(&mut self) {
+        self.detection_attempts = 0;
+        self.deferred = false;
         for block in &mut self.cache {
             block.used = false;
         }
@@ -158,11 +163,21 @@ impl CodeHighlighter {
 
     /// Return UTF-8 source ranges, excluding fences and container indentation.
     pub fn spans(&mut self, source: &str, block: &CodeBlock) -> Vec<Span> {
-        let Some(language) = Language::from_info(&block.language) else {
+        let automatic = block
+            .language
+            .split_whitespace()
+            .next()
+            .is_some_and(|info| info.eq_ignore_ascii_case("auto"))
+            || (block.language.trim().is_empty() && block.closing.is_some());
+        let explicit = Language::from_info(&block.language);
+        if !automatic && explicit.is_none() {
             return Vec::new();
-        };
+        }
         let size: usize = block.rows.iter().map(|row| row.content.len() + 1).sum();
-        if size == 0 || size > MAX_BLOCK_BYTES {
+        if size == 0
+            || size > MAX_BLOCK_BYTES
+            || (automatic && size > crate::language::MAX_DETECTION_BYTES)
+        {
             return Vec::new();
         }
         let mut code = String::with_capacity(size);
@@ -177,6 +192,41 @@ impl CodeHighlighter {
                 code.push('\n');
             }
         }
+        let language = if automatic {
+            if let Some(cached) = self.detections.iter().find(|(text, _)| *text == code) {
+                cached.1
+            } else {
+                if self.detection_attempts >= 8 || code.len() > crate::language::MAX_DETECTION_BYTES
+                {
+                    self.deferred = true;
+                    return Vec::new();
+                }
+                self.detection_attempts += 1;
+                let detected = ryne_extensions::CodeLanguageDetector::detect(
+                    &crate::language::TreeSitterLanguageDetector,
+                    &code,
+                )
+                .and_then(Language::from_info);
+                while self.detections.len() >= MAX_CACHE_ENTRIES
+                    || self
+                        .detections
+                        .iter()
+                        .map(|(text, _)| text.len())
+                        .sum::<usize>()
+                        + code.len()
+                        > MAX_CACHE_BYTES
+                {
+                    self.detections.remove(0);
+                }
+                self.detections.push((code.clone(), detected));
+                detected
+            }
+        } else {
+            explicit
+        };
+        let Some(language) = language else {
+            return Vec::new();
+        };
         let spans = if let Some(cached) = self
             .cache
             .iter_mut()
@@ -300,6 +350,9 @@ impl CodeHighlighter {
 }
 
 impl ryne_extensions::SyntaxHighlighter for CodeHighlighter {
+    fn presentation_generation(&self) -> Option<u64> {
+        (!self.deferred).then_some(0)
+    }
     fn begin_frame(&mut self) {
         CodeHighlighter::begin_frame(self);
     }
@@ -320,8 +373,9 @@ impl ryne_extensions::SyntaxHighlighter for CodeHighlighter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use editable_markdown_parser::{ParseSnapshot, Source};
+    use editable_markdown_parser::Source;
     use ryne_syntax::code_block;
+    use ryne_syntax::ParseSnapshot;
 
     fn spans(highlighter: &mut CodeHighlighter, raw: &str) -> Vec<Span> {
         let parse = ParseSnapshot::new(Source::new(raw));
@@ -416,13 +470,11 @@ mod tests {
                         raw.is_char_boundary(span.range.start)
                             && raw.is_char_boundary(span.range.end)
                     );
-                    assert!(
-                        blocks[0]
-                            .rows
-                            .iter()
-                            .any(|row| row.content.start <= span.range.start
-                                && span.range.end <= row.content.end)
-                    );
+                    assert!(blocks[0]
+                        .rows
+                        .iter()
+                        .any(|row| row.content.start <= span.range.start
+                            && span.range.end <= row.content.end));
                 }
             }
         }
@@ -452,11 +504,38 @@ mod tests {
     }
 
     #[test]
+    fn automatic_highlighting_caches_success_failure_and_remaps_without_source_edits() {
+        let mut highlighter = CodeHighlighter::default();
+        for info in ["", "auto", "AUTO extra"] {
+            let raw = format!("```{info}\r\nfn main() {{ let s = \"中😀\"; }}\r\n```\r\n");
+            let first = spans(&mut highlighter, &raw);
+            assert!(first.iter().any(|s| s.class == Class::Keyword));
+            assert_eq!(highlighter.detections.len(), 1);
+            let shifted = spans(&mut highlighter, &format!("before\r\n\r\n{raw}"));
+            assert_eq!(shifted[0].range.start, first[0].range.start + 10);
+            assert_eq!(highlighter.detection_attempts, 0);
+        }
+        assert!(spans(&mut highlighter, "```auto\nx = 1\n```").is_empty());
+        assert_eq!(highlighter.detections.len(), 2);
+        assert!(spans(&mut highlighter, "```auto\nx = 1\n```").is_empty());
+        assert_eq!(highlighter.detection_attempts, 0);
+        assert!(spans(
+            &mut highlighter,
+            &format!(
+                "```auto\n{}\n```",
+                "x".repeat(crate::language::MAX_DETECTION_BYTES)
+            )
+        )
+        .is_empty());
+        assert_eq!(highlighter.detections.len(), 2);
+    }
+
+    #[test]
     fn unknown_plain_empty_and_oversized_code_fall_back_without_parsing() {
         let mut highlighter = CodeHighlighter::default();
         for raw in [
             "```unknown\nlet n = 42;\n```",
-            "```\nlet n = 42;\n```",
+            "```\nx = 1\n```",
             "    let n = 42;\n",
             "```rust\n```",
             "```text\n**literal**\n```",

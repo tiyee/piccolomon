@@ -1,5 +1,6 @@
 use crate::code_block;
-use editable_markdown_parser::{NodeKind, ParseSnapshot, TokenKind};
+use crate::ParseSnapshot;
+use editable_markdown_parser::{NodeKind, TokenKind};
 use std::ops::Range;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -78,10 +79,36 @@ fn column(parse: &ParseSnapshot, list: usize) -> usize {
 }
 
 pub fn items(parse: &ParseSnapshot) -> Vec<Item> {
-    let normalized = crate::parser::normalized(parse);
-    let parse = normalized.as_ref().unwrap_or(parse);
+    cached_items(parse).to_vec()
+}
+pub fn cached_items(parse: &ParseSnapshot) -> &[Item] {
+    let parse = parse.semantic();
+    parse.items.get_or_init(|| build_items(parse))
+}
+fn build_items(parse: &ParseSnapshot) -> Vec<Item> {
+    if parse.index().item_nodes.is_empty() {
+        return Vec::new();
+    }
     let text = parse.source().text();
-    let lines = code_block::lines(text);
+    let lines = &parse.index().lines;
+    let mut ordinals = vec![0; parse.nodes.len()];
+    let mut tasks = std::collections::BTreeMap::new();
+    for node in &parse.nodes {
+        if matches!(node.kind, NodeKind::List(_)) {
+            for (ordinal, &child) in node.children.iter().enumerate() {
+                ordinals[child] = ordinal;
+            }
+        }
+        if let NodeKind::Task(checked) = node.kind {
+            tasks.insert(
+                node.envelope.start,
+                Task {
+                    marker: node.envelope.clone(),
+                    checked,
+                },
+            );
+        }
+    }
     parse
         .nodes
         .iter()
@@ -95,8 +122,8 @@ pub fn items(parse: &ParseSnapshot) -> Vec<Item> {
                 return None;
             };
             let line = lines
-                .iter()
-                .find(|line| line.contains(&node.envelope.start))?;
+                .get(lines.partition_point(|line| line.end <= node.envelope.start))
+                .filter(|line| line.contains(&node.envelope.start))?;
             let start = node.envelope.start;
             let mut end = start;
             while text.as_bytes().get(end).is_some_and(u8::is_ascii_digit) {
@@ -115,10 +142,7 @@ pub fn items(parse: &ParseSnapshot) -> Vec<Item> {
             while end < line_end && matches!(text.as_bytes()[end], b' ' | b'\t') {
                 end += 1;
             }
-            let index = parse.nodes[list]
-                .children
-                .iter()
-                .position(|&child| child == id)?;
+            let index = ordinals[id];
             let ordinal = number.map(|n| n.saturating_add(index as u64));
             let label = ordinal.map_or_else(|| "•".into(), |n| format!("{n}."));
             let next_marker = ordinal.map_or_else(
@@ -153,22 +177,16 @@ pub fn items(parse: &ParseSnapshot) -> Vec<Item> {
                 ancestor = parse.nodes[p].parent;
             }
             scope.start = lines
-                .iter()
-                .find(|l| l.contains(&scope.start))
-                .map_or(scope.start, |l| l.start);
+                .get(lines.partition_point(|line| line.end <= scope.start))
+                .filter(|line| line.contains(&scope.start))
+                .map_or(scope.start, |line| line.start);
             let width = columns(&text[line.start..end])
                 .saturating_sub(columns(&text[line.start..start]))
                 .max(2);
-            let task = parse.nodes.iter().find_map(|node| {
-                let NodeKind::Task(checked) = node.kind else {
-                    return None;
-                };
-                let marker = node.envelope.clone();
-                // Only a parser-confirmed task marker at this item's body is structural.
-                (marker.start == end
-                    && matches!(text.get(marker.clone()), Some("[ ]" | "[x]" | "[X]")))
-                .then_some(Task { marker, checked })
-            });
+            let task = tasks
+                .get(&end)
+                .filter(|task| matches!(text.get(task.marker.clone()), Some("[ ]" | "[x]" | "[X]")))
+                .cloned();
             Some(Item {
                 id,
                 list,
@@ -188,20 +206,42 @@ pub fn items(parse: &ParseSnapshot) -> Vec<Item> {
 }
 
 pub fn rows(parse: &ParseSnapshot) -> Vec<Row> {
-    let items = items(parse);
-    let code = code_block::blocks(parse);
+    cached_rows(parse).to_vec()
+}
+pub fn cached_rows(parse: &ParseSnapshot) -> &[Row] {
+    let parse = parse.semantic();
+    parse.rows.get_or_init(|| build_rows(parse))
+}
+fn build_rows(parse: &ParseSnapshot) -> Vec<Row> {
+    let items = cached_items(parse);
+    if items.is_empty() {
+        return Vec::new();
+    }
+    let item_index = crate::RangeIndex::new(
+        items
+            .iter()
+            .enumerate()
+            .map(|(i, item)| (item.range.clone(), i))
+            .collect(),
+    );
+    let code = code_block::cached(parse);
     let text = parse.source().text();
-    code_block::lines(text)
-        .into_iter()
+    parse
+        .index()
+        .lines
+        .iter()
+        .cloned()
         .filter_map(|line| {
             if code
-                .iter()
-                .any(|b| b.range.start < line.end && line.start < b.range.end)
+                .get(code.partition_point(|b| b.range.end <= line.start))
+                .is_some_and(|b| b.range.start < line.end)
             {
                 return None;
             }
-            let item = items
-                .iter()
+            let item = item_index
+                .at(line.start)
+                .into_iter()
+                .map(|id| &items[id])
                 .filter(|item| item.range.start <= line.start && line.start < item.range.end)
                 .max_by_key(|item| item.inset)?
                 .clone();
@@ -211,9 +251,8 @@ pub fn rows(parse: &ParseSnapshot) -> Vec<Row> {
                 return None;
             }
             let mut hidden = parse
-                .syntax
-                .tokens
-                .iter()
+                .index()
+                .prefixes(parse, line.start..end)
                 .filter(|token| {
                     token.kind == TokenKind::ContainerPrefix
                         && parse.nodes[token.owner].kind == NodeKind::Item
@@ -252,9 +291,8 @@ pub fn rows(parse: &ParseSnapshot) -> Vec<Row> {
 
 pub fn quote_end(parse: &ParseSnapshot, line: &Range<usize>) -> usize {
     parse
-        .syntax
-        .tokens
-        .iter()
+        .index()
+        .prefixes(parse, line.clone())
         .filter(|t| {
             t.kind == TokenKind::ContainerPrefix
                 && parse.nodes[t.owner].kind == NodeKind::BlockQuote

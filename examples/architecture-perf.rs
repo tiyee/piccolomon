@@ -1,6 +1,6 @@
 //! Repeatable headless timings; debug builds are for comparison, not latency budgets.
 mod perf_support;
-use perf_support::{corpus, measure};
+use perf_support::{corpus, measure, measure_samples};
 use std::{hint::black_box, sync::Arc};
 fn main() -> Result<(), String> {
     if std::env::args().nth(1).as_deref() == Some("services") {
@@ -51,6 +51,69 @@ fn main() -> Result<(), String> {
         features: Arc::new(ryne_features::MarkdownFeatures::new(formulas, vec![])?),
         files: Arc::new(ryne_services::files::AtomicFileStore),
     };
+    if std::env::args().nth(1).as_deref() == Some("caret-cache") {
+        for kib in [100usize, 1024] {
+            let paragraph = "plain text 中文😀 and more words in a paragraph.\n\n";
+            let source = paragraph.repeat((kib * 1024).div_ceil(paragraph.len()));
+            let mut document = ryne_session::EditorSession::new(&source, services.clone());
+            println!(
+                "{{\"fixture_bytes\":{},\"profile\":\"{}\"}}",
+                source.len(),
+                if cfg!(debug_assertions) {
+                    "debug"
+                } else {
+                    "release"
+                }
+            );
+            // A single operation includes two moves. Large debug fixtures use
+            // fewer samples; do not interpret their tails as a latency budget.
+            let samples = if kib >= 1024 { 8 } else { 96 };
+            measure_samples(
+                &format!("caret_uncached_projection_{kib}kib"),
+                samples,
+                1,
+                || {
+                    document.select(1, false, false);
+                    black_box(document.display());
+                    document.select(2, false, false);
+                    black_box(document.display());
+                },
+            );
+            measure_samples(
+                &format!("caret_cached_projection_{kib}kib"),
+                samples,
+                1,
+                || {
+                    document.select(1, false, false);
+                    black_box(document.cached_project_batch(&document, None, &[]));
+                    document.select(2, false, false);
+                    black_box(document.cached_project_batch(&document, None, &[]));
+                },
+            );
+        }
+        let document = ryne_session::EditorSession::new(&"- item\n".repeat(800), services);
+        measure("list_controls_800_uncached", || {
+            black_box(document.render_controls().expect("controls"));
+        });
+        measure("list_controls_800_cached", || {
+            black_box(
+                document
+                    .cached_render_control_batch(&document)
+                    .expect("controls"),
+            );
+        });
+        return Ok(());
+    }
+    if std::env::args().nth(1).as_deref() == Some("list-controls") {
+        for count in [100, 200, 400, 800] {
+            let document =
+                ryne_session::EditorSession::new(&"- item\n".repeat(count), services.clone());
+            measure(&format!("list_controls_{count}"), || {
+                black_box(document.render_controls().expect("list controls"));
+            });
+        }
+        return Ok(());
+    }
     if std::env::args().nth(1).as_deref() == Some("scaling") {
         for rows in [100, 200, 400, 800] {
             let source = format!(

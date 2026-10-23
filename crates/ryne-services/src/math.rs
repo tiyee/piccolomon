@@ -1,6 +1,6 @@
 //! Disposable inline math views. Markdown bytes remain owned by Document.
 
-use formulary::{Item, MathFont, ast::Node as MathNode};
+use formulary::{ast::Node as MathNode, Item, MathFont};
 use ryne_extensions::MathFont as FontChoice;
 pub use ryne_projection::Formula;
 use std::sync::atomic::{AtomicU8, Ordering};
@@ -211,6 +211,9 @@ impl FormularyRenderer {
     }
 }
 impl ryne_extensions::FormulaRenderer for FormularyRenderer {
+    fn presentation_generation(&self) -> Option<u64> {
+        Some(self.font() as u64)
+    }
     fn render(&self, latex: &str) -> Option<Arc<Formula>> {
         render_with_font(latex, self.font())
     }

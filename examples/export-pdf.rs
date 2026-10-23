@@ -16,12 +16,27 @@ fn document(text: &str) -> Result<ryne_session::EditorSession, String> {
         },
     ))
 }
-fn desktop_services() -> ryne_ui::DesktopServices {
-    ryne_ui::DesktopServices {
-        pdf: Arc::new(ryne_services::pdf::PdfExporter),
-        pdf_v2: Arc::new(ryne_services::pdf_v2::KrillaPdfExporter),
+fn desktop_services() -> Result<ryne_ui::DesktopServices, String> {
+    Ok(ryne_ui::DesktopServices {
+        exports: ryne_ui::ExportRegistry::new(vec![
+            ryne_ui::ExportDescriptor {
+                id: "pdf",
+                label: "export.pdf",
+                fallback: "Export PDF",
+                file_suffix: "",
+                exporter: Arc::new(ryne_services::pdf::PdfExporter),
+            },
+            ryne_ui::ExportDescriptor {
+                id: "pdf-v2",
+                label: "export.pdf-v2",
+                fallback: "Export PDF v2",
+                file_suffix: "-v2",
+                exporter: Arc::new(ryne_services::pdf_v2::KrillaPdfExporter),
+            },
+        ])?,
+        artifacts: Arc::new(ryne_services::files::AtomicArtifactStore),
         updates: Arc::new(ryne_services::updates::GithubUpdates),
-    }
+    })
 }
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     const USAGE: &str = "Usage: export-pdf INPUT.md OUTPUT.pdf [--v2]";
@@ -38,9 +53,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let source = std::fs::read_to_string(input)?;
     let display = document(&source)?.export_snapshot().render()?;
-    let services = desktop_services();
-    let exporter = if v2 { services.pdf_v2 } else { services.pdf };
-    std::fs::write(output, exporter.export(&display)?)?;
+    let services = desktop_services()?;
+    let format = services
+        .exports
+        .get(if v2 { "pdf-v2" } else { "pdf" })
+        .ok_or("Export backend missing")?;
+    services.artifacts.write(
+        std::path::Path::new(&output),
+        &format.exporter.export(&display)?,
+    )?;
     Ok(())
 }
 #[cfg(test)]
@@ -71,9 +92,15 @@ mod tests {
         assert_eq!(display.lists.len(), 2);
         assert_eq!(display.formulas.len(), 1);
         assert_eq!(display.diagrams.len(), 1);
-        let services = desktop_services();
-        for exporter in [services.pdf, services.pdf_v2] {
-            let bytes = exporter.export(&display).unwrap();
+        let services = desktop_services().unwrap();
+        for id in ["pdf", "pdf-v2"] {
+            let bytes = services
+                .exports
+                .get(id)
+                .unwrap()
+                .exporter
+                .export(&display)
+                .unwrap();
             assert!(bytes.starts_with(b"%PDF-1.7"));
             assert!(bytes.ends_with(b"%%EOF"));
         }
@@ -88,9 +115,15 @@ mod tests {
         );
         let session = document(&source).unwrap();
         let display = session.export_snapshot().render().unwrap();
-        let services = desktop_services();
-        for exporter in [services.pdf, services.pdf_v2] {
-            let bytes = exporter.export(&display).unwrap();
+        let services = desktop_services().unwrap();
+        for id in ["pdf", "pdf-v2"] {
+            let bytes = services
+                .exports
+                .get(id)
+                .unwrap()
+                .exporter
+                .export(&display)
+                .unwrap();
             let structure = String::from_utf8_lossy(&bytes)
                 .split_ascii_whitespace()
                 .collect::<String>();

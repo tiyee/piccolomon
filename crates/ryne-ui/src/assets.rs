@@ -13,8 +13,18 @@ impl AssetSource for Assets {
                 "checkbox_unchecked" => {
                     &include_bytes!("../../../assets/icons/checkbox_unchecked.svg")[..]
                 }
+                "chevron_down" => &include_bytes!("../../../assets/icons/chevron_down.svg")[..],
                 "code" => &include_bytes!("../../../assets/icons/code.svg")[..],
                 "format" => &include_bytes!("../../../assets/icons/format.svg")[..],
+                "clip" => &include_bytes!("../../../assets/icons/clip.svg")[..],
+                "window_minimize" => {
+                    &include_bytes!("../../../assets/icons/window_minimize.svg")[..]
+                }
+                "window_maximize" => {
+                    &include_bytes!("../../../assets/icons/window_maximize.svg")[..]
+                }
+                "window_restore" => &include_bytes!("../../../assets/icons/window_restore.svg")[..],
+                "window_close" => &include_bytes!("../../../assets/icons/window_close.svg")[..],
                 "eye" => &include_bytes!("../../../assets/icons/eye.svg")[..],
                 "divider" => &include_bytes!("../../../assets/icons/divider.svg")[..],
                 "image" => &include_bytes!("../../../assets/icons/image.svg")[..],
@@ -40,6 +50,8 @@ impl AssetSource for Assets {
                 }
                 "text_t" => &include_bytes!("../../../assets/icons/text_t.svg")[..],
                 "text_quote" => &include_bytes!("../../../assets/icons/text_quote.svg")[..],
+                "quote_bubble" => &include_bytes!("../../../assets/icons/quote_bubble.svg")[..],
+                "quoter" => &include_bytes!("../../../assets/icons/quoter.svg")[..],
                 "text_header_1" => &include_bytes!("../../../assets/icons/text_header_1.svg")[..],
                 "text_header_2" => &include_bytes!("../../../assets/icons/text_header_2.svg")[..],
                 "text_header_3" => &include_bytes!("../../../assets/icons/text_header_3.svg")[..],
@@ -92,7 +104,8 @@ pub(crate) fn diagram_images(
 }
 #[cfg(test)]
 mod tests {
-    use editable_markdown_parser::{ParseSnapshot, Source};
+    use editable_markdown_parser::Source;
+    use ryne_syntax::ParseSnapshot;
     struct NoFormulas;
     impl ryne_extensions::FormulaRenderer for NoFormulas {
         fn render(&self, _: &str) -> Option<std::sync::Arc<ryne_projection::Formula>> {

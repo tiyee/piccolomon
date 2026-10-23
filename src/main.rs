@@ -1,3 +1,8 @@
+#![cfg_attr(
+    all(target_os = "windows", not(debug_assertions)),
+    windows_subsystem = "windows"
+)]
+
 use std::sync::Arc;
 fn main() {
     let formulas = Arc::new(ryne_services::math::FormularyRenderer::default());
@@ -11,9 +16,7 @@ fn main() {
                     renderer: Arc::new(ryne_services::mermaid::MermanRenderer),
                 }],
             ) {
-                Ok(features) => features.with_language_detector(Arc::new(
-                    ryne_services::language::TreeSitterLanguageDetector,
-                )),
+                Ok(features) => features,
                 Err(error) => {
                     eprintln!("初始化失败：{error}");
                     std::process::exit(1)
@@ -22,11 +25,33 @@ fn main() {
         ),
         files: Arc::new(ryne_services::files::AtomicFileStore),
     };
+    let exports = match ryne_ui::ExportRegistry::new(vec![
+        ryne_ui::ExportDescriptor {
+            id: "pdf",
+            label: "export.pdf",
+            fallback: "Export PDF",
+            file_suffix: "",
+            exporter: Arc::new(ryne_services::pdf::PdfExporter),
+        },
+        ryne_ui::ExportDescriptor {
+            id: "pdf-v2",
+            label: "export.pdf-v2",
+            fallback: "Export PDF v2",
+            file_suffix: "-v2",
+            exporter: Arc::new(ryne_services::pdf_v2::KrillaPdfExporter),
+        },
+    ]) {
+        Ok(exports) => exports,
+        Err(error) => {
+            eprintln!("初始化失败：{error}");
+            std::process::exit(1);
+        }
+    };
     ryne_ui::run(
         services,
         ryne_ui::DesktopServices {
-            pdf: Arc::new(ryne_services::pdf::PdfExporter),
-            pdf_v2: Arc::new(ryne_services::pdf_v2::KrillaPdfExporter),
+            exports,
+            artifacts: Arc::new(ryne_services::files::AtomicArtifactStore),
             updates: Arc::new(ryne_services::updates::GithubUpdates),
         },
         formulas,

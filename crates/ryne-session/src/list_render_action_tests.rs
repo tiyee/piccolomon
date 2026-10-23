@@ -33,23 +33,20 @@ fn ordered_unordered_nested_empty_and_task_items_contribute_leading_controls() {
         let doc = new_document(raw);
         let controls = doc.render_controls().unwrap();
         assert!(!controls.is_empty(), "{raw:?}");
-        assert!(
-            controls
-                .iter()
-                .filter(|c| c.placement == RenderControlPlacement::Leading)
-                .all(|c| c.placement == RenderControlPlacement::Leading
-                    && c.trailing_space == 0.
-                    && c.actions.len() == 7)
-        );
+        assert!(controls
+            .iter()
+            .filter(|c| c.placement == RenderControlPlacement::Leading)
+            .all(|c| c.placement == RenderControlPlacement::Leading
+                && c.trailing_space == 0.
+                && c.actions.len() == 7));
         assert!(!doc.dirty());
         assert_eq!(doc.history_len(false), 0);
     }
-    assert!(
-        new_document("```\n- literal\n1. literal\n```\n")
-            .render_controls()
-            .unwrap()
-            .is_empty()
-    );
+    assert!(new_document("```\n- literal\n1. literal\n```\n")
+        .render_controls()
+        .unwrap()
+        .iter()
+        .all(|c| c.provider != "list"));
 }
 #[test]
 fn insert_siblings_preserves_prefix_newlines_subtree_and_missing_final_newline() {
@@ -76,11 +73,9 @@ fn insert_siblings_preserves_prefix_newlines_subtree_and_missing_final_newline()
                         };
                         assert_eq!(doc.source.text(), expected, "{command}");
                         assert_eq!(doc.history_len(false), 1);
-                        assert!(
-                            ryne_syntax::list::items(&doc.parse)
-                                .iter()
-                                .any(|i| i.body == doc.head)
-                        );
+                        assert!(ryne_syntax::list::items(&doc.parse)
+                            .iter()
+                            .any(|i| i.body == doc.head));
                         doc.undo(false);
                         assert_eq!(doc.source.text(), raw);
                         assert!(!doc.dirty());
@@ -290,12 +285,11 @@ fn empty_insert_before_first_item_cannot_turn_prior_paragraph_into_setext_headin
         doc.execute_render_action(&request(&doc, "first", "list.insert-before"))
             .unwrap();
         assert_eq!(ryne_syntax::list::items(&doc.parse).len(), count + 1);
-        assert!(
-            !doc.parse
-                .nodes
-                .iter()
-                .any(|n| matches!(n.kind, editable_markdown_parser::NodeKind::Heading(_)))
-        );
+        assert!(!doc
+            .parse
+            .nodes
+            .iter()
+            .any(|n| matches!(n.kind, editable_markdown_parser::NodeKind::Heading(_))));
         doc.undo(false);
         assert_eq!(doc.source.text(), raw);
     }
@@ -442,10 +436,9 @@ fn task_toggle_rejects_stale_source_ime_and_plain_list_targets() {
         );
     }
     let mut doc = new_document("- ordinary\n");
-    assert!(
-        doc.execute_render_action(&request(&doc, "ordinary", "list.toggle-task"))
-            .is_err()
-    );
+    assert!(doc
+        .execute_render_action(&request(&doc, "ordinary", "list.toggle-task"))
+        .is_err());
 }
 
 #[test]
@@ -471,12 +464,11 @@ fn task_markers_fold_in_render_mode_and_remain_literal_in_source_mode() {
             assert!(!doc.display().text.contains("[ ]"));
         }
         doc.set_block_source(Some(item.scope.clone()));
-        assert!(
-            doc.render_controls()
-                .unwrap()
-                .iter()
-                .all(|c| !matches!(c.placement, RenderControlPlacement::Marker { .. }))
-        );
+        assert!(doc
+            .render_controls()
+            .unwrap()
+            .iter()
+            .all(|c| !matches!(c.placement, RenderControlPlacement::Marker { .. })));
         assert!(doc.display().text.contains(&raw[task.marker.clone()]));
         doc.set_block_source(None);
         doc.set_source_mode(true);

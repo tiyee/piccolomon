@@ -76,3 +76,33 @@ impl Planner<'_> {
         Ok(true)
     }
 }
+
+impl Planner<'_> {
+    pub fn paragraph_line_break(&mut self, hard: bool) -> Result<(), Error> {
+        let selection = self.selection();
+        let newline = self.newline_at(selection.start);
+        let paragraph = !self.state.source_mode
+            && !self.in_block_source(selection.start)
+            && self
+                .paragraph_ranges()
+                .any(|range| range.start <= selection.start && selection.start <= range.end);
+        let replacement = if paragraph && hard {
+            format!("  {newline}")
+        } else if paragraph {
+            newline.repeat(2)
+        } else {
+            newline.into()
+        };
+        self.replace(selection, &replacement)
+    }
+    pub fn delete_grapheme(&mut self, forward: bool) -> Result<bool, Error> {
+        if !self.selection().is_empty() {
+            self.replace(self.selection(), "")?;
+            return Ok(true);
+        }
+        if let Some(range) = self.display().deletion_range(self.state.head, forward) {
+            self.replace(range, "")?;
+        }
+        Ok(true)
+    }
+}

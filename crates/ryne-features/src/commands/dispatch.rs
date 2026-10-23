@@ -9,10 +9,21 @@ pub(crate) enum BuiltinCommand {
     Paragraph,
     Table,
     List,
+    Quote,
     Code,
     Templates,
 }
 impl BuiltinCommand {
+    pub fn priority(self) -> i32 {
+        match self {
+            Self::Table => 300,
+            Self::Code => 200,
+            Self::Quote => 150,
+            Self::List => 100,
+            Self::Paragraph => -100,
+            _ => 0,
+        }
+    }
     pub fn id(self) -> &'static str {
         match self {
             Self::Format => "format.execute",
@@ -21,6 +32,7 @@ impl BuiltinCommand {
             Self::Paragraph => "paragraph.execute",
             Self::Table => "table.execute",
             Self::List => "list.execute",
+            Self::Quote => "quote.execute",
             Self::Code => "code.execute",
             Self::Templates => "templates.execute",
         }
@@ -35,7 +47,11 @@ impl CommandHandler for BuiltinCommand {
     ) -> Result<Option<CommandPlan>, String> {
         if !matches!(
             (self, intent),
-            (Self::Format, EditIntent::FormatSource)
+            (
+                Self::Table | Self::Code | Self::List | Self::Paragraph,
+                EditIntent::Delete { .. } | EditIntent::LineBreak { .. } | EditIntent::Tab { .. }
+            ) | (Self::Quote, EditIntent::LineBreak { .. })
+                | (Self::Format, EditIntent::FormatSource)
                 | (
                     Self::Navigation,
                     EditIntent::Normalize
@@ -48,10 +64,7 @@ impl CommandHandler for BuiltinCommand {
                     Self::Input,
                     EditIntent::Insert { .. } | EditIntent::Replace { .. }
                 )
-                | (
-                    Self::Paragraph,
-                    EditIntent::LineBreak { .. } | EditIntent::JoinParagraphs { .. }
-                )
+                | (Self::Paragraph, EditIntent::JoinParagraphs { .. })
                 | (Self::Table, EditIntent::NavigateTable { .. })
                 | (
                     Self::List,
@@ -67,6 +80,10 @@ impl CommandHandler for BuiltinCommand {
         ) {
             return Ok(None);
         }
+        let delegates = matches!(
+            intent,
+            EditIntent::Delete { .. } | EditIntent::LineBreak { .. } | EditIntent::Tab { .. }
+        );
         let intent = intent.clone();
         let base = state.source.id();
         if state.parse.source().id() != base {
@@ -79,15 +96,6 @@ impl CommandHandler for BuiltinCommand {
                 | EditIntent::RevealHeading
                 | EditIntent::ToggleBlockSource
         );
-        let infer_language = match &intent {
-            EditIntent::Insert { text, origin, .. } => {
-                !text.is_empty()
-                    && (matches!(origin, InputOrigin::Paste) || text.contains(['\r', '\n']))
-            }
-            EditIntent::Replace { text, .. } => text.contains(['\r', '\n']),
-            EditIntent::LineBreak { .. } => true,
-            _ => false,
-        };
         let mut p = Planner {
             state: state.clone(),
             prepared: None,
@@ -146,7 +154,54 @@ impl CommandHandler for BuiltinCommand {
                     &text,
                 )
                 .map(|()| true),
-            (Self::Paragraph, EditIntent::LineBreak { hard }) => p.line_break(hard).map(|()| true),
+            (Self::Table, EditIntent::LineBreak { hard }) => p.table_line_break(hard),
+            (Self::Code, EditIntent::LineBreak { .. }) => p.code_line_break(),
+            (Self::List, EditIntent::LineBreak { hard }) => p.list_line_break(hard),
+            (Self::Quote, EditIntent::LineBreak { hard }) => p.quote_line_break(hard),
+            (Self::Paragraph, EditIntent::LineBreak { hard }) => {
+                p.paragraph_line_break(hard).map(|()| true)
+            }
+            (Self::Table, EditIntent::Delete { forward }) => {
+                Ok(p.selection().is_empty() && p.remove_table_boundary(forward))
+            }
+            (Self::Code, EditIntent::Delete { forward }) => {
+                if p.selection().is_empty() {
+                    p.remove_code_boundary(forward)
+                } else {
+                    Ok(false)
+                }
+            }
+            (Self::List, EditIntent::Delete { forward }) => {
+                if p.selection().is_empty() {
+                    p.remove_list_boundary(forward)
+                } else {
+                    Ok(false)
+                }
+            }
+            (Self::Paragraph, EditIntent::Delete { forward }) => {
+                let joined = if p.selection().is_empty() {
+                    p.join_paragraphs(forward)
+                } else {
+                    Ok(false)
+                };
+                joined.and_then(|handled| {
+                    if handled {
+                        Ok(true)
+                    } else {
+                        p.delete_grapheme(forward)
+                    }
+                })
+            }
+            (Self::Table, EditIntent::Tab { backward }) => p.navigate_table(backward, false),
+            (Self::List, EditIntent::Tab { backward }) => p.indent_list(backward),
+            (Self::Paragraph, EditIntent::Tab { backward }) => {
+                if !backward {
+                    p.insert_text(p.selection(), "\t", InputOrigin::Keyboard)
+                        .map(|()| true)
+                } else {
+                    Ok(true)
+                }
+            }
             (Self::Table, EditIntent::NavigateTable { backward, next_row }) => {
                 p.navigate_table(backward, next_row)
             }
@@ -184,9 +239,8 @@ impl CommandHandler for BuiltinCommand {
             _ => return Ok(None),
         };
         let handled = result.map_err(|e| format!("{e:?}"))?;
-        if infer_language && let Some(detector) = services.language_detector {
-            p.complete_code_languages(state, detector)
-                .map_err(|e| format!("{e:?}"))?;
+        if delegates && !handled {
+            return Ok(None);
         }
         Ok(Some(if let Some(prepared) = p.prepared {
             CommandPlan::Edit {

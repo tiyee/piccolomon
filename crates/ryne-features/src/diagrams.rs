@@ -15,17 +15,19 @@ impl BuiltinFeature for FencedPreview {
         m
     }
     fn register(&self, r: &mut Registrar) -> Result<(), String> {
-        r.contribute(Contribution {
-            id: self.id,
-            slot: Slot::Renderer(self.language),
-            exclusive: true,
-            priority: 0,
-        });
-        Ok(())
+        r.preview(
+            Contribution {
+                id: self.id,
+                slot: Slot::Renderer(self.language),
+                exclusive: true,
+                priority: 0,
+            },
+            Arc::new(self.clone()),
+        )
     }
 }
-impl FencedPreview {
-    pub fn input(&self, state: &EditingState, block: &CodeBlock) -> Option<PreviewInput> {
+impl PreviewProvider for FencedPreview {
+    fn input(&self, state: &EditingState, block: &CodeBlock) -> Option<PreviewInput> {
         if block.language.split_whitespace().next() != Some(self.language)
             || block.closing.is_none()
         {

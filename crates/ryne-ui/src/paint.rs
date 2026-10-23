@@ -10,10 +10,13 @@ impl EditorElement {
         let _profile = profile::Scope::new("paint");
         let editor = self.editor.read(cx);
         let focus = editor.focus.clone();
-        let show_cursor = editor.selected().is_empty() && editor.caret_visible;
-        let marked = editor.document.composition.as_ref().map(|c| {
-            let start = editor.display.position_at(c.range.start);
-            let end = editor.display.position_at(c.range.start + c.text.len());
+        let show_cursor = editor.selected().is_empty() && editor.caret_state.caret_visible;
+        let marked = editor.document.composition().map(|c| {
+            let start = editor.viewport.display.position_at(c.range.start);
+            let end = editor
+                .viewport
+                .display
+                .position_at(c.range.start + c.text.len());
             start..end
         });
         window.handle_input(
@@ -22,25 +25,80 @@ impl EditorElement {
             cx,
         );
         window.with_content_mask(Some(ContentMask { bounds }), |window| {
+            let quote_origin = bounds.origin
+                + point(
+                    px(frame.geometry.page.left),
+                    px(frame.geometry.page.top) - frame.geometry.scroll,
+                );
+            let top = frame.geometry.scroll - px(frame.geometry.page.top);
+            let bottom = top + bounds.size.height;
+            for i in frame
+                .geometry
+                .text_layout
+                .visibility
+                .quotes
+                .visible(top, bottom)
+            {
+                let panel = &frame.geometry.text_layout.quote_panels[i];
+                let mut background = panel.bounds;
+                background.origin += quote_origin;
+                window.paint_quad(fill(background, rgb(theme::QUOTE_BG)).corner_radii(px(6.)));
+            }
             for quad in &frame.table_quads {
                 window.paint_quad(quad.clone());
             }
             for panel in &frame.code_panels {
                 window.paint_quad(fill(panel.bounds, rgb(theme::CODE_BG)).corner_radii(px(6.)));
-                let _ = panel.label.paint(
-                    panel.bounds.origin + point(px(16.), px(6.)),
-                    px(20.),
-                    window,
+                if let Some(label) = &panel.label
+                    && panel.bounds.top() + px(6.) < bounds.bottom()
+                    && panel.bounds.top() + px(26.) > bounds.top()
+                {
+                    let _ = label.paint(
+                        panel.bounds.origin + point(px(16.), px(6.)),
+                        px(20.),
+                        window,
+                        cx,
+                    );
+                }
+            }
+            for i in frame
+                .geometry
+                .text_layout
+                .visibility
+                .quotes
+                .visible(top, bottom)
+            {
+                let panel = &frame.geometry.text_layout.quote_panels[i];
+                let mut icon = panel.icon;
+                icon.origin += quote_origin;
+                if !icon.intersects(&bounds) {
+                    continue;
+                }
+                let _ = window.paint_svg(
+                    icon,
+                    "icon:quoter".into(),
+                    TransformationMatrix::default(),
+                    rgb(theme::MUTED).into(),
                     cx,
                 );
             }
             for (origin, label, height) in &frame.list_labels {
+                if origin.y + *height < bounds.top() || origin.y > bounds.bottom() {
+                    continue;
+                }
                 let _ = label.paint(*origin, *height, window, cx);
             }
             for selection in frame.selections.drain(..) {
                 window.paint_quad(selection);
             }
-            for line in frame.geometry.lines.iter() {
+            for i in frame
+                .geometry
+                .text_layout
+                .visibility
+                .lines
+                .visible(top, bottom)
+            {
+                let line = &frame.geometry.lines[i];
                 let mut origin = bounds.origin
                     + point(
                         px(frame.geometry.page.left) + line.inset,
@@ -162,9 +220,9 @@ impl EditorElement {
             if let Some(error) = &frame.geometry.math_error {
                 editor.status = editor.locale.language.error(Text::FormulaFailed, error);
             }
-            editor.scroll = frame.geometry.scroll;
-            editor.geometry = Some(frame.geometry.clone());
-            editor.ensure_caret = false;
+            editor.viewport.scroll = frame.geometry.scroll;
+            editor.viewport.geometry = Some(frame.geometry.clone());
+            editor.viewport.ensure_caret = false;
             if let Some((index, error)) = &frame.geometry.diagram_paint_error {
                 let view = &frame.geometry.display.diagrams[*index];
                 let source = view

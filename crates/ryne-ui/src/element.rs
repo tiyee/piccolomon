@@ -1,4 +1,7 @@
 use super::*;
+
+const TITLEBAR_HEIGHT: f32 = 22.;
+
 pub(super) struct EditorElement {
     pub(super) editor: Entity<Editor>,
 }
@@ -20,6 +23,86 @@ impl Render for ModeTooltip {
             .child(self.0)
     }
 }
+
+fn window_control_button(
+    id: &'static str,
+    area: WindowControlArea,
+    icon: &'static str,
+    label: &'static str,
+) -> impl IntoElement {
+    let close = area == WindowControlArea::Close;
+    div()
+        .id(id)
+        .group("window-control")
+        .w(px(30.))
+        .h_full()
+        .flex_shrink_0()
+        .flex()
+        .items_center()
+        .justify_center()
+        .hover(move |style| style.bg(rgb(if close { 0xc42b1c } else { 0xecebe7 })))
+        .tooltip(move |_, cx| cx.new(|_| ModeTooltip(label)).into())
+        // Let GPUI's Windows non-client handlers perform the operation. In
+        // particular Max toggles restore (zoom_window only maximizes on Windows),
+        // and Close sends WM_CLOSE through on_window_should_close / request_close.
+        // Mouse handlers that stop propagation here would bypass those handlers.
+        .window_control_area(area)
+        .child(
+            svg()
+                .path(icon)
+                .size(px(16.))
+                .text_color(rgb(theme::INK))
+                .group_hover("window-control", move |style| {
+                    style.text_color(rgb(if close { 0xffffff } else { theme::INK }))
+                }),
+        )
+}
+
+impl Editor {
+    fn windows_titlebar(&self, window: &Window) -> impl IntoElement {
+        let maximized = window.is_maximized();
+        div()
+            .id("windows-titlebar")
+            .w_full()
+            .h(px(TITLEBAR_HEIGHT))
+            .flex_shrink_0()
+            .flex()
+            .child(
+                div()
+                    .id("window-drag")
+                    .flex_1()
+                    .h_full()
+                    .window_control_area(WindowControlArea::Drag),
+            )
+            .child(window_control_button(
+                "window-minimize",
+                WindowControlArea::Min,
+                "icon:window_minimize",
+                self.locale.language.text(Text::MinimizeWindow),
+            ))
+            .child(window_control_button(
+                "window-maximize",
+                WindowControlArea::Max,
+                if maximized {
+                    "icon:window_restore"
+                } else {
+                    "icon:window_maximize"
+                },
+                self.locale.language.text(if maximized {
+                    Text::RestoreWindow
+                } else {
+                    Text::MaximizeWindow
+                }),
+            ))
+            .child(window_control_button(
+                "window-close",
+                WindowControlArea::Close,
+                "icon:window_close",
+                self.locale.language.text(Text::CloseWindow),
+            ))
+    }
+}
+
 pub(super) struct Frame {
     pub(super) geometry: Geometry,
     pub(super) selections: Vec<PaintQuad>,
@@ -32,7 +115,7 @@ pub(super) struct Frame {
 
 pub(super) struct CodePanel {
     pub(super) bounds: Bounds<Pixels>,
-    pub(super) label: ShapedLine,
+    pub(super) label: Option<ShapedLine>,
 }
 
 pub(super) use ryne_extensions::BlockCommand as BlockAction;
@@ -212,8 +295,8 @@ impl Element for EditorElement {
 
 impl Render for Editor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        if !self.focus_observed {
-            self.focus_observed = true;
+        if !self.caret_state.focus_observed {
+            self.caret_state.focus_observed = true;
             cx.on_focus(&self.focus, window, |editor, _, cx| {
                 editor.reset_caret_blink();
                 cx.notify();
@@ -221,20 +304,20 @@ impl Render for Editor {
             .detach();
             cx.on_blur(&self.focus, window, |editor, _, cx| {
                 editor.reset_caret_blink();
-                editor.append_hovered = false;
-                editor.append_menu = None;
-                editor.block_menu = None;
-                editor.hovered_block = None;
-                editor.hovered_render = None;
-                editor.render_menu = None;
+                editor.menus.append_hovered = false;
+                editor.menus.append_menu = None;
+                editor.menus.block_menu = None;
+                editor.menus.hovered_block = None;
+                editor.menus.hovered_render = None;
+                editor.menus.render_menu = None;
                 cx.notify();
             })
             .detach();
             cx.observe_window_activation(window, |editor, window, cx| {
                 editor.reset_caret_blink();
                 if !window.is_window_active() {
-                    editor.render_menu = None;
-                    editor.hovered_render = None;
+                    editor.menus.render_menu = None;
+                    editor.menus.hovered_render = None;
                 }
                 cx.notify();
             })
@@ -249,6 +332,14 @@ impl Render for Editor {
             .and_then(|p| p.file_name())
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| self.locale.language.text(Text::Untitled).into());
+        let (stem, extension) = name
+            .rsplit_once('.')
+            .filter(|(stem, extension)| !stem.is_empty() && !extension.is_empty())
+            .unwrap_or((&name, ""));
+        let toolbar_page = theme::Page::new(
+            f32::from(window.bounds().size.width),
+            self.document.source_mode,
+        );
         window.set_window_title(&format!(
             "{}{} — Ryne",
             name,
@@ -268,11 +359,11 @@ impl Render for Editor {
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|editor, _, _, cx| {
-                    let top = editor.top_menu.take().is_some();
-                    editor.top_submenu = None;
-                    let append = editor.append_menu.take().is_some();
-                    let render = editor.render_menu.take().is_some();
-                    if editor.block_menu.take().is_some() || append || render || top {
+                    let top = editor.menus.top_menu.take().is_some();
+                    editor.menus.top_submenu = None;
+                    let append = editor.menus.append_menu.take().is_some();
+                    let render = editor.menus.render_menu.take().is_some();
+                    if editor.menus.block_menu.take().is_some() || append || render || top {
                         cx.notify();
                     }
                 }),
@@ -311,7 +402,7 @@ impl Render for Editor {
             .on_action(cx.listener(Self::clear_recent))
             .on_action(cx.listener(Self::reload))
             .on_action(cx.listener(Self::export_pdf))
-            .on_action(cx.listener(Self::export_pdf_v2))
+            .on_action(cx.listener(Self::export_registered))
             .on_action(cx.listener(Self::open))
             .on_action(cx.listener(Self::save))
             .on_action(cx.listener(Self::save_as))
@@ -324,9 +415,14 @@ impl Render for Editor {
                 cfg!(target_os = "macos") && !window.is_fullscreen(),
                 |view| {
                     // The transparent native titlebar hides its text and lets PAPER
-                    // show through. Reserve its traffic-light/drag area above controls.
-                    view.child(div().h(px(28.)).flex_shrink_0())
+                    // show through. Keep a compact strip for the native traffic lights
+                    // and window dragging above the toolbar.
+                    view.child(div().h(px(TITLEBAR_HEIGHT)).flex_shrink_0())
                 },
+            )
+            .when(
+                cfg!(target_os = "windows") && !window.is_fullscreen(),
+                |view| view.child(self.windows_titlebar(window)),
             )
             .when(!cfg!(target_os = "macos"), |view| {
                 view.child(self.window_menu(window, cx))
@@ -338,19 +434,44 @@ impl Render for Editor {
                     .justify_between()
                     .flex_wrap()
                     .gap_2()
-                    .px_5()
+                    .pl(px(toolbar_page.left))
+                    .pr(px(20.))
                     .py(px(2.))
-                    .border_b_1()
-                    .border_color(rgb(theme::BORDER))
                     .child(
-                        div().flex().gap_2().items_center().child("Ryne").child(
-                            div()
-                                .text_size(px(12.))
-                                .text_color(rgb(0x888888))
-                                .max_w(px(220.))
-                                .text_ellipsis()
-                                .child(name),
-                        ),
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .child(
+                                svg()
+                                    .path("icon:clip")
+                                    .size(px(18.))
+                                    .flex_shrink_0()
+                                    .text_color(rgb(theme::INK)),
+                            )
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_baseline()
+                                    .max_w(px(220.))
+                                    .child(
+                                        div()
+                                            .text_size(px(18.))
+                                            .font_weight(FontWeight::BOLD)
+                                            .text_color(rgb(0x000000))
+                                            .text_ellipsis()
+                                            .child(stem.to_owned()),
+                                    )
+                                    .when(!extension.is_empty(), |row| {
+                                        row.child(
+                                            div()
+                                                .text_size(px(12.))
+                                                .text_color(rgb(0x888888))
+                                                .flex_shrink_0()
+                                                .child(format!(".{extension}")),
+                                        )
+                                    }),
+                            ),
                     )
                     .child(
                         div()

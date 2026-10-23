@@ -1,17 +1,22 @@
 use super::*;
 impl Planner<'_> {
-    pub(super) fn active_table(&self, position: usize) -> Option<table::Table> {
+    pub(super) fn active_table(&self, position: usize) -> Option<&table::Table> {
         if self.state.source_mode || self.in_block_source(position) {
             return None;
         }
-        table::tables(&self.state.parse).into_iter().find(|table| {
-            table.range.contains(&position)
-                || table
-                    .rows
-                    .last()
-                    .and_then(|row| row.cells.last())
-                    .is_some_and(|cell| cell.content.end == position)
-        })
+        let tables = table::cached(&self.state.parse);
+        let first = tables.partition_point(|t| t.range.end < position);
+        tables[first..]
+            .iter()
+            .take_while(|t| t.range.start <= position)
+            .find(|table| {
+                table.range.contains(&position)
+                    || table
+                        .rows
+                        .last()
+                        .and_then(|row| row.cells.last())
+                        .is_some_and(|cell| cell.content.end == position)
+            })
     }
     pub fn navigate_table(&mut self, backward: bool, next_row: bool) -> Result<bool, Error> {
         let Some(table) = self.active_table(self.state.head) else {
@@ -41,6 +46,7 @@ impl Planner<'_> {
         }
         let newline = self.newline_at(self.state.head);
         let at = table.range.end;
+        let table_start = table.range.start;
         let body = format!(
             "{}| {} |",
             table.continuation,
@@ -55,7 +61,7 @@ impl Planner<'_> {
         self.replace(at..at, &format!("{prefix}{body}{suffix}"))?;
         if let Some(updated) = table::tables(&self.state.parse)
             .into_iter()
-            .find(|t| t.range.start == table.range.start)
+            .find(|t| t.range.start == table_start)
             && let Some(row) = updated.rows.last()
         {
             self.select(row.cells[target % columns].content.start, false, false);
@@ -78,5 +84,23 @@ impl Planner<'_> {
             } else {
                 cell.content.start
             })
+    }
+}
+
+impl Planner<'_> {
+    pub fn table_line_break(&mut self, hard: bool) -> Result<bool, Error> {
+        if hard && self.active_table(self.state.head).is_some() {
+            return self
+                .insert_text(
+                    self.selection(),
+                    "\n",
+                    ryne_extensions::InputOrigin::Keyboard,
+                )
+                .map(|()| true);
+        }
+        if self.navigate_table(false, true)? {
+            return Ok(true);
+        }
+        Ok(false)
     }
 }
