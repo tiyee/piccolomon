@@ -22,6 +22,8 @@ mod text_layout;
 mod theme;
 mod visibility;
 mod welcome;
+#[cfg(test)]
+mod window_controls_tests;
 use editable_markdown_parser::{Affinity, SnapshotId};
 use element::*;
 use gpui::{prelude::*, *};

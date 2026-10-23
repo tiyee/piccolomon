@@ -366,7 +366,6 @@ impl Render for Editor {
             .font_family(".SystemUIFont")
             .text_size(px(13.))
             .key_context("MarkdownEditor")
-            .track_focus(&self.focus)
             .capture_key_down(cx.listener(Self::render_shortcut))
             .on_mouse_down(
                 MouseButton::Left,
@@ -424,7 +423,7 @@ impl Render for Editor {
             .on_action(cx.listener(Self::escape))
             .on_action(cx.listener(Self::quit))
             .when(
-                cfg!(target_os = "macos") && !window.is_fullscreen(),
+                cfg!(target_os = "macos") && !window.is_fullscreen() && !cfg!(test),
                 |view| {
                     // The transparent native titlebar hides its text and lets PAPER
                     // show through. Keep a compact strip for the native traffic lights
@@ -433,7 +432,7 @@ impl Render for Editor {
                 },
             )
             .when(
-                cfg!(target_os = "windows") && !window.is_fullscreen(),
+                cfg!(any(target_os = "windows", test)) && !window.is_fullscreen(),
                 |view| view.child(self.windows_titlebar(window)),
             )
             .when(!cfg!(target_os = "macos"), |view| {
@@ -566,6 +565,11 @@ impl Render for Editor {
             .child(
                 div()
                     .id("editor")
+                    // GPUI's automatic focus handler prevents the default mouse-down
+                    // behavior. Limit it to the document: a focus-tracking window
+                    // root also consumes Windows non-client titlebar presses,
+                    // suppressing native dragging and all three window buttons.
+                    .track_focus(&self.focus)
                     .flex_1()
                     .min_h_0()
                     .overflow_hidden()

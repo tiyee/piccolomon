@@ -115,6 +115,8 @@
   Windows 使用自绘标题栏，在同高的 22 px 顶部区域右侧提供最小化、最大化/还原、关闭按钮，
   空白区域及按钮使用 GPUI WindowControlArea 接入原生拖动、双击最大化及窗口操作；关闭经
   WM_CLOSE 沿用 request_close 的 IME 确认、保存等待及未保存提示，不直接删除窗口。
+  焦点仅绑定正文区域，不绑定窗口根节点，避免 GPUI 自动焦点处理对标题栏按下设置
+  prevent_default，导致原生拖动与窗口按钮失效；平台分发回归在测试窗口渲染同一 Windows 标题栏。
   按钮提示同步七种语言；macOS 继续使用系统按钮。Windows 原生行为仍需实机验收。
   Windows 四种状态使用独立 window_*.svg，沿用 assets/icons 的 1024 画布、64 单位线宽及圆角填充轮廓，
   以 16 px 居中显示，不复用 macOS 按钮图形。

@@ -3,7 +3,7 @@ set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 profile=${1:-release}
-release_version=${RYNE_RELEASE_VERSION:-0.1.1}
+release_version=${RYNE_RELEASE_VERSION:-0.2.5}
 release_version=${release_version#v}
 release_version=${release_version%%-*}
 case "$profile" in

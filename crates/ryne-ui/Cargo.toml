@@ -22,3 +22,6 @@ serde_json.workspace = true
 
 [dev-dependencies]
 resvg.workspace = true
+gpui = { workspace = true, features = ["test-support"] }
+ryne-features.workspace = true
+ryne-services.workspace = true

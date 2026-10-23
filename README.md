@@ -142,6 +142,7 @@ settings, commands and signing behavior.
   Windows draws minimize, maximize/restore and close buttons on the right of a
   matching 22 px top strip; its empty area supports native window dragging and
   double-click maximization. Closing uses the existing unsaved-changes prompt.
+  Titlebar interactions preserve the document content and text selection.
   Dedicated Windows SVGs follow the other icons' rounded 1024-unit outlines.
   The editor toolbar leaves 2 px of padding above and below its mode button.
 - The document uses Helvetica Neue with PingFang SC fallback, 18 px body text
