@@ -336,6 +336,18 @@ impl Render for Editor {
             .rsplit_once('.')
             .filter(|(stem, extension)| !stem.is_empty() && !extension.is_empty())
             .unwrap_or((&name, ""));
+        let stem_line_height = px(27.);
+        let extension_line_height = px(18.);
+        let text_system = window.text_system();
+        let stem_font = text_system.resolve_font(&font(".SystemUIFont").bold());
+        let extension_font = text_system.resolve_font(&font(".SystemUIFont"));
+        // GPUI's flex layout synthesizes baselines from box bottoms. Align the
+        // actual text baselines by including each font's descent and leading.
+        let stem_depth =
+            stem_line_height - text_system.baseline_offset(stem_font, px(18.), stem_line_height);
+        let extension_depth = extension_line_height
+            - text_system.baseline_offset(extension_font, px(12.), extension_line_height);
+        let baseline_depth = stem_depth.max(extension_depth);
         let toolbar_page = theme::Page::new(
             f32::from(window.bounds().size.width),
             self.document.source_mode,
@@ -452,11 +464,13 @@ impl Render for Editor {
                             .child(
                                 div()
                                     .flex()
-                                    .items_baseline()
+                                    .items_end()
                                     .max_w(px(220.))
                                     .child(
                                         div()
                                             .text_size(px(18.))
+                                            .line_height(stem_line_height)
+                                            .pb(baseline_depth - stem_depth)
                                             .font_weight(FontWeight::BOLD)
                                             .text_color(rgb(0x000000))
                                             .text_ellipsis()
@@ -466,6 +480,8 @@ impl Render for Editor {
                                         row.child(
                                             div()
                                                 .text_size(px(12.))
+                                                .line_height(extension_line_height)
+                                                .pb(baseline_depth - extension_depth)
                                                 .text_color(rgb(0x888888))
                                                 .flex_shrink_0()
                                                 .child(format!(".{extension}")),
