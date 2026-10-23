@@ -1,0 +1,89 @@
+name: Manual release
+run-name: Release ${{ inputs.version }} (${{ inputs.platform }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 0.2.0 or v0.2.0-rc.1)'
+        required: true
+        type: string
+      platform:
+        description: Client platform
+        required: true
+        type: choice
+        options:
+          - win-x86_64
+          - mac-x86_64
+          - mac-arm_64
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ryne-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Package (${{ inputs.platform }})
+    runs-on: ${{ inputs.platform == 'win-x86_64' && 'windows-2025' || inputs.platform == 'mac-x86_64' && 'macos-15-intel' || 'macos-15' }}
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_INCREMENTAL: "0"
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_PLATFORM: ${{ inputs.platform }}
+      CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: "-C target-feature=+crt-static"
+      MACOSX_DEPLOYMENT_TARGET: "12.0"
+      GH_REPO: ${{ github.repository }}
+      RYNE_RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - name: Prepare version and target
+        id: prepare
+        run: python scripts/release.py prepare --version "$RELEASE_VERSION" --platform "$RELEASE_PLATFORM"
+      - name: Verify release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/release.py verify-tag --version "$RELEASE_VERSION"
+      - name: Install Rust target
+        env:
+          RELEASE_TARGET: ${{ steps.prepare.outputs.target }}
+        run: rustup target add "$RELEASE_TARGET"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: manual-release-${{ inputs.platform }}
+      - name: Build and package Windows client
+        if: ${{ inputs.platform == 'win-x86_64' }}
+        shell: pwsh
+        env:
+          RELEASE_NORMALIZED_VERSION: ${{ steps.prepare.outputs.version }}
+        run: ./scripts/bundle-windows.ps1 -Profile release -PackageName "Ryne-$env:RELEASE_NORMALIZED_VERSION-$env:RELEASE_PLATFORM"
+      - name: Build macOS app
+        if: ${{ startsWith(inputs.platform, 'mac-') }}
+        run: sh scripts/bundle-macos.sh release
+      - name: Prepare release artifacts
+        run: python scripts/release.py package --version "$RELEASE_VERSION" --platform "$RELEASE_PLATFORM"
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: ryne-${{ steps.prepare.outputs.version }}-${{ inputs.platform }}
+          path: target/release-artifacts/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/release.py publish --version "$RELEASE_VERSION"
