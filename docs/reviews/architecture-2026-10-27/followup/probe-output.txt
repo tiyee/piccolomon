@@ -1,0 +1,8 @@
+undo_gate source="base" validator_calls_delta=0
+redo_gate source="base edited" validator_calls_delta=0
+provider_identity healthy_before=1 entire_batch_error=Some("render_control_batch_cached callback panicked; retaining editable source")
+zero_progress_table validation_accepts=true layout_start=0 next_start=0
+unordered_formulas validation_accepts=true starts=[0, 8, 4]
+block_at_debug bytes=65550 prewarmed_p50_ms=9.209
+block_at_debug bytes=262154 prewarmed_p50_ms=30.802
+block_at_debug bytes=1048593 prewarmed_p50_ms=123.866

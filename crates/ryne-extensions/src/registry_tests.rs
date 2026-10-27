@@ -226,7 +226,7 @@ fn a_module_publishes_controls_templates_preview_and_ui_atomically() {
                 }
             }
             Some(PreviewInput {
-                feature: "bundle",
+                feature: "misreported",
                 block: block.clone(),
                 input: Ok("registered".into()),
                 renderer: Arc::new(Renderer),
@@ -291,6 +291,7 @@ fn a_module_publishes_controls_templates_preview_and_ui_atomically() {
         registry.preview_inputs(&state)[0].input.as_deref().unwrap(),
         "registered"
     );
+    assert_eq!(registry.preview_inputs(&state)[0].feature, "bundle.preview");
     let block = ryne_syntax::SemanticQuery::new(&state.parse)
         .block_at(9)
         .unwrap();

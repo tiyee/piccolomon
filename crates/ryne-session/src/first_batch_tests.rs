@@ -176,8 +176,7 @@ fn runtime_getter_faults_and_detached_export_stay_inside_host() {
         &doc.cached_project_batch(&doc, None, &[]).display
     ));
     doc.cached_render_control_batch(&doc).unwrap();
-    let export = doc.export_snapshot().render().unwrap();
-    assert_eq!(export.text, "literal 中😀\n");
+    assert!(doc.export_snapshot().render().is_err());
     let errors = doc.diagnostics.entries();
     for operation in [
         "block_window",

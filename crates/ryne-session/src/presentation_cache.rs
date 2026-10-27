@@ -45,6 +45,10 @@ fn same_diagrams(a: &[DiagramViewInput], b: &[DiagramViewInput]) -> bool {
         })
 }
 impl EditorSession {
+    /// Discard a projection rejected by a downstream checked consumer.
+    pub fn invalidate_projection_cache(&self) {
+        self.presentation_cache.borrow_mut().projection = None;
+    }
     /// Reuse only explicitly declared feature inputs and completed highlighter work.
     /// Callers must keep the same highlighter instance for the session.
     pub fn cached_project_batch(
@@ -63,15 +67,14 @@ impl EditorSession {
             None
         };
         let generation = |h: &Option<&mut dyn SyntaxHighlighter>| match h {
-            None => Some(None),
+            None => Ok(Some(None)),
             Some(h) => std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                h.presentation_generation()
+                h.presentation_generation().map(Some)
             }))
-            .ok()
-            .flatten()
-            .map(Some),
+            .map_err(|_| ()),
         };
-        if let (Some(key), Some(generation)) = (&key, generation(&highlighter))
+        let before_generation = generation(&highlighter);
+        if let (Some(key), Some(generation)) = (&key, before_generation.ok().flatten())
             && let Some(entry) = &self.presentation_cache.borrow().projection
             && entry.key == *key
             && entry.highlighter == generation
@@ -87,10 +90,13 @@ impl EditorSession {
             None => self.project_batch(state, None, diagrams),
         };
         let display = Arc::new(ryne_projection::IndexedDisplay::new(batch.display));
+        let after_generation = generation(&highlighter);
         self.presentation_cache.borrow_mut().projection = key
-            .zip(generation(&highlighter))
+            .zip(after_generation.ok().flatten())
             .filter(|(before, _)| {
                 batch.diagnostics.is_empty()
+                    && (matches!(before_generation, Ok(None))
+                        || (before_generation.is_ok() && before_generation == after_generation))
                     && self.features.presentation_key(state).as_ref() == Some(before)
             })
             .map(|(key, highlighter)| ProjectionEntry {
@@ -405,5 +411,42 @@ mod tests {
         let reused = doc.cached_project_batch(&doc, Some(&mut highlighter), &[]);
         assert!(Arc::ptr_eq(&recovered.display, &reused.display));
         assert_eq!(highlighter.0, 2);
+    }
+    #[test]
+    fn changing_highlighter_generation_during_projection_does_not_cache_mixed_output() {
+        struct Changing {
+            generation: u64,
+            calls: usize,
+        }
+        impl SyntaxHighlighter for Changing {
+            fn presentation_generation(&self) -> Option<u64> {
+                Some(self.generation)
+            }
+            fn begin_frame(&mut self) {
+                self.calls += 1;
+                if self.calls == 1 {
+                    self.generation += 1;
+                }
+            }
+            fn end_frame(&mut self) {}
+            fn spans(
+                &mut self,
+                _: &str,
+                _: &ryne_syntax::code_block::CodeBlock,
+            ) -> Vec<HighlightSpan> {
+                Vec::new()
+            }
+        }
+        let doc = new_document("```rust\nlet x = 1;\n```\n\ntail");
+        let mut h = Changing {
+            generation: 0,
+            calls: 0,
+        };
+        let a = doc.cached_project_batch(&doc, Some(&mut h), &[]).display;
+        let b = doc.cached_project_batch(&doc, Some(&mut h), &[]).display;
+        assert!(!Arc::ptr_eq(&a, &b));
+        let c = doc.cached_project_batch(&doc, Some(&mut h), &[]).display;
+        assert!(Arc::ptr_eq(&b, &c));
+        assert_eq!(h.calls, 2);
     }
 }

@@ -18,6 +18,7 @@ pub struct ParseSnapshot {
     index: OnceLock<SemanticIndex>,
     utf16: OnceLock<crate::Utf16Index>,
     pub(crate) formulas: OnceLock<Vec<crate::math::SourceFormula>>,
+    block_directory: OnceLock<crate::block::BlockDirectory>,
 }
 impl Deref for ParseSnapshot {
     type Target = editable_markdown_parser::ParseSnapshot;
@@ -49,6 +50,7 @@ impl ParseSnapshot {
             index: OnceLock::new(),
             utf16: OnceLock::new(),
             formulas: OnceLock::new(),
+            block_directory: OnceLock::new(),
         }
     }
     pub fn normalized(&self) -> Option<&Self> {
@@ -88,6 +90,12 @@ impl ParseSnapshot {
     pub fn index(&self) -> &SemanticIndex {
         self.index.get_or_init(|| SemanticIndex::new(self))
     }
+    pub(crate) fn block_directory(&self) -> &crate::block::BlockDirectory {
+        let parse = self.semantic();
+        parse
+            .block_directory
+            .get_or_init(|| crate::block::BlockDirectory::new(parse))
+    }
     pub fn paragraphs(&self) -> &[Range<usize>] {
         let parse = self.semantic();
         parse.paragraphs.get_or_init(|| {
@@ -114,6 +122,7 @@ impl ParseSnapshot {
 
 pub struct SemanticIndex {
     pub lines: Vec<Range<usize>>,
+    pub first_content: Option<usize>,
     prefixes: Vec<usize>,
     pub code_nodes: Vec<usize>,
     pub item_nodes: Vec<usize>,
@@ -128,8 +137,11 @@ pub struct SemanticIndex {
 }
 impl SemanticIndex {
     fn new(parse: &ParseSnapshot) -> Self {
+        #[cfg(any(test, feature = "query-metrics"))]
+        crate::query_metrics::record(|m| m.semantic_indexes += 1);
         let mut index = Self {
             lines: code_block::lines(parse.source().text()),
+            first_content: parse.source().text().find(|c: char| !c.is_whitespace()),
             prefixes: Vec::new(),
             code_nodes: Vec::new(),
             item_nodes: Vec::new(),
@@ -148,6 +160,7 @@ impl SemanticIndex {
             if matches!(
                 node.kind,
                 NodeKind::Paragraph
+                    | NodeKind::List(_)
                     | NodeKind::Heading(_)
                     | NodeKind::Item
                     | NodeKind::BlockQuote

@@ -1,6 +1,7 @@
 //! GPUI facade; input, geometry, elements, smoke and asset upload have separate modules.
 pub use ryne_syntax::{block, code_block, list, table};
 mod assets;
+mod block_query_cache;
 mod interaction_state;
 use interaction_state::*;
 mod element;
@@ -12,8 +13,11 @@ mod i18n;
 mod input;
 mod layout;
 mod layout_frame;
+#[cfg(test)]
+mod layout_guard_tests;
 mod math_fonts;
 mod menus;
+mod p1_smoke;
 mod paint;
 mod profile;
 mod recent;
@@ -265,17 +269,11 @@ impl Editor {
     }
 
     fn focused_block(&self) -> Option<crate::block::Block> {
-        // At a forward selection's end, use its last selected character.
-        let head = self.document.head;
-        let caret = if self.document.anchor < head {
-            self.document.source.text()[..head]
-                .char_indices()
-                .next_back()
-                .map_or(head, |(index, _)| index)
-        } else {
-            head
-        };
-        crate::block::at(&self.document.parse, caret)
+        self.viewport.block_cache.focused(
+            &self.document.parse,
+            self.document.anchor,
+            self.document.head,
+        )
     }
 
     fn open_block_menu(
@@ -419,6 +417,7 @@ impl Editor {
                 close_after_save: false,
             },
             viewport: ViewportState {
+                block_cache: Default::default(),
                 window_title: None,
                 highlight_task: None,
                 highlight_generation: 0,

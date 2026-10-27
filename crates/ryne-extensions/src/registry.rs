@@ -396,7 +396,9 @@ impl Registry {
                 };
                 match crate::catch_callback(c.id, "preview input", || provider.input(state, block))
                 {
-                    Ok(Some(input)) => {
+                    Ok(Some(mut input)) => {
+                        // Resource identity belongs to the registered contribution.
+                        input.feature = c.id;
                         batch.inputs.push(input);
                         break;
                     }

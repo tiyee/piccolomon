@@ -52,6 +52,7 @@ pub(super) fn layout_pages(display: &Display) -> Result<Vec<String>, String> {
     if display.text.len() > 4 * 1024 * 1024 {
         return Err("PDF export exceeds 4 MiB of text".into());
     }
+    display.validate_layout()?;
     let mut layout = Layout {
         display,
         formula_order: ordered_formulas(display),
@@ -547,7 +548,21 @@ mod tests {
         };
         old.document().unwrap();
         old.finish_page().unwrap();
-        assert_eq!(layout_pages(&display).unwrap(), old.pages);
+        // The public consumer now rejects malformed ordering. Keep the original
+        // first-match oracle for the private lookup algorithm independently.
+        assert!(layout_pages(&display).is_err());
+        let mut optimized = Layout {
+            display: &display,
+            formula_order: ordered_formulas(&display),
+            pages: Vec::new(),
+            page: String::new(),
+            y: MARGIN,
+            widths: HashMap::new(),
+            linear_lookup: false,
+        };
+        optimized.document().unwrap();
+        optimized.finish_page().unwrap();
+        assert_eq!(optimized.pages, old.pages);
         // Independent subranges model cell wrapping and out-of-order callers.
         let range = display.text.find('中').unwrap()..display.text.find('\n').unwrap();
         let mut new = Layout {

@@ -1,0 +1,93 @@
+warning: `/Users/jiangtao/.cargo/config` is deprecated in favor of `config.toml`
+  |
+  = help: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+   Compiling ryne-projection v0.2.5 (/Users/jiangtao/code/github.com/piccolomon/crates/ryne-projection)
+   Compiling ryne-extensions v0.2.5 (/Users/jiangtao/code/github.com/piccolomon/crates/ryne-extensions)
+   Compiling ryne-session v0.2.5 (/Users/jiangtao/code/github.com/piccolomon/crates/ryne-session)
+   Compiling ryne-services v0.2.5 (/Users/jiangtao/code/github.com/piccolomon/crates/ryne-services)
+   Compiling ryne-features v0.2.5 (/Users/jiangtao/code/github.com/piccolomon/crates/ryne-features)
+   Compiling ryne-ui v0.2.5 (/Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui)
+   Compiling ryne-app v0.2.5 (/Users/jiangtao/code/github.com/piccolomon)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 10.45s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6, proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 6`
+     Running `target/debug/ryne --smoke-test`
+GUI smoke stage 0
+GUI smoke stage 295
+GUI smoke stage 296
+GUI smoke stage 297
+GUI smoke stage 298
+GUI smoke stage 299
+GUI smoke stage 300
+GUI smoke stage 301
+GUI smoke stage 302
+GUI smoke stage 303
+GUI smoke stage 304
+GUI smoke stage 305
+GUI smoke stage 306
+GUI smoke stage 307
+GUI smoke stage 308
+GUI smoke stage 309
+GUI smoke stage 310
+GUI smoke stage 311
+GUI smoke stage 312
+GUI smoke stage 313
+GUI smoke stage 314
+GUI smoke stage 315
+GUI smoke stage 316
+GUI smoke stage 317
+GUI smoke stage 318
+GUI smoke stage 319
+GUI smoke stage 320
+GUI smoke stage 321
+GUI smoke stage 322
+GUI smoke stage 323
+GUI smoke stage 324
+GUI smoke stage 325
+GUI smoke stage 326
+GUI smoke stage 327
+GUI smoke stage 328
+GUI smoke stage 329
+GUI smoke stage 330
+GUI smoke stage 331
+GUI smoke stage 332
+GUI smoke stage 333
+GUI smoke stage 334
+GUI smoke stage 335
+GUI smoke stage 336
+GUI smoke stage 337
+GUI smoke stage 338
+GUI smoke stage 339
+GUI smoke stage 340
+GUI smoke stage 341
+GUI smoke stage 342
+GUI smoke stage 343
+GUI smoke stage 344
+GUI smoke stage 345
+GUI smoke stage 346
+GUI smoke stage 347
+GUI smoke stage 348
+GUI smoke stage 349
+GUI smoke stage 350
+GUI smoke stage 351
+GUI smoke stage 352
+GUI smoke stage 353
+GUI smoke stage 354
+GUI smoke stage 355
+GUI smoke stage 356
+GUI smoke stage 357
+GUI smoke stage 358
+GUI smoke stage 359
+GUI smoke stage 360
+GUI smoke stage 361
+GUI smoke stage 362
+GUI smoke stage 363
+GUI smoke stage 364
+GUI smoke stage 365
+GUI smoke stage 366
+GUI smoke stage 367
+GUI smoke stage 368
+GUI smoke stage 369
+GUI smoke stage 370
+GUI smoke stage 371
+P1 repair GUI passed: guarded table/formula layout recovery, temporary IME mapping, source/local suppression, full-snapshot block invalidation, and 20 redraws each with menu open, menu closed and no block; unchanged source/history/projection/controls/layout

@@ -5,5 +5,8 @@ edition.workspace = true
 publish.workspace = true
 license.workspace = true
 
+[features]
+query-metrics = []
+
 [dependencies]
 editable_markdown_parser.workspace = true

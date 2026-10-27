@@ -1,0 +1,7 @@
+{
+  "platform": "macOS-15.8.1-x86_64-i386-64bit-Mach-O",
+  "machine": "x86_64",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13) (Homebrew)",
+  "baseline": "block-before.jsonl: 30 samples, 1 round, 100 warmups; pre-repair release binary",
+  "final": "1000 samples, 3 rounds, 100 warmups; release with query-metrics and query allocation counters"
+}

@@ -27,6 +27,7 @@ pub(super) struct FileOperationState {
     pub close_after_save: bool,
 }
 pub(super) struct ViewportState {
+    pub block_cache: crate::block_query_cache::BlockQueryCache,
     pub window_title: Option<String>,
     pub highlight_task: Option<Task<()>>,
     pub highlight_generation: u64,

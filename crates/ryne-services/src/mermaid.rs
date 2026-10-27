@@ -231,6 +231,9 @@ fn render_inner(source: &str, control: Control) -> Outcome {
 #[derive(Default)]
 pub struct MermanRenderer;
 impl ryne_extensions::DiagramRenderer for MermanRenderer {
+    fn snapshot(&self) -> Option<Arc<dyn ryne_extensions::DiagramRenderer>> {
+        Some(Arc::new(Self))
+    }
     fn render(&self, source: &str, control: Control) -> Outcome {
         render(source, control)
     }

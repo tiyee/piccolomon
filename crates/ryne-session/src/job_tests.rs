@@ -198,3 +198,23 @@ fn generation_panics_at_start_and_completion_do_not_starve_healthy_jobs() {
     assert_eq!(doc.history_len(false), 0);
     assert!(!doc.dirty());
 }
+
+#[test]
+fn renderer_instance_is_part_of_cache_identity() {
+    let renderer = Arc::new(FakeRenderer(AtomicU64::new(1)));
+    let doc = document(renderer.clone());
+    let block = ryne_syntax::code_block::blocks(&doc.parse)[0].clone();
+    let other = Arc::new(FakeRenderer(AtomicU64::new(1)));
+    let make = |renderer: Arc<dyn DiagramRenderer>| PreviewInput {
+        feature: "same",
+        block: block.clone(),
+        input: Ok("same".into()),
+        renderer,
+    };
+    let mut jobs = jobs::JobHost::default();
+    let (_, request) = jobs.refresh(&doc, vec![make(renderer)], false, &[]);
+    assert!(jobs.complete(request.unwrap().run(), doc.source.id()));
+    let (views, request) = jobs.refresh(&doc, vec![make(other)], false, &[]);
+    assert!(views.is_empty());
+    assert!(request.is_some());
+}

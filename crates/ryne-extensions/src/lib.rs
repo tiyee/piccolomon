@@ -356,8 +356,30 @@ impl CancelControl {
     }
 }
 pub trait DiagramRenderer: Send + Sync {
+    /// Return a renderer with frozen export settings, or None if unavailable.
+    fn snapshot(&self) -> Option<Arc<dyn DiagramRenderer>> {
+        None
+    }
     fn render(&self, source: &str, control: CancelControl) -> DiagramOutcome;
     fn generation(&self) -> u64;
+}
+/// Validate renderer output consistently for interactive and detached consumers.
+pub fn validate_diagram(
+    resource: Arc<ryne_projection::Diagram>,
+) -> ryne_projection::DiagramOutcome {
+    let pixels = u64::from(resource.pixel_width) * u64::from(resource.pixel_height);
+    if pixels == 0
+        || pixels > 2_000_000
+        || pixels * 4 != resource.pixels.len() as u64
+        || resource.bytes != resource.pixels.len()
+        || ![resource.width, resource.height]
+            .iter()
+            .all(|v| v.is_finite() && *v > 0. && *v <= 4096.)
+    {
+        Err("图表资源无效，保留源码".into())
+    } else {
+        Ok(resource)
+    }
 }
 pub trait FileStore: Send + Sync {
     fn read(&self, path: &Path) -> std::io::Result<String>;

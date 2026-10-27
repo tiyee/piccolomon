@@ -1,0 +1,174 @@
+[
+  {
+    "label": "architecture",
+    "command": [
+      "python3",
+      "scripts/check-architecture.py"
+    ],
+    "expected": 0,
+    "exit_code": 0,
+    "seconds": 0.1465505849919282,
+    "environment": {}
+  },
+  {
+    "label": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--check"
+    ],
+    "expected": 0,
+    "exit_code": 0,
+    "seconds": 1.7636396210291423,
+    "environment": {}
+  },
+  {
+    "label": "diff",
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "expected": 0,
+    "exit_code": 0,
+    "seconds": 0.04318997805239633,
+    "environment": {}
+  },
+  {
+    "label": "tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked"
+    ],
+    "expected": 0,
+    "exit_code": 0,
+    "seconds": 71.9030253230012,
+    "environment": {}
+  },
+  {
+    "label": "clippy",
+    "command": [
+      "/usr/local/opt/rust/bin/cargo-clippy",
+      "clippy",
+      "--locked",
+      "--all-targets",
+      "--features",
+      "p1-metrics",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "expected": 0,
+    "exit_code": 0,
+    "seconds": 13.525661927997135,
+    "environment": {}
+  },
+  {
+    "label": "perf-build",
+    "command": [
+      "cargo",
+      "build",
+      "--locked",
+      "--release",
+      "-p",
+      "ryne-syntax",
+      "--features",
+      "query-metrics",
+      "--example",
+      "block-query-perf"
+    ],
+    "expected": 0,
+    "exit_code": 0,
+    "seconds": 4.299012154981028,
+    "environment": {}
+  },
+  {
+    "label": "block-after",
+    "command": [
+      "/Users/jiangtao/code/github.com/piccolomon/target/release/examples/block-query-perf",
+      "64,256,1024,10240",
+      "1000",
+      "3",
+      "all"
+    ],
+    "expected": 0,
+    "exit_code": 0,
+    "seconds": 27.565613802988082,
+    "environment": {}
+  },
+  {
+    "label": "deep-list",
+    "command": [
+      "/Users/jiangtao/code/github.com/piccolomon/target/release/examples/block-query-perf",
+      "1024,10240",
+      "1000",
+      "3",
+      "deep-list"
+    ],
+    "expected": 0,
+    "exit_code": 0,
+    "seconds": 4.703021930996329,
+    "environment": {}
+  },
+  {
+    "label": "deep-quote",
+    "command": [
+      "/Users/jiangtao/code/github.com/piccolomon/target/release/examples/block-query-perf",
+      "1024,10240",
+      "1000",
+      "3",
+      "deep-quote"
+    ],
+    "expected": 0,
+    "exit_code": 0,
+    "seconds": 6.5568461189977825,
+    "environment": {}
+  },
+  {
+    "label": "smoke-full",
+    "command": [
+      "cargo",
+      "run",
+      "--locked",
+      "--",
+      "--smoke-test"
+    ],
+    "expected": 0,
+    "exit_code": 0,
+    "seconds": 216.56353952502832,
+    "environment": {}
+  },
+  {
+    "label": "smoke-special",
+    "command": [
+      "cargo",
+      "run",
+      "--locked",
+      "--features",
+      "p1-metrics",
+      "--",
+      "--smoke-test"
+    ],
+    "expected": 0,
+    "exit_code": 0,
+    "seconds": 37.725702161027584,
+    "environment": {
+      "RYNE_SMOKE_P1_REPAIR_ONLY": "1"
+    }
+  },
+  {
+    "label": "smoke-failure",
+    "command": [
+      "cargo",
+      "run",
+      "--locked",
+      "--",
+      "--smoke-test-failure"
+    ],
+    "expected": 1,
+    "exit_code": 1,
+    "seconds": 6.249477014993317,
+    "environment": {}
+  }
+]

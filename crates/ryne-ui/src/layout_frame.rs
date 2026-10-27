@@ -7,22 +7,73 @@ impl EditorElement {
         cx: &mut App,
     ) -> Frame {
         let _profile = profile::Scope::new("layout_frame");
+        let attempt = {
+            let editor = self.editor.read(cx);
+            let page = theme::Page::new(f32::from(bounds.size.width), editor.document.source_mode);
+            let key = text_layout::LayoutKey::new(
+                editor,
+                page,
+                window,
+                &editor.viewport.control_index.cells,
+            );
+            if let Some(layout) = editor
+                .viewport
+                .geometry
+                .as_ref()
+                .map(|g| &g.text_layout)
+                .filter(|l| l.key == key)
+            {
+                Ok(layout.clone())
+            } else {
+                text_layout::TextLayout::build(editor, key, window).map(std::sync::Arc::new)
+            }
+        };
+        let layout = match attempt {
+            Ok(layout) => layout,
+            Err(message) => {
+                self.editor.update(cx, |editor, cx| {
+                    editor.document.invalidate_projection_cache();
+                    let (state, _) = editor.document.projection_state(&[]);
+                    editor.viewport.display =
+                        std::sync::Arc::new(ryne_projection::IndexedDisplay::new(
+                            Display::plain_source(state.source.text()),
+                        ));
+                    editor.viewport.frame_epoch = editor.viewport.frame_epoch.wrapping_add(1);
+                    editor.viewport.geometry = None;
+                    editor.viewport.render_controls = Default::default();
+                    editor.viewport.control_index = Default::default();
+                    editor.viewport.diagram_images.clear();
+                    editor.menus.close_all();
+                    editor.menus.hovered_block = None;
+                    editor.menus.hovered_render = None;
+                    editor
+                        .document
+                        .record_diagnostics(vec![ryne_extensions::Diagnostic {
+                            feature: "layout".into(),
+                            message,
+                        }]);
+                    cx.notify();
+                });
+                let editor = self.editor.read(cx);
+                let page =
+                    theme::Page::new(f32::from(bounds.size.width), editor.document.source_mode);
+                let key = text_layout::LayoutKey::new(
+                    editor,
+                    page,
+                    window,
+                    &editor.viewport.control_index.cells,
+                );
+                std::sync::Arc::new(
+                    text_layout::TextLayout::build(editor, key.clone(), window)
+                        .unwrap_or_else(|_| text_layout::TextLayout::unavailable(editor, key)),
+                )
+            }
+        };
         let editor = self.editor.read(cx);
         let display = &editor.viewport.display;
         let page = theme::Page::new(f32::from(bounds.size.width), editor.document.source_mode);
         let controls = &editor.viewport.control_index;
         let control_index = &controls.cells;
-        let key = text_layout::LayoutKey::new(editor, page, window, control_index);
-        let layout = editor
-            .viewport
-            .geometry
-            .as_ref()
-            .map(|g| &g.text_layout)
-            .filter(|layout| layout.key == key)
-            .cloned()
-            .unwrap_or_else(|| {
-                std::sync::Arc::new(text_layout::TextLayout::build(editor, key, window))
-            });
         let mut geometry = Geometry {
             snapshot: editor.document.source.id(),
             frame_epoch: editor.viewport.frame_epoch,
@@ -382,9 +433,12 @@ impl EditorElement {
         let menu_open = editor.menus.block_menu.is_some();
         let block_insert = editor.menus.block_insert;
         let can_insert_above = menu_open
-            && focused_block
-                .as_ref()
-                .is_some_and(|block| block::can_insert_above(&editor.document.parse, block));
+            && focused_block.as_ref().is_some_and(|block| {
+                editor
+                    .viewport
+                    .block_cache
+                    .can_insert_above(&editor.document.parse, block)
+            });
         let source_scope = editor
             .document
             .block_source

@@ -21,6 +21,8 @@ pub struct CodeBlock {
 }
 
 pub fn lines(text: &str) -> Vec<Range<usize>> {
+    #[cfg(any(test, feature = "query-metrics"))]
+    crate::query_metrics::record(|m| m.physical_lines += 1);
     let mut result = Vec::new();
     let mut start = 0;
     while start < text.len() {

@@ -76,9 +76,24 @@ impl FeatureEngine for MarkdownFeatures {
             .cached_control_batch(state, cache))
     }
     fn snapshot(&self) -> Option<Arc<dyn FeatureEngine>> {
-        let mut frozen = self.clone();
-        frozen.formulas = self.formulas.snapshot()?;
-        Some(Arc::new(frozen))
+        // Arbitrary additional modules cannot yet freeze their registered providers.
+        if !self.additional.is_empty() {
+            return None;
+        }
+        let formulas = self.formulas.snapshot()?;
+        let previews = self
+            .previews
+            .iter()
+            .map(|preview| {
+                Some(diagrams::FencedPreview {
+                    renderer: preview.renderer.snapshot()?,
+                    ..preview.clone()
+                })
+            })
+            .collect::<Option<Vec<_>>>()?;
+        Self::new(formulas, previews)
+            .ok()
+            .map(|f| Arc::new(f) as Arc<dyn FeatureEngine>)
     }
     fn render_controls(&self, state: &EditingState) -> Result<Vec<RenderControl>, String> {
         self.registry.render_actions().controls(state)

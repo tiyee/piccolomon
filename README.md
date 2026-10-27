@@ -352,6 +352,11 @@ multi-cell TSV paste, full bidi caret behavior, accessibility text editing, or f
 
 ## Internal architecture
 
+Projection publication validates table/cell bounds and ordered formula/diagram objects.
+Checked layout failures retain editable literal source with matching input geometry.
+Block lookup shares snapshot indexes; stable focus and menu frames reuse their semantic results.
+See [P1 repairs and query measurements](docs/37_P1_Repair_Implementation.md).
+
 Static feature modules now register executable contributions together. Block presentation components share one source-map composer; UI interaction state is grouped by responsibility. PDF menus are built from registered adapter descriptions. See [component and adapter boundaries](docs/28_Static_Feature_Components.md).
 
 The application uses nine private Rust workspace packages, all with the `ryne-`

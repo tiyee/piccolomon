@@ -2,16 +2,13 @@
 use super::*;
 pub struct ExportSnapshot {
     source: Source,
-    features: Arc<dyn FeatureEngine>,
+    features: Option<Arc<dyn FeatureEngine>>,
 }
 impl EditorSession {
     pub fn export_snapshot(&self) -> ExportSnapshot {
         ExportSnapshot {
             source: self.source.clone(),
-            features: self
-                .features
-                .snapshot()
-                .unwrap_or_else(|| self.features.clone()),
+            features: self.features.snapshot(),
         }
     }
 }
@@ -21,27 +18,32 @@ impl ExportSnapshot {
         if self.source.text().len() > 4 * 1024 * 1024 {
             return Err("PDF export exceeds 4 MiB of source".into());
         }
+        let features = self
+            .features
+            .ok_or("Export requires a frozen feature snapshot")?;
         let state = EditingState::new(self.source);
         let mut views = Vec::new();
         let mut bytes = 0;
-        for input in self.features.preview_inputs(&state).into_iter().take(32) {
+        for input in features.preview_inputs(&state).into_iter().take(32) {
             let result = input.input.and_then(|source| {
                 std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                     input.renderer.render(&source, CancelControl::default())
                 }))
                 .unwrap_or_else(|_| Err("Diagram rendering failed during export".into()))
             });
-            let result = result.and_then(|diagram| {
-                bytes += diagram.bytes;
-                if bytes > 32 * 1024 * 1024 {
-                    Err("Export diagram budget exceeds 32 MiB".into())
-                } else {
-                    Ok(diagram)
-                }
-            });
+            let result = result
+                .and_then(ryne_extensions::validate_diagram)
+                .and_then(|diagram| {
+                    bytes += diagram.bytes;
+                    if bytes > 32 * 1024 * 1024 {
+                        Err("Export diagram budget exceeds 32 MiB".into())
+                    } else {
+                        Ok(diagram)
+                    }
+                });
             views.push((input.block.range, result));
         }
-        Ok(project_checked(self.features.as_ref(), &state, None, &views).display)
+        Ok(project_checked(features.as_ref(), &state, None, &views).display)
     }
 }
 
@@ -194,5 +196,98 @@ mod tests {
             assert!(stix_pdf.starts_with(b"%PDF-"));
             assert_ne!(lete_pdf, stix_pdf);
         }
+    }
+    #[test]
+    fn export_freezes_preview_renderer_and_rejects_invalid_resources() {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        struct Renderer {
+            value: Arc<AtomicU64>,
+            frozen: Option<u64>,
+            invalid: bool,
+        }
+        impl DiagramRenderer for Renderer {
+            fn generation(&self) -> u64 {
+                self.frozen
+                    .unwrap_or_else(|| self.value.load(Ordering::SeqCst))
+            }
+            fn snapshot(&self) -> Option<Arc<dyn DiagramRenderer>> {
+                Some(Arc::new(Self {
+                    value: self.value.clone(),
+                    frozen: Some(self.generation()),
+                    invalid: self.invalid,
+                }))
+            }
+            fn render(&self, _: &str, _: CancelControl) -> ryne_projection::DiagramOutcome {
+                Ok(Arc::new(ryne_projection::Diagram {
+                    pixels: vec![self.generation() as u8, 0, 0, 255].into(),
+                    pixel_width: if self.invalid { 2 } else { 1 },
+                    pixel_height: 1,
+                    width: 1.,
+                    height: 1.,
+                    bytes: 4,
+                }))
+            }
+        }
+        for invalid in [false, true] {
+            let value = Arc::new(AtomicU64::new(1));
+            let renderer = Arc::new(Renderer {
+                value: value.clone(),
+                frozen: None,
+                invalid,
+            });
+            let features = ryne_features::MarkdownFeatures::new(
+                Arc::new(ryne_services::math::FormularyRenderer::default()),
+                vec![ryne_features::diagrams::FencedPreview {
+                    id: "preview",
+                    language: "diagram",
+                    renderer,
+                }],
+            )
+            .unwrap();
+            let services = SessionServices {
+                features: Arc::new(features),
+                files: Arc::new(ryne_services::files::AtomicFileStore),
+            };
+            let document = EditorSession::new("```diagram\ncontent\n```\n\ntail", services);
+            let snapshot = document.export_snapshot();
+            value.store(2, Ordering::SeqCst);
+            let display = snapshot.render().unwrap();
+            if invalid {
+                assert!(display.diagrams.is_empty());
+                assert!(display.text.contains("content"));
+            } else {
+                assert_eq!(display.diagrams.len(), 1);
+                assert_eq!(display.diagrams[0].diagram.pixels[0], 1);
+            }
+        }
+    }
+    #[test]
+    fn export_rejects_unfrozen_additional_module_without_touching_document() {
+        struct Extra;
+        impl BuiltinFeature for Extra {
+            fn manifest(&self) -> FeatureManifest {
+                FeatureManifest::builtin("extra-export-test")
+            }
+            fn register(&self, _: &mut Registrar) -> Result<(), String> {
+                Ok(())
+            }
+        }
+        let features = ryne_features::MarkdownFeatures::new(
+            Arc::new(ryne_services::math::FormularyRenderer::default()),
+            vec![],
+        )
+        .unwrap()
+        .with_feature(Arc::new(Extra))
+        .unwrap();
+        let services = SessionServices {
+            features: Arc::new(features),
+            files: Arc::new(ryne_services::files::AtomicFileStore),
+        };
+        let document = EditorSession::new("source", services);
+        let error = document.export_snapshot().render().err().unwrap();
+        assert!(error.contains("frozen feature snapshot"));
+        assert_eq!(document.source.text(), "source");
+        assert!(!document.dirty());
+        assert_eq!(document.history_len(false), 0);
     }
 }

@@ -95,7 +95,8 @@ pub(super) fn shape_inline(
     metrics: (f32, f32),
     width: Pixels,
     window: &Window,
-) -> Vec<TypesetLine> {
+) -> Result<Vec<TypesetLine>, String> {
+    display.validate_inline_layout(&range)?;
     let (font_size, line_height) = metrics;
     // Text shaping is independent of focus and caret position. Keep each text
     // segment intact so glyph shaping, strike lines and code backgrounds remain continuous.
@@ -107,7 +108,7 @@ pub(super) fn shape_inline(
         .take_while(|f| f.display.end <= range.end)
         .collect::<Vec<_>>();
     if formulas.is_empty() {
-        return window
+        return Ok(window
             .text_system()
             .shape_text(
                 display.text[range.clone()].to_owned().into(),
@@ -130,7 +131,7 @@ pub(super) fn shape_inline(
                 start: range.start,
                 mixed: None,
             })
-            .collect();
+            .collect());
     }
     let mut fragments = Vec::new();
     let mut offset = range.start;
@@ -241,7 +242,7 @@ pub(super) fn shape_inline(
             }),
         });
     }
-    output
+    Ok(output)
 }
 
 #[derive(Clone)]
@@ -358,7 +359,7 @@ impl Geometry {
         })
     }
     pub(super) fn is_current(&self, editor: &Editor) -> bool {
-        self.snapshot == editor.document.source.id()
+        !self.rows.is_empty() && self.snapshot == editor.document.source.id()
             // A cancelled preedit can return to the exact same projection before
             // another draw. Its original geometry is safe to reuse in that case.
             && (self.frame_epoch == editor.viewport.frame_epoch || self.display == editor.viewport.display)

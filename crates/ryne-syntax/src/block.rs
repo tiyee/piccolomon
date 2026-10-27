@@ -44,24 +44,16 @@ pub fn insertion_context(parse: &ParseSnapshot, block: &Block) -> Option<(Range<
         return None;
     }
     let node = parse
-        .nodes
-        .iter()
+        .index()
+        .blocks
+        .at(block.anchor)
+        .into_iter()
+        .map(|id| &parse.nodes[id])
         .filter(|node| {
-            block.range.start <= node.envelope.start
+            !matches!(node.kind, NodeKind::Item)
+                && block.range.start <= node.envelope.start
                 && node.envelope.start <= block.anchor
                 && node.envelope.end <= block.range.end
-                && matches!(
-                    node.kind,
-                    NodeKind::Paragraph
-                        | NodeKind::Heading(_)
-                        | NodeKind::List(_)
-                        | NodeKind::BlockQuote
-                        | NodeKind::CodeBlock(_)
-                        | NodeKind::Table(_)
-                        | NodeKind::HtmlBlock
-                        | NodeKind::Rule
-                        | NodeKind::SourceBlock
-                )
         })
         .max_by_key(|node| node.envelope.len())?;
     let text = parse.source().text();
@@ -80,47 +72,61 @@ pub fn insertion_context(parse: &ParseSnapshot, block: &Block) -> Option<(Range<
 }
 
 pub fn can_insert_above(parse: &ParseSnapshot, block: &Block) -> bool {
-    insertion_context(parse, block)
-        .is_some_and(|(range, _)| !parse.source().text()[..range.start].trim().is_empty())
+    insertion_context(parse, block).is_some_and(|(range, _)| {
+        parse
+            .semantic()
+            .index()
+            .first_content
+            .is_some_and(|first| first < range.start)
+    })
 }
 
 pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
+    #[cfg(any(test, feature = "query-metrics"))]
+    crate::query_metrics::record(|m| m.queries += 1);
+    let parse = parse.semantic();
     let text = parse.source().text();
-    if let Some(view) = crate::parser::normalized(parse) {
-        return at(view, caret);
+    if !text.is_char_boundary(caret) {
+        return None;
     }
-    let contains = |range: &Range<usize>| {
-        range.contains(&caret) || (caret == text.len() && caret == range.end)
+    let before = |end: usize| {
+        #[cfg(any(test, feature = "query-metrics"))]
+        crate::query_metrics::record(|m| m.comparisons += 1);
+        end < caret || (end == caret && caret != text.len())
     };
-    if let Some(code) = code_block::cached(parse)
-        .iter()
-        .find(|b| contains(&b.range))
+    let contains = |r: &Range<usize>| r.contains(&caret) || (caret == text.len() && caret == r.end);
+    let codes = code_block::cached(parse);
+    if let Some(code) = codes
+        .get(codes.partition_point(|b| before(b.range.end)))
+        .filter(|b| contains(&b.range))
     {
-        let diagram = code.language.split_whitespace().next() == Some("mermaid");
         return Some(Block {
             range: code.range.clone(),
             scope: code.scope.clone(),
             anchor: code.anchor,
-            kind: if diagram {
+            kind: if code.language.split_whitespace().next() == Some("mermaid") {
                 BlockKind::Mermaid
             } else {
                 BlockKind::Code
             },
         });
     }
-    if let Some(table) = table::cached(parse).iter().find(|t| contains(&t.range)) {
-        let anchor = table.rows.first()?.cells.first()?.content.start;
+    let tables = table::cached(parse);
+    if let Some(table) = tables
+        .get(tables.partition_point(|t| before(t.range.end)))
+        .filter(|t| contains(&t.range))
+    {
         return Some(Block {
             range: table.range.clone(),
             scope: table.scope.clone(),
-            anchor,
+            anchor: table.rows.first()?.cells.first()?.content.start,
             kind: BlockKind::Table,
         });
     }
-    let (id, node) = parse
-        .index()
-        .blocks
-        .at(caret)
+    let candidates = parse.index().blocks.at(caret);
+    #[cfg(any(test, feature = "query-metrics"))]
+    crate::query_metrics::record(|m| m.candidates += candidates.len());
+    let (id, node) = candidates
         .into_iter()
         .map(|id| (id, &parse.nodes[id]))
         .filter(|(_, n)| {
@@ -164,7 +170,10 @@ pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
     }
     let node = &parse.nodes[target];
     if node.kind == NodeKind::Item
-        && let Some(item) = list::cached_items(parse).iter().find(|i| i.id == target)
+        && let Some(item) = list::cached_items(parse)
+            .binary_search_by_key(&target, |i| i.id)
+            .ok()
+            .map(|i| &list::cached_items(parse)[i])
     {
         // One type control represents the complete outer list. Item controls
         // remain independent, including for nested lists of a different kind.
@@ -176,21 +185,9 @@ pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
             }
             ancestor = parse.nodes[id].parent;
         }
-        let first = list::cached_items(parse).iter().find(|i| i.list == list)?;
+        let &(first, task) = parse.block_directory().lists.get(&list)?;
+        let first = &list::cached_items(parse)[first];
         let ordered = matches!(parse.nodes[list].kind, NodeKind::List(Some(_)));
-        let task = parse.nodes.iter().any(|candidate| {
-            if !matches!(candidate.kind, NodeKind::Task(_)) {
-                return false;
-            }
-            let mut parent = candidate.parent;
-            while let Some(id) = parent {
-                if parse.nodes[id].kind == NodeKind::Item {
-                    return parse.nodes[id].parent == Some(list);
-                }
-                parent = parse.nodes[id].parent;
-            }
-            false
-        });
         return Some(Block {
             range: first.range.start..parse.nodes[list].envelope.end,
             scope: first.scope.clone(),
@@ -213,12 +210,11 @@ pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
         }
         _ => BlockKind::Paragraph,
     };
-    let lines = code_block::lines(text);
     let line_start = |position| {
-        lines
-            .iter()
-            .find(|l| l.contains(&position))
-            .map_or(position, |l| l.start)
+        parse
+            .index()
+            .line(position)
+            .map_or(position, |line| line.start)
     };
     let range = line_start(node.envelope.start)..node.envelope.end;
     let mut scope = range.clone();
@@ -239,6 +235,147 @@ pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
         anchor: node.envelope.start,
         kind,
     })
+}
+
+/// Only list-wide metadata needs a new directory; ordinary blocks use the
+/// existing range/line indexes and their current ancestor chain.
+#[derive(Default)]
+pub(crate) struct BlockDirectory {
+    lists: std::collections::BTreeMap<usize, (usize, bool)>,
+}
+impl BlockDirectory {
+    pub(crate) fn new(parse: &ParseSnapshot) -> Self {
+        #[cfg(any(test, feature = "query-metrics"))]
+        crate::query_metrics::record(|m| m.directories += 1);
+        let mut result = Self::default();
+        for (index, item) in list::cached_items(parse).iter().enumerate() {
+            result.lists.entry(item.list).or_insert((index, false));
+        }
+        let mut stack: Vec<_> = parse
+            .nodes
+            .iter()
+            .enumerate()
+            .filter(|(_, n)| n.parent.is_none())
+            .map(|(id, _)| (id, None))
+            .collect();
+        while let Some((id, item)) = stack.pop() {
+            let node = &parse.nodes[id];
+            if matches!(node.kind, NodeKind::Task(_))
+                && let Some(list) = item.and_then(|i: usize| parse.nodes[i].parent)
+                && let Some(entry) = result.lists.get_mut(&list)
+            {
+                entry.1 = true;
+            }
+            let item = if node.kind == NodeKind::Item {
+                Some(id)
+            } else {
+                item
+            };
+            stack.extend(node.children.iter().rev().map(|&child| (child, item)));
+        }
+        #[cfg(any(test, feature = "query-metrics"))]
+        crate::query_metrics::record(|m| {
+            m.records += result.lists.len();
+            m.record_payload_bytes +=
+                result.lists.len() * std::mem::size_of::<(usize, (usize, bool))>();
+        });
+        result
+    }
+}
+
+#[cfg(test)]
+#[path = "block_oracle.rs"]
+mod oracle;
+
+#[cfg(test)]
+mod indexed_tests {
+    use super::*;
+    use editable_markdown_parser::Source;
+    #[test]
+    fn warm_queries_do_not_rebuild_snapshot_indexes_and_snapshots_release() {
+        for unit in [
+            "plain\n\n",
+            "- first\n  - [ ] nested\n- end\n\n",
+            "> a\n>\n> > b\n\n",
+            "```\nx\n```\n\n",
+            "| a |\n| --- |\n| b |\n\n",
+        ] {
+            let parse =
+                std::sync::Arc::new(ParseSnapshot::with_math(Source::new(&unit.repeat(1000))));
+            let weak = std::sync::Arc::downgrade(&parse);
+            at(&parse, 0);
+            at(&parse, parse.source().text().len() - 3);
+            let before = crate::query_metrics::snapshot();
+            for _ in 0..100 {
+                for position in [
+                    0,
+                    parse.source().text().len() / 2,
+                    parse.source().text().len() - 3,
+                ] {
+                    at(&parse, position);
+                }
+            }
+            let after = crate::query_metrics::snapshot();
+            assert_eq!(after.directories, before.directories);
+            assert_eq!(after.semantic_indexes, before.semantic_indexes);
+            assert_eq!(after.physical_lines, before.physical_lines);
+            assert_eq!(after.queries - before.queries, 300);
+            drop(parse);
+            assert!(weak.upgrade().is_none());
+        }
+    }
+    #[test]
+    fn full_block_and_insertion_results_match_original_at_every_character_boundary() {
+        let samples = [
+            "", "\n\n", "# a\n\ntext\n", "title\n===\n\n![alt](x)\n\n---\n\n<div>raw</div>\n",
+            "- first\n  - [ ] nested\n- last\n\noutside\n\n1. next\n2. end\n",
+            "> first\n>\n> > nested\n> > text\n>\n> ## heading\n>\n> - item\n>   - [x] task\n\ntail\n",
+            "> - a\n>   > quote\n>   >\n>   > second\n>\n> - ```rust\n>   literal\n>   ```\n",
+            "- ```\n  ```\n- | a | b |\n  | --- | --- |\n  | | $x$ |\n\n    indent\n",
+            "## 中😀e\u{301}\n\nplain\n\n~~~mermaid\ngraph LR\nA-->B\n~~~\n\n```unclosed\n",
+        ];
+        for raw in samples {
+            for newline in ["\n", "\r\n", "\r"] {
+                let raw = raw.replace('\n', newline);
+                let parse = ParseSnapshot::with_math(Source::new(&raw));
+                for caret in raw
+                    .char_indices()
+                    .map(|(p, _)| p)
+                    .chain(std::iter::once(raw.len()))
+                {
+                    let expected = oracle::at(&parse, caret);
+                    assert_eq!(at(&parse, caret), expected, "{raw:?} at {caret}");
+                    if let Some(block) = expected {
+                        assert_eq!(
+                            insertion_context(&parse, &block),
+                            oracle::insertion_context(&parse, &block),
+                            "{raw:?} at {caret}"
+                        );
+                        assert_eq!(
+                            can_insert_above(&parse, &block),
+                            oracle::can_insert_above(&parse, &block)
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn deep_container_context_matches_original_without_query_rebuilds() {
+        for depth in [1, 8, 32] {
+            let quote = "> ".repeat(depth);
+            let list = (0..depth)
+                .map(|d| format!("{}- level {d}\n", "  ".repeat(d)))
+                .collect::<String>();
+            for raw in [format!("{quote}first\n{quote}\n{quote}## heading\n{quote}\n{quote}| a |\n{quote}| --- |\n{quote}| $x$ |\n\nend"),format!("{list}\nend")] {
+                let parse=ParseSnapshot::with_math(Source::new(&raw));
+                for p in raw.char_indices().map(|(p,_)|p).chain(std::iter::once(raw.len())) {
+                    assert_eq!(at(&parse,p),oracle::at(&parse,p),"depth {depth}, offset {p}");
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]

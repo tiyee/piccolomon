@@ -1,0 +1,48 @@
+[
+  {
+    "label": "smoke-full",
+    "command": [
+      "cargo",
+      "run",
+      "--locked",
+      "--",
+      "--smoke-test"
+    ],
+    "expected": 0,
+    "exit_code": 0,
+    "seconds": 204.08909120602766,
+    "environment": {}
+  },
+  {
+    "label": "smoke-special",
+    "command": [
+      "cargo",
+      "run",
+      "--locked",
+      "--features",
+      "p1-metrics",
+      "--",
+      "--smoke-test"
+    ],
+    "expected": 0,
+    "exit_code": 0,
+    "seconds": 25.228199512988795,
+    "environment": {
+      "RYNE_SMOKE_P1_REPAIR_ONLY": "1"
+    }
+  },
+  {
+    "label": "smoke-failure",
+    "command": [
+      "cargo",
+      "run",
+      "--locked",
+      "--",
+      "--smoke-test-failure"
+    ],
+    "expected": 1,
+    "exit_code": 1,
+    "seconds": 12.987824080977589,
+    "environment": {}
+  }
+]

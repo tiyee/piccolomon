@@ -129,8 +129,12 @@ impl Editor {
             let performance_only=std::env::var_os("RYNE_SMOKE_PERFORMANCE_ONLY").is_some();
             let first_batch_only=std::env::var_os("RYNE_SMOKE_FIRST_BATCH_ONLY").is_some();
             let second_batch_only=std::env::var_os("RYNE_SMOKE_SECOND_BATCH_ONLY").is_some();
+            let mut p1_state = crate::p1_smoke::State::default();
+            let p1_only=std::env::var_os("RYNE_SMOKE_P1_REPAIR_ONLY").is_some();
             let third_batch_only=std::env::var_os("RYNE_SMOKE_THIRD_BATCH_ONLY").is_some();
-            let stages: Vec<u16> = if third_batch_only {
+            let stages: Vec<u16> = if p1_only {
+                std::iter::once(0).chain(295..372).collect()
+            } else if third_batch_only {
                 std::iter::once(0).chain(287..296).collect()
             } else if second_batch_only {
                 std::iter::once(0).chain(279..288).collect()
@@ -141,11 +145,11 @@ impl Editor {
             } else if code_language_only {
                 std::iter::once(0).chain(259..267).collect()
             } else {
-                (0..296).collect()
+                (0..373).collect()
             };
             for stage in stages {
                 cx.background_executor()
-                    .timer(std::time::Duration::from_millis(500))
+                    .timer(std::time::Duration::from_millis(if stage>=295 {20} else {500}))
                     .await;
                 if matches!(stage, 272 | 277) && !performance_only {
                     // No editor input/refresh here: the scheduled host task must
@@ -923,7 +927,7 @@ impl Editor {
                                 color: rgb(0x282b30).into(), background_color: None, underline: None, strikethrough: None,
                             }).collect::<Vec<_>>();
                             let end = geometry.display.text.find('\n').ok_or("missing math paragraph")?;
-                            let rows = shape_inline(&geometry.display, &runs, 0..end, (18., LINE_HEIGHT), px(70.), window);
+                            let rows = shape_inline(&geometry.display, &runs, 0..end, (18., LINE_HEIGHT), px(70.), window)?;
                             check!(rows.len() >= 3);
                             for row in &rows {
                                 check_eq!(geometry.display.snap(row.start), row.start);
@@ -1548,7 +1552,7 @@ impl Editor {
                                 background_color: None, underline: None, strikethrough: None,
                             }).collect::<Vec<_>>();
                             let range = 0..geometry.display.text.len();
-                            let layouts = shape_inline(&geometry.display, &runs, range.clone(), theme::BODY, px(160.), window);
+                            let layouts = shape_inline(&geometry.display, &runs, range.clone(), theme::BODY, px(160.), window)?;
                             check!(layouts.iter().all(|layout| layout.mixed.is_none()));
                             check_eq!(layouts.iter().map(|layout| layout.shaped.text.as_ref()).collect::<String>(), geometry.display.text);
                             check!(layouts.iter().any(|layout| !layout.shaped.wrap_boundaries.is_empty()));
@@ -2893,6 +2897,11 @@ impl Editor {
                             check_eq!(third_source.as_ref().map(|s|s.text()),Some(editor.document.source.text()));
                             println!("Third-batch GUI checks passed: actual command extension dispatched; projection/control/layout reuse across navigation and selection; heading/local-source invalidation, stale-frame rejection and preedit recovery without source/history changes");
                             if third_batch_only {cx.quit();return Ok(());}
+                        }
+                        294..=369 => { p1_state.step(stage-1,editor,&geometry,window,cx)?; }
+                        370 => {
+                            println!("P1 repair GUI passed: guarded table/formula layout recovery, temporary IME mapping, source/local suppression, full-snapshot block invalidation, and 20 redraws each with menu open, menu closed and no block; unchanged source/history/projection/controls/layout");
+                            if p1_only {cx.quit();return Ok(());}
                         }
                         _ => {
                             if performance_only {

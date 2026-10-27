@@ -5,6 +5,8 @@ pub mod list;
 pub mod math;
 pub mod parser;
 mod query;
+#[cfg(any(test, feature = "query-metrics"))]
+pub mod query_metrics;
 pub mod quote;
 pub mod table;
 pub use query::SemanticQuery;

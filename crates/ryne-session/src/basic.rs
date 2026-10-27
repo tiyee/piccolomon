@@ -7,6 +7,9 @@ use ryne_syntax::ParseSnapshot;
 use std::ops::Range;
 pub struct SourceEditing;
 impl FeatureEngine for SourceEditing {
+    fn snapshot(&self) -> Option<std::sync::Arc<dyn FeatureEngine>> {
+        Some(std::sync::Arc::new(SourceEditing))
+    }
     fn plan(&self, intent: EditIntent, state: &EditingState) -> Result<CommandPlan, String> {
         let mut next = state.clone();
         let base = state.source.id();

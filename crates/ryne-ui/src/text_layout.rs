@@ -145,9 +145,14 @@ pub(super) struct QuotePanel {
     pub icon: Bounds<Pixels>,
 }
 impl TextLayout {
-    pub(super) fn build(editor: &Editor, key: LayoutKey, window: &mut Window) -> Self {
+    pub(super) fn build(
+        editor: &Editor,
+        key: LayoutKey,
+        window: &mut Window,
+    ) -> Result<Self, String> {
         let _profile = profile::Scope::new("text_layout_build");
         let display = &editor.viewport.display;
+        display.validate_layout()?;
         let page = key.page;
         let mut header_ranges: Vec<_> = display
             .tables
@@ -236,6 +241,7 @@ impl TextLayout {
                 .enumerate()
                 .find(|(_, view)| view.display.start == start)
             {
+                display.checked_layout_advance(start, diagram.display.end)?;
                 let quote = display.quote_at(start);
                 let inset =
                     px((diagram.source.indent * 18 + quote.map_or(0, |q| q.depth * 14)) as f32)
@@ -287,6 +293,7 @@ impl TextLayout {
                 .ok()
                 .map(|i| &display.tables[i])
             {
+                display.checked_layout_advance(start, table.range.end)?;
                 let quote = display.quote_at(start);
                 let inset = px((table.source.inset + quote.map_or(0, |q| q.depth * 14)) as f32)
                     .max(px(quote.map_or(0, |q| q.inset) as f32));
@@ -322,7 +329,7 @@ impl TextLayout {
                                 theme::TABLE,
                                 (cell_width - px(24. + reserve)).max(px(4.)),
                                 window,
-                            ) {
+                            )? {
                                 let height = layout.shaped.size(layout.line_height).height;
                                 lines.push(Line {
                                     shaped: layout.shaped,
@@ -424,7 +431,7 @@ impl TextLayout {
                     })
                 .max(px(40.)),
                 window,
-            ) {
+            )? {
                 let height = layout.shaped.size(layout.line_height).height;
                 lines.push(Line {
                     shaped: layout.shaped,
@@ -620,7 +627,7 @@ impl TextLayout {
                     Some((i, first.top, last.top + last.line_height))
                 }),
         );
-        Self {
+        Ok(Self {
             hit: crate::hit_index::HitIndex::new(
                 rows.iter()
                     .enumerate()
@@ -642,6 +649,24 @@ impl TextLayout {
             rows: Arc::new(rows),
             cells: table_cells,
             quote_panels,
+        })
+    }
+
+    /// A failed recovery never publishes partial geometry. No text can be hit
+    /// until a later successful frame replaces this inert placeholder.
+    pub(super) fn unavailable(editor: &Editor, key: LayoutKey) -> Self {
+        Self {
+            key,
+            display: editor.viewport.display.clone(),
+            hit: Default::default(),
+            index: Default::default(),
+            visibility: Default::default(),
+            lines: Default::default(),
+            rows: Default::default(),
+            cells: Vec::new(),
+            height: px(0.),
+            body_height: px(0.),
+            quote_panels: Vec::new(),
         }
     }
 }

@@ -59,6 +59,9 @@ license.workspace = true
 default-run = "ryne"
 description = "A native single-document Markdown editor"
 
+[features]
+p1-metrics = ["ryne-ui/p1-metrics"]
+
 [[bin]]
 name = "ryne"
 path = "src/main.rs"

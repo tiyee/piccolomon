@@ -1,0 +1,67 @@
+[
+  {
+    "label": "architecture",
+    "command": [
+      "python3",
+      "scripts/check-architecture.py"
+    ],
+    "expected": 0,
+    "exit_code": 0,
+    "seconds": 0.14035735401557758,
+    "environment": {}
+  },
+  {
+    "label": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--check"
+    ],
+    "expected": 0,
+    "exit_code": 0,
+    "seconds": 1.675853350025136,
+    "environment": {}
+  },
+  {
+    "label": "diff",
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "expected": 0,
+    "exit_code": 0,
+    "seconds": 0.04109909402905032,
+    "environment": {}
+  },
+  {
+    "label": "tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked"
+    ],
+    "expected": 0,
+    "exit_code": 0,
+    "seconds": 54.131827609962784,
+    "environment": {}
+  },
+  {
+    "label": "clippy",
+    "command": [
+      "/usr/local/opt/rust/bin/cargo-clippy",
+      "clippy",
+      "--locked",
+      "--all-targets",
+      "--features",
+      "p1-metrics",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "expected": 0,
+    "exit_code": 0,
+    "seconds": 6.588522765028756,
+    "environment": {}
+  }
+]

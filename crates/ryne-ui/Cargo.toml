@@ -5,6 +5,9 @@ edition.workspace = true
 publish.workspace = true
 license.workspace = true
 
+[features]
+p1-metrics = ["ryne-syntax/query-metrics"]
+
 [dependencies]
 ryne-session.workspace = true
 ryne-core.workspace = true

@@ -7,11 +7,32 @@ use ryne_projection::{DiagramOutcome, DiagramViewInput};
 use std::{collections::HashMap, ops::Range, sync::Arc};
 const MAX_BLOCKS: usize = 32;
 const MAX_BYTES: usize = 32 * 1024 * 1024;
+#[derive(Clone)]
+struct RendererIdentity(Arc<dyn DiagramRenderer>);
+impl std::fmt::Debug for RendererIdentity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("RendererIdentity")
+            .field(&(Arc::as_ptr(&self.0) as *const ()))
+            .finish()
+    }
+}
+impl PartialEq for RendererIdentity {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+impl Eq for RendererIdentity {}
+impl std::hash::Hash for RendererIdentity {
+    fn hash<H: std::hash::Hasher>(&self, h: &mut H) {
+        (Arc::as_ptr(&self.0) as *const ()).hash(h);
+    }
+}
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct InputKey {
     pub feature: &'static str,
     pub generation: u64,
     pub source: String,
+    renderer: RendererIdentity,
 }
 pub struct JobRequest {
     pub id: u64,
@@ -101,6 +122,7 @@ impl JobHost {
             };
             let key = InputKey {
                 feature: preview.feature,
+                renderer: RendererIdentity(preview.renderer.clone()),
                 generation,
                 source,
             };
@@ -179,21 +201,7 @@ impl JobHost {
             .checkpoint()
             .map_err(str::to_owned)
             .and(result.result)
-            .and_then(|resource| {
-                let pixels = u64::from(resource.pixel_width) * u64::from(resource.pixel_height);
-                if pixels == 0
-                    || pixels > 2_000_000
-                    || pixels * 4 != resource.pixels.len() as u64
-                    || resource.bytes != resource.pixels.len()
-                    || ![resource.width, resource.height]
-                        .iter()
-                        .all(|v| v.is_finite() && *v > 0. && *v <= 4096.)
-                {
-                    Err("图表资源无效，保留源码".into())
-                } else {
-                    Ok(resource)
-                }
-            });
+            .and_then(ryne_extensions::validate_diagram);
         // A resource is content-addressed; a later refresh binds it to current ranges.
         let used: usize = self
             .cache
