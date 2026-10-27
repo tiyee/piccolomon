@@ -70,9 +70,7 @@ impl Registrar {
         if !matches!(contribution.slot, Slot::Ui(_)) {
             return Err("incompatible contribution slot".into());
         }
-        if self.controls.insert(contribution.id, provider).is_some() {
-            return Err("duplicate executable contribution".into());
-        }
+        insert_provider(&mut self.controls, contribution.id, provider)?;
         self.contribute(contribution);
         Ok(())
     }
@@ -84,9 +82,7 @@ impl Registrar {
         if !matches!(contribution.slot, Slot::Renderer(_)) {
             return Err("incompatible contribution slot".into());
         }
-        if self.previews.insert(contribution.id, provider).is_some() {
-            return Err("duplicate executable contribution".into());
-        }
+        insert_provider(&mut self.previews, contribution.id, provider)?;
         self.contribute(contribution);
         Ok(())
     }
@@ -98,9 +94,7 @@ impl Registrar {
         if contribution.slot != Slot::Ui("block-menu") || !contribution.exclusive {
             return Err("incompatible contribution slot".into());
         }
-        if self.block_ui.insert(contribution.id, provider).is_some() {
-            return Err("duplicate executable contribution".into());
-        }
+        insert_provider(&mut self.block_ui, contribution.id, provider)?;
         self.contribute(contribution);
         Ok(())
     }
@@ -112,9 +106,7 @@ impl Registrar {
         if !matches!(contribution.slot, Slot::InsertTemplate(_)) {
             return Err("incompatible contribution slot".into());
         }
-        if self.templates.insert(contribution.id, provider).is_some() {
-            return Err("duplicate executable contribution".into());
-        }
+        insert_provider(&mut self.templates, contribution.id, provider)?;
         self.contribute(contribution);
         Ok(())
     }
@@ -126,9 +118,7 @@ impl Registrar {
         if !matches!(contribution.slot, Slot::Command(_) | Slot::InputRule(_)) {
             return Err("command handler requires a command or input slot".into());
         }
-        if self.commands.insert(contribution.id, handler).is_some() {
-            return Err("duplicate executable contribution".into());
-        }
+        insert_provider(&mut self.commands, contribution.id, handler)?;
         self.contribute(contribution);
         Ok(())
     }
@@ -140,17 +130,32 @@ impl Registrar {
         if contribution.slot != Slot::PrimaryPresentation("document") || !contribution.exclusive {
             return Err("document presentation must be exclusive".into());
         }
-        if self
-            .presentations
-            .insert(contribution.id, provider)
-            .is_some()
-        {
-            return Err("duplicate executable contribution".into());
-        }
+        insert_provider(&mut self.presentations, contribution.id, provider)?;
         self.contribute(contribution);
         Ok(())
     }
 }
+/// A failed optional registration must leave the earlier executable intact.
+fn insert_provider<T>(
+    providers: &mut BTreeMap<&'static str, T>,
+    id: &'static str,
+    provider: T,
+) -> Result<(), String> {
+    match providers.entry(id) {
+        std::collections::btree_map::Entry::Vacant(entry) => {
+            entry.insert(provider);
+            Ok(())
+        }
+        std::collections::btree_map::Entry::Occupied(_) => {
+            Err("duplicate executable contribution".into())
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "registration_tests.rs"]
+mod registration_tests;
+
 pub trait FeatureModule {
     fn manifest(&self) -> FeatureManifest;
     fn register(&self, registrar: &mut Registrar) -> Result<(), String>;

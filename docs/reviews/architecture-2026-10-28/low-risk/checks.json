@@ -1,0 +1,50 @@
+[
+  {
+    "name": "architecture",
+    "command": [
+      "python3",
+      "scripts/check-architecture.py"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "format",
+    "command": [
+      "cargo",
+      "fmt",
+      "--check"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "diff",
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "tests",
+    "command": [
+      "cargo",
+      "test",
+      "--locked"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "clippy",
+    "command": [
+      "/usr/local/opt/rust/bin/cargo-clippy",
+      "clippy",
+      "--locked",
+      "--all-targets",
+      "--",
+      "-D",
+      "warnings"
+    ],
+    "exit_code": 0
+  }
+]

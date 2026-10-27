@@ -357,6 +357,11 @@ Checked layout failures retain editable literal source with matching input geome
 Block lookup shares snapshot indexes; stable focus and menu frames reuse their semantic results.
 See [P1 repairs and query measurements](docs/37_P1_Repair_Implementation.md).
 
+Rejected duplicate registrations preserve the original providers. Asynchronous saves
+turn file-service panics into failure receipts so the serial queue can recover.
+Formula wrapping assigns objects in order, and ordinary vertical navigation reuses
+the layout's row index. See [low-risk architecture repairs](docs/38_Low_Risk_Architecture_Repairs.md).
+
 Static feature modules now register executable contributions together. Block presentation components share one source-map composer; UI interaction state is grouped by responsibility. PDF menus are built from registered adapter descriptions. See [component and adapter boundaries](docs/28_Static_Feature_Components.md).
 
 The application uses nine private Rust workspace packages, all with the `ryne-`

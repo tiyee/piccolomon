@@ -1,0 +1,7 @@
+history validator_calls_for_undo_and_redo=0
+identity_panic entire_control_batch_failed=true
+preview code_blocks=100 projection_cache_hits=10/10 provider_calls=1000
+preview code_blocks=1000 projection_cache_hits=10/10 provider_calls=10000
+duplicate_registration returned_error=true
+duplicate_registration executed_handler=2
+file_port panicked=true saving=true next_request_dispatched=false

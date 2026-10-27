@@ -132,7 +132,10 @@ impl Editor {
             let mut p1_state = crate::p1_smoke::State::default();
             let p1_only=std::env::var_os("RYNE_SMOKE_P1_REPAIR_ONLY").is_some();
             let third_batch_only=std::env::var_os("RYNE_SMOKE_THIRD_BATCH_ONLY").is_some();
-            let stages: Vec<u16> = if p1_only {
+            let low_risk_only=std::env::var_os("RYNE_SMOKE_LOW_RISK_ONLY").is_some();
+            let stages: Vec<u16> = if low_risk_only {
+                std::iter::once(0).chain(372..374).collect()
+            } else if p1_only {
                 std::iter::once(0).chain(295..372).collect()
             } else if third_batch_only {
                 std::iter::once(0).chain(287..296).collect()
@@ -145,7 +148,7 @@ impl Editor {
             } else if code_language_only {
                 std::iter::once(0).chain(259..267).collect()
             } else {
-                (0..373).collect()
+                (0..375).collect()
             };
             for stage in stages {
                 cx.background_executor()
@@ -2902,6 +2905,16 @@ impl Editor {
                         370 => {
                             println!("P1 repair GUI passed: guarded table/formula layout recovery, temporary IME mapping, source/local suppression, full-snapshot block invalidation, and 20 redraws each with menu open, menu closed and no block; unchanged source/history/projection/controls/layout");
                             if p1_only {cx.quit();return Ok(());}
+                        }
+                        371 => {
+                            editor.document=editor.document.fork(&crate::low_risk_smoke::sample());
+                            editor.viewport.scroll=px(0.);
+                            editor.refresh(cx);
+                        }
+                        372 => {
+                            crate::low_risk_smoke::verify(editor,&geometry,window)?;
+                            println!("Low-risk layout checks passed: 180 formulas in one Unicode paragraph at four widths; ordered formula placement/metrics; ordinary vertical navigation matches linear oracle at wrap affinities and table boundaries; source/history unchanged");
+                            if low_risk_only {cx.quit();return Ok(());}
                         }
                         _ => {
                             if performance_only {

@@ -1,0 +1,41 @@
+[
+  {
+    "name": "special-smoke",
+    "command": [
+      "target/debug/ryne",
+      "--smoke-test"
+    ],
+    "environment": {
+      "RYNE_SMOKE_LOW_RISK_ONLY": "1"
+    },
+    "exit_code": 0
+  },
+  {
+    "name": "probe-after",
+    "command": [
+      "python3",
+      "docs/reviews/architecture-2026-10-28/run.py"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "full-smoke",
+    "command": [
+      "cargo",
+      "run",
+      "--locked",
+      "--",
+      "--smoke-test"
+    ],
+    "exit_code": 0
+  },
+  {
+    "name": "failure-smoke",
+    "command": [
+      "target/debug/ryne",
+      "--smoke-test-failure"
+    ],
+    "exit_code": 1,
+    "expected_exit_code": 1
+  }
+]

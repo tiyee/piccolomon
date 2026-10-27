@@ -255,6 +255,75 @@ fn failed_and_foreign_save_receipts_cannot_change_the_baseline() {
 }
 
 #[test]
+fn panicking_save_returns_failure_and_allows_queued_or_retried_writes() {
+    struct PanicsOnce {
+        calls: AtomicUsize,
+        writes: Mutex<Vec<String>>,
+    }
+    impl FileStore for PanicsOnce {
+        fn read(&self, _: &Path) -> std::io::Result<String> {
+            unreachable!("save-only fixture")
+        }
+        fn write(&self, _: &Path, source: &Source) -> std::io::Result<()> {
+            if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+                panic!("injected file service failure");
+            }
+            self.writes.lock().unwrap().push(source.text().into());
+            Ok(())
+        }
+    }
+    for newline in ["\n", "\r\n", "\r"] {
+        for queued in [false, true] {
+            let store = Arc::new(PanicsOnce {
+                calls: AtomicUsize::new(0),
+                writes: Mutex::new(Vec::new()),
+            });
+            let mut injection = services();
+            injection.files = store.clone();
+            let original = format!("中😀{newline}");
+            let mut doc = EditorSession::new(&original, injection);
+            doc.insert_text(0..0, "first ").unwrap();
+            doc.files.path = Some("original.md".into());
+            let request = doc.queue_save("failed.md".into()).unwrap();
+            doc.insert_text(0..0, "latest ").unwrap();
+            if queued {
+                assert!(doc.queue_save("latest.md".into()).is_none());
+            }
+            let source = doc.source.clone();
+            let selection = doc.selection();
+            let history = (doc.history_len(false), doc.history_len(true));
+            let completion = doc.complete_save(request.run());
+            assert!(completion.accepted);
+            assert!(completion.error.as_deref().unwrap().contains("panicked"));
+            assert!(!completion.clean);
+            assert!(doc.dirty());
+            assert_eq!(doc.files.path.as_deref(), Some(Path::new("original.md")));
+            assert_eq!(doc.source.id(), source.id());
+            assert_eq!(doc.source.text(), source.text());
+            assert_eq!(doc.selection(), selection);
+            assert_eq!((doc.history_len(false), doc.history_len(true)), history);
+            assert_eq!(doc.files.saving, queued);
+            let next = if queued {
+                completion.next.unwrap()
+            } else {
+                assert!(completion.next.is_none());
+                doc.queue_save("latest.md".into()).unwrap()
+            };
+            let completed = doc.complete_save(next.run());
+            assert!(completed.accepted && completed.clean && completed.error.is_none());
+            assert!(completed.next.is_none());
+            assert!(!doc.files.saving && !doc.dirty());
+            assert_eq!(doc.files.path.as_deref(), Some(Path::new("latest.md")));
+            assert_eq!(*store.writes.lock().unwrap(), [source.text()]);
+            doc.undo(false);
+            assert!(doc.dirty());
+            doc.undo(true);
+            assert!(!doc.dirty());
+        }
+    }
+}
+
+#[test]
 fn foreign_input_range_is_rejected_even_with_a_current_planning_context() {
     let mut doc = new_document("中文");
     let other = new_document("中文");

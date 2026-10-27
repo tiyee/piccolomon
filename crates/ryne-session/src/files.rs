@@ -30,7 +30,12 @@ pub struct SaveCompletion {
 }
 impl SaveRequest {
     pub fn run(self) -> SaveReceipt {
-        let result = self.store.write(&self.path, &self.snapshot);
+        // Always return a terminal receipt so a failed service cannot strand
+        // active/saving or prevent the next queued snapshot from being written.
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.store.write(&self.path, &self.snapshot)
+        }))
+        .unwrap_or_else(|_| Err(std::io::Error::other("file write callback panicked")));
         SaveReceipt {
             id: self.id,
             snapshot: self.snapshot,

@@ -162,8 +162,18 @@ pub(super) fn shape_inline(
         boundaries.dedup();
     }
     let mut output = Vec::new();
+    // Ordered rows and formula objects share one cursor; each formula is
+    // considered only when its containing row is reached.
+    let mut formula_cursor = 0;
     for pair in boundaries.windows(2) {
         let row = pair[0]..pair[1];
+        let first_formula = formula_cursor;
+        while formulas
+            .get(formula_cursor)
+            .is_some_and(|f| f.display.end <= row.end)
+        {
+            formula_cursor += 1;
+        }
         let shaped = window
             .text_system()
             .shape_text(
@@ -203,9 +213,9 @@ pub(super) fn shape_inline(
                 });
                 *x += text.width;
             };
-        for formula in formulas
+        for formula in formulas[first_formula..formula_cursor]
             .iter()
-            .filter(|f| row.start <= f.display.start && f.display.end <= row.end)
+            .filter(|f| row.start <= f.display.start)
         {
             append_text(offset..formula.display.start, &mut pieces, &mut x);
             let width = px(formula.formula.width * font_size);
@@ -453,13 +463,16 @@ impl Geometry {
         Some(origin)
     }
     pub(super) fn row_for(&self, offset: usize, affinity: Affinity) -> Option<&VisualRow> {
+        self.rows.get(self.row_index_for(offset, affinity)?)
+    }
+    fn row_index_for(&self, offset: usize, affinity: Affinity) -> Option<usize> {
         let candidates = self.text_layout.index.visual_rows.at(offset);
         let id = if affinity == Affinity::Upstream {
             candidates.first()
         } else {
             candidates.last()
         }?;
-        self.rows.get(*id)
+        self.rows.get(*id).map(|_| *id)
     }
     pub(super) fn line_height(&self, offset: usize) -> Pixels {
         self.row_for(offset, Affinity::Downstream)
@@ -688,9 +701,10 @@ impl Geometry {
         x: Pixels,
         down: bool,
     ) -> (usize, Affinity) {
-        let Some(row) = self.row_for(offset, affinity) else {
+        let Some(index) = self.row_index_for(offset, affinity) else {
             return (offset, affinity);
         };
+        let row = &self.rows[index];
         if let Some(cell) = self.lines[row.line].cell {
             let mut same = self
                 .rows
@@ -731,13 +745,6 @@ impl Geometry {
                 ))
             });
         }
-        let Some(index) = self
-            .rows
-            .iter()
-            .position(|candidate| std::ptr::eq(candidate, row))
-        else {
-            return (offset, affinity);
-        };
         let target = if down {
             self.rows.get(index + 1)
         } else {

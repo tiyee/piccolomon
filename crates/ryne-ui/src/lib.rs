@@ -15,6 +15,7 @@ mod layout;
 mod layout_frame;
 #[cfg(test)]
 mod layout_guard_tests;
+mod low_risk_smoke;
 mod math_fonts;
 mod menus;
 mod p1_smoke;
