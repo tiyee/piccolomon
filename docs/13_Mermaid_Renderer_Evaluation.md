@@ -1,41 +1,72 @@
 # Mermaid 原生渲染器评估
 
 评估日期：2026-10-12。对象是 Ryne 的 Rust / GPUI 0.2.2 桌面编辑器。
-本文保留最初的 0.8.0 选型实验与记录；随后已用兼容的 **Merman 0.7.0** 接入编辑器。
-以下“候选对比”和“可复现实测”仍是原始独立实验，不将其结果冒充为 0.7.0 的测试。
+本文保留最初的 0.8.0 选型实验与记录；编辑器最初接入 Merman 0.7.0，
+2026-10-26 升级至 **Merman 0.9.2**。
+以下“候选对比”和“可复现实测”仍是原始独立实验，不将其结果冒充为正式应用新版的测试。
 
 ## 当前接入
 
-主应用锁定 `merman = 0.7.0`，仅启用 `render`，使用严格解析、语义模型检查、
+主应用锁定 `merman = 0.9.2`，关闭默认 features，仅启用 `all-diagrams`、`svg` 和
+`layout-cytoscape`。使用严格解析、语义模型检查、
 resvg-safe SVG 和 `resvg 0.45.1`，转换为 GPUI 所需的 BGRA 彩色 `RenderImage`。
 没有引入浏览器、Node.js、外部图表服务或第二份可编辑正文。
 
-未采用原推荐版本 0.8.0 的原因是实际依赖冲突：Merman 0.8.0 的 core/render 要求
+最初未采用原推荐版本 0.8.0 的原因是实际依赖冲突：Merman 0.8.0 的 core/render 要求
 `unicode-segmentation ^1.13.3`，而 `editable_markdown_parser 0.0.4` 精确要求
-`=1.12.0`，Cargo 无法在同一依赖图中满足它们。0.7.0 可兼容当前依赖；GPUI 0.2.2、
-解析库 0.0.4、grapheme 库 1.12.0 均保留。数学渲染当时保留 RaTeX 0.1.14，
-后续已独立切换为 Formulary（见 `docs/15_Formulary_Renderer_Prototype.md`），不影响此 Mermaid 依赖结论。
+`=1.12.0`，当时 Cargo 无法在同一依赖图中满足它们，因此使用 0.7.0。
+2026-10-26 主应用升级为解析库 0.0.5、`unicode-segmentation =1.13.3` 和
+`pulldown-cmark =0.13.5`，原 Unicode 依赖冲突已解除，GPUI 仍为 0.2.2。
+正式应用通过 `Renderer::prepare_semantic` 保留一次操作的受控解析与语义检查，
+使用 `ManagedSemanticJson::as_value()` 检查兼容 JSON 后，再消费为类型化 SVG 请求。
+宿主默认选择 `layout: dagre`、`theme: default` 和 `look: classic`，源码显式配置仍可覆盖；
+没有编译 ELK 或第二个数学引擎。新版修复与 Unicode 换行仍可能改变布局，不保证旧版像素一致。
+数学渲染已独立切换为 Formulary（见 `docs/15_Formulary_Renderer_Prototype.md`）。
 
-`src/mermaid.rs` 提取 AST 代码行、渲染并缓存结果；`src/presentation.rs` 用原子块
-映射完整围栏源码；`src/editor.rs` 调度后台工作、布局、彩色绘制与进入源码的交互。
+`ryne-features/src/diagrams.rs` 提取 AST 代码行，`ryne-services/src/mermaid.rs` 渲染，
+`ryne-session/src/jobs.rs` 管理缓存和串行任务；呈现与 UI 用原子块映射完整围栏源码，
+提供彩色绘制与进入源码的交互。
 缓存只接纳同一正文的结果；源码修改、切换文档或组合输入后的布局重新使用当前解析范围。
 拖选期间保留当前已折叠块，组合输入按临时源码范围映射，不提交渲染事务。
 
 限制为单块 32 KiB、256 行、括号嵌套 32、语义 JSON 2048 个值/深度 32、标签总字节
 128 KiB、SVG 2 MiB、宽高 4096、2x 栅格图 200 万像素，每文档最多尝试 32 块、
-图像缓存 32 MiB、一个后台任务。取消与两秒截止检查在阶段之间进行；0.7.0 不提供
-布局内部的可中断操作，所以两秒不是硬执行时间上限。
+图像缓存 32 MiB、一个后台任务。新版操作策略在解析/布局前检查模型和源码限额，
+布局采用有界的 interactive 工作预算，输出 SVG 仍限制 2 MiB。
+宿主取消通过只在当前渲染期间存活的通用回调转发到 `OperationControl`，
+将宿主剩余截止时间传入同一次操作；取消与两秒截止检查覆盖后端内部的协作式检查点，
+不能强制中断不返回的同步回调。栅格化和结果发布仍保留宿主检查。
 
 预览点击/方向键进入字面代码，Escape 返回预览；跨块选区包含原始围栏，边界删除先
 展开代码。局部源码保留完整容器上下文，错误时保留代码与简短诊断。
 没有二维节点编辑、缩放工具或导出 UI；图表字体使用本机系统字体。
 
-应用接入后验证：`cargo fmt --check`、`cargo test --locked`（61 项）及
+最初 0.7.0 接入后的历史验证：`cargo fmt --check`、`cargo test --locked`（61 项）及
 `cargo clippy --locked --all-targets -- -D warnings` 均通过。真实窗口
 `--smoke-test` 覆盖彩色图像绘制、几何命中、点击与方向键展开、字面代码编辑、
 IME 临时范围与撤销、跨块替换、嵌套局部源码、错误回退及 CRLF 保存；
 `--smoke-test-failure` 按预期以退出码 1 正常结束。这不等同于完整人工鼠标、
 键盘及各输入法候选窗口验收。已通过打包脚本更新本地 debug 应用包。
+
+## 2026-10-26 升级验收
+
+使用已发布的解析库 0.0.5、Unicode 字素库 1.13.3、pulldown-cmark 0.13.5 和
+Merman 0.9.2，不修改上游源码。GPUI、Tree-sitter、Formulary/math-core 及两套
+usvg/resvg 版本保持不变，锁文件不包含 ELK 或 RaTeX 布局后端。
+
+macOS、Rust 1.99.1 下，架构检查、`cargo fmt --check`、默认并行的
+`cargo test --locked`（250 项）、`cargo clippy --locked --all-targets -- -D warnings`
+及完整真实窗口 `--smoke-test` 均通过。`--smoke-test-failure` 按预期正常退出 1。
+新增回归覆盖 Unicode 17 组合字符在列表/引用中的前后删除、原始换行、撤销重做、
+IME 预编辑与单事务确认，以及取消回调的竞争注册、生命周期、重复调用和异常隔离。
+
+首次窗口检查在代码块菜单处失败，诊断重跑未复现；冒烟现已使用与原生输入相同的
+完整几何有效性判定，补充菜单即时诊断后再次完整通过。并行复核还暴露自动语言识别
+测试将首次高亮当成强保证的问题；自动模式现验证 50 ms 预算内合法回退和源码保真，
+显式 Rust 模式仍要求关键字高亮，运行时预算未调整。
+
+这些检查不代表 Windows 实机、完整人工鼠标键盘/各输入法候选窗口、全图表语法或
+渲染质量与性能对照验收；没有据此宣称与旧版像素一致或获得确定加速。
 
 ## 最初选型建议
 

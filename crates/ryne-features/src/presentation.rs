@@ -33,7 +33,7 @@ fn inline(kind: &NodeKind) -> bool {
     )
 }
 
-fn editable_inline(parse: &ParseSnapshot, id: usize, tables: &[table::Table]) -> bool {
+fn editable_inline(parse: &ParseSnapshot, id: usize) -> bool {
     if !inline(&parse.nodes[id].kind) {
         return false;
     }
@@ -46,9 +46,9 @@ fn editable_inline(parse: &ParseSnapshot, id: usize, tables: &[table::Table]) ->
             return false;
         }
         if matches!(parse.nodes[p].kind, NodeKind::Table(_))
-            && !tables
-                .iter()
-                .any(|t| t.range.contains(&parse.nodes[id].envelope.start))
+            && ryne_syntax::SemanticQuery::new(parse)
+                .table_containing(parse.nodes[id].envelope.start)
+                .is_none()
         {
             return false;
         }
@@ -57,14 +57,11 @@ fn editable_inline(parse: &ParseSnapshot, id: usize, tables: &[table::Table]) ->
     inline(&parse.nodes[id].kind)
 }
 
-fn inline_range(parse: &ParseSnapshot, id: usize, tables: &[table::Table]) -> Range<usize> {
+fn inline_range(parse: &ParseSnapshot, id: usize) -> Range<usize> {
     let node = &parse.nodes[id];
     if matches!(node.kind, NodeKind::Code(_))
-        && let Some(cell) = tables
-            .iter()
-            .flat_map(|t| &t.rows)
-            .flat_map(|r| &r.cells)
-            .find(|cell| cell.content.contains(&node.envelope.start))
+        && let Some(cell) =
+            ryne_syntax::SemanticQuery::new(parse).cell_containing(node.envelope.start)
     {
         let text = parse.source().text();
         let width = text[node.envelope.start..cell.content.end]
@@ -99,7 +96,6 @@ pub fn active_window(parse: &ParseSnapshot, caret: usize) -> Option<Range<usize>
     if candidates.is_empty() {
         return None;
     }
-    let tables = table::cached(parse);
     let all_formulas = ryne_syntax::math::cached(parse);
     let first = all_formulas.partition_point(|f| f.range.end <= caret);
     let formulas = &all_formulas[first..all_formulas.partition_point(|f| f.range.start < caret)];
@@ -107,15 +103,15 @@ pub fn active_window(parse: &ParseSnapshot, caret: usize) -> Option<Range<usize>
         .into_iter()
         .map(|id| (id, &parse.nodes[id]))
         .filter(|(id, _)| {
-            let range = inline_range(parse, *id, tables);
-            editable_inline(parse, *id, tables)
+            let range = inline_range(parse, *id);
+            editable_inline(parse, *id)
                 && range.start < caret
                 && caret < range.end
                 && !formulas
                     .iter()
                     .any(|f| f.range.start <= range.start && range.end <= f.range.end)
         })
-        .map(|(id, _)| inline_range(parse, id, tables))
+        .map(|(id, _)| inline_range(parse, id))
         .chain(
             formulas
                 .iter()
@@ -302,14 +298,14 @@ impl PresentationBuilder<'_> {
             }
         }
         for (id, node) in parse.nodes.iter().enumerate() {
-            if !editable_inline(parse, id, all_tables)
+            if !editable_inline(parse, id)
                 || code_blocks
                     .get(code_blocks.partition_point(|b| b.range.end <= node.envelope.start))
                     .is_some_and(|b| b.range.contains(&node.envelope.start))
             {
                 continue;
             }
-            let envelope = inline_range(parse, id, all_tables);
+            let envelope = inline_range(parse, id);
             if formulas
                 .get(formulas.partition_point(|f| f.range.end < envelope.end))
                 .is_some_and(|f| f.range.start <= envelope.start && envelope.end <= f.range.end)
@@ -1432,6 +1428,32 @@ fn build_with_diagrams(
 
 pub(crate) struct MarkdownPresentation;
 impl ryne_extensions::PresentationProvider for MarkdownPresentation {
+    fn cache_key(
+        &self,
+        state: &ryne_extensions::EditingState,
+        services: &ryne_extensions::FeatureServices<'_>,
+    ) -> Option<ryne_extensions::PresentationKey> {
+        let mut key = ryne_extensions::PresentationKey::for_state(
+            state,
+            ryne_extensions::CacheDependencies {
+                visibility: !state.source_mode,
+                generation: services.formulas.presentation_generation()?,
+                ..Default::default()
+            },
+        );
+        key.block = (!state.source_mode)
+            .then(|| {
+                crate::commands::Planner {
+                    state: state.clone(),
+                    prepared: None,
+                    renderer: services.formulas,
+                    mapping: None,
+                }
+                .block_window()
+            })
+            .flatten();
+        Some(key)
+    }
     fn display(
         &self,
         state: &ryne_extensions::EditingState,
@@ -1443,6 +1465,7 @@ impl ryne_extensions::PresentationProvider for MarkdownPresentation {
             state: state.clone(),
             prepared: None,
             renderer: services.formulas,
+            mapping: None,
         }
         .block_window();
         PresentationBuilder {

@@ -44,36 +44,3 @@ impl ryne_extensions::PdfExporter for KrillaPdfExporter {
             .map_err(|e| format!("Krilla PDF export failed: {e:?}"))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use ryne_extensions::PdfExporter;
-
-    #[test]
-    fn empty_document_exports_one_a4_page() {
-        let bytes = KrillaPdfExporter.export(&Display::default()).unwrap();
-        let structure = String::from_utf8_lossy(&bytes)
-            .split_ascii_whitespace()
-            .collect::<String>();
-        assert_eq!(structure.matches("/Type/Page/").count(), 1);
-        assert!(structure.contains("/MediaBox[00595.28841.89]"));
-    }
-
-    #[test]
-    fn invalid_content_and_source_budget_fail_before_encoding() {
-        for (text, message) in [
-            ("visible\0hidden".into(), "control character"),
-            ("a".repeat(4 * 1024 * 1024 + 1), "4 MiB"),
-        ] {
-            let display = Display {
-                text,
-                ..Default::default()
-            };
-            assert!(KrillaPdfExporter
-                .export(&display)
-                .unwrap_err()
-                .contains(message));
-        }
-    }
-}

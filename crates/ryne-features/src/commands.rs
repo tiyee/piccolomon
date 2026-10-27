@@ -17,8 +17,10 @@ mod table_rules;
 use crate::presentation;
 use editable_markdown_parser::{Affinity, Edit, Error, NodeKind, Session, Source};
 use ryne_core::PreparedEdit;
-use ryne_extensions::{EditingState, FormulaRenderer, InsertBlock};
-use ryne_projection::Display;
+use ryne_extensions::{
+    CommandDisplayCache, EditingState, FormulaRenderer, InsertBlock, PresentationKey,
+};
+use ryne_projection::IndexedDisplay;
 use ryne_syntax::ParseSnapshot;
 use ryne_syntax::{block, code_block, list, table};
 use std::ops::Range;
@@ -26,21 +28,44 @@ pub(crate) struct Planner<'a> {
     pub state: EditingState,
     pub prepared: Option<PreparedEdit>,
     pub renderer: &'a dyn FormulaRenderer,
+    pub mapping: Option<&'a CommandDisplayCache>,
 }
 impl Planner<'_> {
     pub fn selection(&self) -> Range<usize> {
         self.state.selection()
     }
-    pub fn display(&self) -> Display {
+    pub fn display(&self) -> std::sync::Arc<IndexedDisplay> {
         let block = self.block_window();
-        presentation::build_with_heading_using(
-            &self.state.parse,
-            self.state.reveal.as_ref().map(|s| &s.range),
-            self.state.source_mode,
-            self.state.heading_reveal.as_ref().map(|s| &s.range),
-            block.as_ref(),
-            self.renderer,
-        )
+        let key = PresentationKey {
+            document: self.state.source.id(),
+            source_mode: self.state.source_mode,
+            inline: self.state.reveal.as_ref().map(|s| s.range.clone()),
+            heading: self.state.heading_reveal.as_ref().map(|s| s.range.clone()),
+            block: block.clone(),
+            selection: None,
+            closers: None,
+            generation: ryne_extensions::catch_callback("formulas", "planning generation", || {
+                self.renderer.presentation_generation()
+            })
+            .ok()
+            .flatten()
+            .unwrap_or(0),
+        };
+        let build = || {
+            presentation::build_with_heading_using(
+                &self.state.parse,
+                self.state.reveal.as_ref().map(|s| &s.range),
+                self.state.source_mode,
+                self.state.heading_reveal.as_ref().map(|s| &s.range),
+                block.as_ref(),
+                self.renderer,
+            )
+        };
+        if let Some(cache) = self.mapping {
+            cache.get_or_build(key, build)
+        } else {
+            std::sync::Arc::new(IndexedDisplay::new(build()))
+        }
     }
     fn in_block_source(&self, position: usize) -> bool {
         self.state

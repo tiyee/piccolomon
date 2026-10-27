@@ -286,6 +286,77 @@ pub(super) struct Geometry {
 }
 
 impl Geometry {
+    pub(super) fn formula_at_point(
+        &self,
+        position: Point<Pixels>,
+    ) -> Option<&presentation::MathView> {
+        let y = position.y - self.bounds.top() - px(self.page.top) + self.scroll;
+        let mut candidates = Vec::new();
+        // Include every row at this Y, including neighbouring table columns:
+        // an atomic formula may extend beyond its cell's horizontal bounds.
+        for i in self.text_layout.visibility.rows.visible(y, y) {
+            let row = &self.rows[i];
+            let first = self
+                .display
+                .formulas
+                .partition_point(|f| f.display.end < row.range.start);
+            candidates.extend(
+                (first..self.display.formulas.len())
+                    .take_while(|&i| self.display.formulas[i].display.start <= row.range.end),
+            );
+        }
+        candidates.sort_unstable();
+        candidates.dedup();
+        candidates
+            .into_iter()
+            .map(|i| &self.display.formulas[i])
+            .find(|formula| {
+                let a = self.position_with_affinity(formula.display.start, Affinity::Downstream);
+                let b = self.position_with_affinity(formula.display.end, Affinity::Upstream);
+                position.x >= a.x
+                    && position.x < b.x
+                    && position.y >= a.y
+                    && position.y < a.y + self.line_height(formula.display.start)
+            })
+    }
+    pub(super) fn hover_source(&self, position: Point<Pixels>) -> Option<usize> {
+        let y = position.y - self.bounds.top() - px(self.page.top) + self.scroll;
+        if let Some(source) = self
+            .text_layout
+            .visibility
+            .codes
+            .visible(y, y)
+            .into_iter()
+            .find_map(|i| {
+                let &(first, last) = self.text_layout.index.code_lines.get(&i)?;
+                let first = &self.lines[first];
+                let last = &self.lines[last];
+                (first.top - px(32.) <= y
+                    && y < last.top + last.shaped.size(last.line_height).height + px(12.))
+                .then_some(self.display.code_blocks[i].source.anchor)
+            })
+        {
+            return Some(source);
+        }
+        let line = self
+            .text_layout
+            .visibility
+            .lines
+            .visible(y, y)
+            .into_iter()
+            .map(|i| &self.lines[i])
+            .find(|line| {
+                line.top <= y && y < line.top + line.shaped.size(line.line_height).height
+            })?;
+        Some(if let Some(i) = line.diagram {
+            self.display.diagrams[i].source.anchor
+        } else if let Some(i) = line.code {
+            self.display.code_blocks[i].source.anchor
+        } else {
+            let (hit, affinity) = self.hit_caret(position);
+            self.display.source_at(hit, affinity)
+        })
+    }
     pub(super) fn is_current(&self, editor: &Editor) -> bool {
         self.snapshot == editor.document.source.id()
             // A cancelled preedit can return to the exact same projection before
@@ -326,7 +397,8 @@ impl Geometry {
             .iter()
             .position(|b| b.source.range == block.range)
         {
-            let first = self.lines.iter().find(|line| line.code == Some(index))?;
+            let &(first, _) = self.text_layout.index.code_lines.get(&index)?;
+            let first = &self.lines[first];
             first_line_height = first.line_height;
             origin = self.bounds.origin
                 + point(
@@ -448,6 +520,70 @@ impl Geometry {
         Bounds::new(origin, size(px(theme::CARET_WIDTH), height))
     }
     pub(super) fn hit_caret(&self, position: Point<Pixels>) -> (usize, Affinity) {
+        let local = position
+            - self.bounds.origin
+            - point(px(self.page.left), px(self.page.top) - self.scroll);
+        let Some(first) = self.rows.first() else {
+            return (0, Affinity::Downstream);
+        };
+        let hit = self.text_layout.hit.locate(local.x, local.y, |i| {
+            let row = &self.rows[i];
+            (row.top, row.top + row.line_height)
+        });
+        if local.y < first.top && !hit.in_cell {
+            return (0, Affinity::Downstream);
+        }
+        if self
+            .rows
+            .last()
+            .is_some_and(|row| local.y >= row.top + row.line_height)
+            && !hit.in_cell
+        {
+            return (self.display.text.len(), Affinity::Upstream);
+        }
+        let row = hit.row.and_then(|i| self.rows.get(i));
+        let Some(row) = row else {
+            return (self.display.text.len(), Affinity::Upstream);
+        };
+        let line = &self.lines[row.line];
+        // GPUI's closest_index_for_x jumps to the end immediately after the
+        // last glyph's origin. Pixel rounding can therefore skip a final emoji.
+        // Compare the actual grapheme boundaries, including the row end.
+        let target = local.x - line.inset - row.align_offset + row.start_x;
+        let offset = self.display.text[row.range.clone()]
+            .grapheme_indices(true)
+            .map(|(index, _)| row.range.start + index)
+            .chain(std::iter::once(row.range.end))
+            .min_by(|a, b| {
+                let distance = |index: usize| (line.x_for_index(index - line.start) - target).abs();
+                distance(*a)
+                    .partial_cmp(&distance(*b))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .unwrap_or(row.range.start);
+        (
+            offset,
+            if offset == row.range.end {
+                Affinity::Upstream
+            } else {
+                Affinity::Downstream
+            },
+        )
+    }
+    pub(super) fn hit_candidate_count(&self, position: Point<Pixels>) -> usize {
+        let local = position
+            - self.bounds.origin
+            - point(px(self.page.left), px(self.page.top) - self.scroll);
+        self.text_layout
+            .hit
+            .locate(local.x, local.y, |i| {
+                let row = &self.rows[i];
+                (row.top, row.top + row.line_height)
+            })
+            .visited
+    }
+    #[cfg(debug_assertions)]
+    pub(super) fn hit_caret_linear(&self, position: Point<Pixels>) -> (usize, Affinity) {
         let local = position
             - self.bounds.origin
             - point(px(self.page.left), px(self.page.top) - self.scroll);

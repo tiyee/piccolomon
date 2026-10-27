@@ -46,12 +46,18 @@ pub struct EditorSession {
     composition: Option<Composition>,
     state: EditingState,
     services: SessionServices,
+    features: Arc<dyn FeatureEngine>,
     pub files: FileSession,
     pub jobs: jobs::JobHost,
     validators: Vec<Arc<dyn Validator>>,
-    observers: Vec<Arc<dyn Observer>>,
+    observers: Vec<RegisteredObserver>,
     sequence: u64,
-    pub diagnostics: Vec<Diagnostic>,
+    pub diagnostics: DiagnosticLog,
+}
+struct RegisteredObserver {
+    id: String,
+    observer: Arc<dyn Observer>,
+    enabled: bool,
 }
 // Read-only snapshot access. Only host commands and explicit view operations can
 // mutate session state; the GUI cannot replace source or parse fields.
@@ -65,19 +71,25 @@ impl EditorSession {
     pub fn new(text: &str, services: SessionServices) -> Self {
         let core = DocumentCore::new(text);
         let state = EditingState::new(core.source().clone());
-        let jobs = jobs::JobHost::default();
+        let diagnostics = DiagnosticLog::default();
+        let features = Arc::new(GuardedFeatureEngine::new(
+            services.features.clone(),
+            diagnostics.clone(),
+        ));
+        let jobs = jobs::JobHost::new(diagnostics.clone());
         Self {
             presentation_cache: Default::default(),
             core,
             composition: None,
             state,
             services,
+            features,
             files: FileSession::default(),
             jobs,
             validators: Vec::new(),
             observers: Vec::new(),
             sequence: 0,
-            diagnostics: Vec::new(),
+            diagnostics,
         }
     }
     pub fn set_source_mode(&mut self, mode: bool) {
@@ -119,7 +131,23 @@ impl EditorSession {
         self.validators.push(v)
     }
     pub fn add_observer(&mut self, o: Arc<dyn Observer>) {
-        self.observers.push(o)
+        let name = catch_callback("observer", "identity", || o.id());
+        let name = match name {
+            Ok(name) => name,
+            Err(diagnostic) => {
+                self.diagnostics.record(diagnostic);
+                return;
+            }
+        };
+        let mut name_end = name.len().min(192);
+        while !name.is_char_boundary(name_end) {
+            name_end -= 1;
+        }
+        self.observers.push(RegisteredObserver {
+            id: format!("observer:{}:{}", self.observers.len(), &name[..name_end]),
+            observer: o,
+            enabled: true,
+        });
     }
     fn notify(&mut self, kind: EventKind, origin: &'static str) {
         self.sequence += 1;
@@ -129,16 +157,14 @@ impl EditorSession {
             origin,
             kind,
         };
-        for observer in &self.observers {
-            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                observer.observe(&event, &self.state)
-            }))
-            .is_err()
-            {
-                self.diagnostics.push(Diagnostic {
-                    feature: "observer".into(),
-                    message: "observer failed after publication".into(),
+        for registration in &mut self.observers {
+            if registration.enabled
+                && let Err(diagnostic) = catch_callback(&registration.id, "observe", || {
+                    registration.observer.observe(&event, &self.state)
                 })
+            {
+                registration.enabled = false;
+                self.diagnostics.record(diagnostic);
             }
         }
     }
@@ -157,7 +183,7 @@ impl EditorSession {
             return Err("stale session snapshot".into());
         }
         let plan = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            self.services.features.plan(intent, &self.state)
+            self.features.plan(intent, &self.state)
         }))
         .map_err(|_| "feature planning failed".to_string())??;
         self.publish_plan(plan)
@@ -275,18 +301,13 @@ impl EditorSession {
         state: &EditingState,
     ) -> Result<RenderControlBatch, String> {
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            self.services.features.render_control_batch(state)
+            self.features.render_control_batch(state)
         }))
         .map_err(|_| "render control provider failed".to_string())?
     }
     pub fn record_diagnostics(&mut self, diagnostics: Vec<Diagnostic>) {
         for diagnostic in diagnostics {
-            if !self.diagnostics.contains(&diagnostic) {
-                if self.diagnostics.len() >= 64 {
-                    self.diagnostics.remove(0);
-                }
-                self.diagnostics.push(diagnostic);
-            }
+            self.diagnostics.record(diagnostic);
         }
     }
     pub fn execute_render_action(&mut self, request: &RenderActionRequest) -> Result<bool, String> {
@@ -295,9 +316,7 @@ impl EditorSession {
         }
         request.target.validate(&self.state)?;
         let plan = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            self.services
-                .features
-                .plan_render_action(&self.state, request)
+            self.features.plan_render_action(&self.state, request)
         }))
         .map_err(|_| "render action planning failed".to_string())??;
         self.publish_plan(plan)
@@ -323,7 +342,7 @@ impl EditorSession {
             .unwrap_or(false)
     }
     pub fn block_window(&self) -> Option<Range<usize>> {
-        self.services.features.block_window(&self.state)
+        self.features.block_window(&self.state)
     }
     pub fn display(&self) -> Display {
         self.project(&self.state, None, &[])
@@ -345,19 +364,18 @@ impl EditorSession {
         highlighter: Option<&mut dyn SyntaxHighlighter>,
         diagrams: &[DiagramViewInput],
     ) -> ProjectionBatch {
-        project_checked(
-            self.services.features.as_ref(),
-            state,
-            highlighter,
-            diagrams,
-        )
+        let batch = project_checked(self.features.as_ref(), state, highlighter, diagrams);
+        for diagnostic in &batch.diagnostics {
+            self.diagnostics.record(diagnostic.clone());
+        }
+        batch
     }
     pub fn diagram_views(
         &mut self,
         frozen: bool,
         folded: &[Range<usize>],
     ) -> (Vec<DiagramViewInput>, Option<jobs::JobRequest>) {
-        let inputs = self.services.features.preview_inputs(&self.state);
+        let inputs = self.features.preview_inputs(&self.state);
         self.jobs.refresh(&self.state, inputs, frozen, folded)
     }
     pub fn complete_job(&mut self, result: jobs::JobResult) {
@@ -366,14 +384,13 @@ impl EditorSession {
         }
     }
     pub fn block_ui(&self, block: &ryne_syntax::block::Block, source_open: bool) -> AdornmentSpec {
-        self.services.features.block_ui(block, source_open)
+        self.features.block_ui(block, source_open)
     }
     pub fn insert_templates(&self) -> &[(&'static str, InsertBlock)] {
-        self.services.features.insert_templates()
+        self.features.insert_templates()
     }
     pub fn preview_at_caret(&self) -> Option<Range<usize>> {
-        self.services
-            .features
+        self.features
             .preview_inputs(&self.state)
             .into_iter()
             .find(|input| input.block.range.contains(&self.head))
@@ -427,9 +444,7 @@ impl EditorSession {
         self.dispatch(EditIntent::JoinParagraphs { forward })
     }
     pub fn remove_table_boundary(&self, forward: bool) -> bool {
-        self.services
-            .features
-            .protects_table_boundary(&self.state, forward)
+        self.features.protects_table_boundary(&self.state, forward)
     }
     pub fn append_block(&mut self, template: InsertBlock) -> Result<(), String> {
         self.dispatch(EditIntent::Append { template }).map(|_| ())
@@ -468,7 +483,7 @@ impl EditorSession {
             EditIntent::RestoreHeading,
         ] {
             let planned = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                self.services.features.plan(intent, &state)
+                self.features.plan(intent, &state)
             }));
             match planned {
                 Ok(Ok(
@@ -593,3 +608,10 @@ mod format_tests;
 
 #[cfg(test)]
 mod architecture_tests;
+#[cfg(test)]
+mod first_batch_tests;
+#[cfg(test)]
+mod second_batch_tests;
+
+#[cfg(test)]
+mod third_batch_tests;

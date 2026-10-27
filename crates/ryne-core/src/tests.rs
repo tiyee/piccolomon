@@ -55,3 +55,34 @@ fn multi_edit_history_and_written_snapshot_baseline_are_atomic() {
     assert_eq!(core.source().text(), written.text());
     assert!(!core.dirty());
 }
+
+#[test]
+fn dirty_preserves_exact_bytes_through_retyping_old_receipts_and_history() {
+    for newline in ["\n", "\r\n", "\r"] {
+        let raw = format!("中😀{newline}tail");
+        let mut core = DocumentCore::new(&raw);
+        let saved = core.source().clone();
+        for text in ["TAIL", "tail"] {
+            let start = core.source().text().len() - 4;
+            let edit =
+                PreparedEdit::prepare(core.source(), vec![edit(start..start + 4, text)]).unwrap();
+            core.publish(edit, ()).unwrap();
+            assert_eq!(core.dirty(), text != "tail");
+        }
+        let newer = core.source().clone();
+        assert_ne!(newer.id(), saved.id());
+        core.mark_saved(&newer).unwrap();
+        let edit = PreparedEdit::prepare(core.source(), vec![edit(0..3, "文")]).unwrap();
+        core.publish(edit, ()).unwrap();
+        core.mark_saved(&saved).unwrap();
+        assert!(core.dirty());
+        let (edit, ()) = core.prepare_history(false).unwrap().unwrap();
+        core.publish_history(edit, false, ()).unwrap();
+        assert!(!core.dirty());
+        let (edit, ()) = core.prepare_history(true).unwrap().unwrap();
+        core.publish_history(edit, true, ()).unwrap();
+        assert!(core.dirty());
+        assert!(core.mark_saved(&Source::new(&raw)).is_err());
+        assert!(core.dirty());
+    }
+}

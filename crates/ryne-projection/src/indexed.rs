@@ -208,12 +208,20 @@ impl IndexedDisplay {
     pub fn snap(&self, offset: usize) -> usize {
         self.graphemes.snap(offset)
     }
+    /// Strict adjacent boundaries in the complete published display, including
+    /// positions inside a multi-byte character or a multi-scalar grapheme.
+    pub fn next_grapheme(&self, offset: usize) -> Option<usize> {
+        self.graphemes.after(offset.checked_add(1)?)
+    }
+    pub fn previous_grapheme(&self, offset: usize) -> Option<usize> {
+        self.graphemes.before(offset.checked_sub(1)?)
+    }
     pub fn deletion_range(&self, caret: usize, forward: bool) -> Option<Range<usize>> {
         let position = self.position_at(caret);
         let adjacent = if forward {
-            self.graphemes.after(position.checked_add(1)?)
+            self.next_grapheme(position)
         } else {
-            self.graphemes.before(position.checked_sub(1)?)
+            self.previous_grapheme(position)
         }?;
         let start = self.source_at(position.min(adjacent), Affinity::Downstream);
         let end = self.source_at(position.max(adjacent), Affinity::Upstream);
@@ -247,6 +255,33 @@ impl IndexedDisplay {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn adjacent_boundaries_match_complete_unicode_segmentation_at_every_byte() {
+        for text in [
+            String::new(),
+            "中😀e\u{301}👩‍👩‍👦🇨🇳🇫🇷\r\nend".into(),
+            format!("e{}z", "\u{301}".repeat(20000)),
+        ] {
+            let display = IndexedDisplay::new(Display::plain_source(&text));
+            let boundaries = display
+                .text
+                .grapheme_indices(true)
+                .map(|(i, _)| i)
+                .chain(std::iter::once(display.text.len()))
+                .collect::<Vec<_>>();
+            for at in 0..=display.text.len() + 1 {
+                assert_eq!(
+                    display.next_grapheme(at),
+                    boundaries.iter().copied().find(|&p| p > at)
+                );
+                assert_eq!(
+                    display.previous_grapheme(at),
+                    boundaries.iter().copied().take_while(|&p| p < at).last()
+                );
+            }
+            assert_eq!(display.next_grapheme(usize::MAX), None);
+        }
+    }
     fn slow_source(display: &Display, position: usize, affinity: Affinity) -> usize {
         if let Some(source) = display
             .quotes
@@ -329,8 +364,12 @@ mod tests {
 
     #[test]
     fn indexed_mapping_and_graphemes_match_full_scans() {
-        for text in ["", "a中😀e\u{301}👩‍👩‍👧‍👦🇨🇳\r\nb", "e\u{301}\u{301}\u{301}"]
-        {
+        for text in [
+            "",
+            "a中😀e\u{301}👩‍👩‍👧‍👦🇨🇳\r\nb",
+            "e\u{301}\u{301}\u{301}",
+            "e\u{1acf}👩‍💻\r\n中",
+        ] {
             let plain = Display::plain_source(text);
             let indexed = IndexedDisplay::new(plain.clone());
             for at in 0..=plain.text.len() + 2 {

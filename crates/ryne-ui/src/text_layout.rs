@@ -128,6 +128,7 @@ impl LayoutKey {
     }
 }
 pub(super) struct TextLayout {
+    pub hit: crate::hit_index::HitIndex,
     pub index: crate::frame_index::FrameIndex,
     pub visibility: crate::visibility::Visibility,
     pub key: LayoutKey,
@@ -620,6 +621,11 @@ impl TextLayout {
                 }),
         );
         Self {
+            hit: crate::hit_index::HitIndex::new(
+                rows.iter()
+                    .enumerate()
+                    .map(|(i, r)| (i, r.top, r.top + r.line_height, lines[r.line].cell)),
+            ),
             index,
             visibility,
             body_height: top,

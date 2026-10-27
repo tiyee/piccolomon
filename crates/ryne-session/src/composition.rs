@@ -185,7 +185,7 @@ impl EditorSession {
             origin: InputOrigin::Ime,
         };
         let mut plan = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            self.services.features.plan(intent, &self.state)
+            self.features.plan(intent, &self.state)
         }))
         .map_err(|_| "composition planning failed".to_string())??;
         if let Some(caret) = caret {

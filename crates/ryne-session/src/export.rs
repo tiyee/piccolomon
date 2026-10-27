@@ -9,10 +9,9 @@ impl EditorSession {
         ExportSnapshot {
             source: self.source.clone(),
             features: self
-                .services
                 .features
                 .snapshot()
-                .unwrap_or_else(|| self.services.features.clone()),
+                .unwrap_or_else(|| self.features.clone()),
         }
     }
 }
@@ -50,6 +49,96 @@ impl ExportSnapshot {
 mod tests {
     use super::*;
     use ryne_extensions::{FormulaRenderer, MathFont};
+
+    #[test]
+    fn detached_export_survives_later_edits_without_touching_history_or_preedit() {
+        for newline in ["\n", "\r\n", "\r"] {
+            let original = "# Original\n\n**bold** $x^2$\n".replace('\n', newline);
+            let committed = "# Changed\n\nnew committed body\n".replace('\n', newline);
+            let mut document = super::super::regression_tests::new_document(&original);
+            document.set_source_mode(true);
+            document.set_block_source(Some(0..original.len()));
+            document.files.path = Some("document.md".into());
+            let snapshot = document.export_snapshot();
+            document.replace(0..original.len(), &committed).unwrap();
+            document.select(committed.len(), false, false);
+            let current_snapshot = document.export_snapshot();
+            document.update_composition(None, "未确认😀", None).unwrap();
+            let source = document.source.clone();
+            let selection = document.selection();
+            let preedit = document.composition().cloned();
+            let history = (document.history_len(false), document.history_len(true));
+            let block_source = document.block_source.as_ref().map(|s| s.range.clone());
+
+            let original_display = snapshot.render().unwrap();
+            let current_display = current_snapshot.render().unwrap();
+            assert!(original_display.text.starts_with("Original\n"));
+            assert_eq!(original_display.formulas.len(), 1);
+            assert!(!original_display.text.contains("Changed"));
+            assert!(current_display.text.starts_with("Changed\n"));
+            assert!(current_display.text.contains("new committed body"));
+            assert!(!current_display.text.contains("未确认"));
+            for exporter in [
+                &ryne_services::pdf::PdfExporter as &dyn ryne_extensions::PdfExporter,
+                &ryne_services::pdf_v2::KrillaPdfExporter as &dyn ryne_extensions::PdfExporter,
+            ] {
+                for display in [&original_display, &current_display] {
+                    let bytes = exporter.export(display).unwrap();
+                    assert!(bytes.starts_with(b"%PDF-1.7"));
+                    assert!(bytes.ends_with(b"%%EOF"));
+                }
+            }
+            assert_eq!(document.source.id(), source.id());
+            assert_eq!(document.source.text(), committed);
+            assert_eq!(document.selection(), selection);
+            assert_eq!(document.composition(), preedit.as_ref());
+            assert_eq!(
+                (document.history_len(false), document.history_len(true)),
+                history
+            );
+            assert_eq!(
+                document.block_source.as_ref().map(|s| s.range.clone()),
+                block_source
+            );
+            assert!(document.source_mode);
+            assert!(document.dirty());
+            assert_eq!(
+                document.files.path.as_deref(),
+                Some(Path::new("document.md"))
+            );
+            assert!(!document.files.saving);
+            assert!(document.cancel_composition());
+            document.undo(false);
+            assert_eq!(document.source.text(), original);
+            assert!(!document.dirty());
+            document.undo(true);
+            assert_eq!(document.source.text(), committed);
+        }
+    }
+
+    #[test]
+    fn export_keeps_invalid_incomplete_and_oversized_mermaid_as_literal_code() {
+        for (body, closed) in [
+            ("not a diagram".to_string(), true),
+            ("flowchart LR\nA[Unclosed --> B".into(), true),
+            ("flowchart LR\nA-->B".into(), false),
+            ("x".repeat(32 * 1024 + 1), true),
+            (format!("flowchart LR\n{}", "A-->B\n".repeat(257)), true),
+        ] {
+            let raw = format!("```mermaid\n{body}\n{}", if closed { "```\n" } else { "" });
+            let document = super::super::regression_tests::new_document(&raw);
+            let source = document.source.id();
+            let display = document.export_snapshot().render().unwrap();
+            assert!(display.diagrams.is_empty());
+            assert_eq!(display.code_blocks.len(), 1);
+            assert!(display.text.contains(&body));
+            assert_eq!(document.source.id(), source);
+            assert_eq!(document.source.text(), raw);
+            assert_eq!(document.history_len(false), 0);
+            assert!(!document.dirty());
+        }
+    }
+
     #[test]
     fn export_freezes_math_font_and_preserves_the_live_document() {
         let formulas = Arc::new(ryne_services::math::FormularyRenderer::default());

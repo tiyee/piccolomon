@@ -49,6 +49,9 @@ fn action(
     }
 }
 impl RenderActionProvider for TableActions {
+    fn cache_dependencies(&self) -> Option<CacheDependencies> {
+        Some(CacheDependencies::default())
+    }
     fn id(&self) -> &'static str {
         "table"
     }
@@ -198,6 +201,7 @@ impl RenderActionProvider for TableActions {
             state: state.clone(),
             prepared: None,
             renderer: self.formulas.as_ref(),
+            mapping: None,
         };
         planner.table_action(request)?;
         Ok(match planner.prepared {

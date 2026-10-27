@@ -93,6 +93,9 @@ fn language_range(state: &EditingState, block: &code_block::CodeBlock) -> Option
     Some(token..token + len)
 }
 impl RenderActionProvider for CodeActions {
+    fn cache_dependencies(&self) -> Option<CacheDependencies> {
+        Some(CacheDependencies::default())
+    }
     fn id(&self) -> &'static str {
         "code"
     }
@@ -183,6 +186,7 @@ impl RenderActionProvider for CodeActions {
             state: state.clone(),
             prepared: None,
             renderer: self.formulas.as_ref(),
+            mapping: None,
         };
         planner
             .apply_edits(

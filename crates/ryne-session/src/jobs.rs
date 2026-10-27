@@ -1,6 +1,8 @@
 //! Bounded serial content jobs; cache keys include feature and renderer generation.
 use ryne_core::DocumentKey;
-use ryne_extensions::{CancelControl, DiagramRenderer, EditingState, PreviewInput};
+use ryne_extensions::{
+    catch_callback, CancelControl, DiagnosticLog, DiagramRenderer, EditingState, PreviewInput,
+};
 use ryne_projection::{DiagramOutcome, DiagramViewInput};
 use std::{collections::HashMap, ops::Range, sync::Arc};
 const MAX_BLOCKS: usize = 32;
@@ -47,6 +49,7 @@ pub struct JobHost {
     cache: HashMap<InputKey, DiagramOutcome>,
     active: Option<(u64, DocumentKey, InputKey, CancelControl)>,
     next: u64,
+    diagnostics: DiagnosticLog,
 }
 impl Drop for JobHost {
     fn drop(&mut self) {
@@ -56,6 +59,14 @@ impl Drop for JobHost {
     }
 }
 impl JobHost {
+    pub fn new(diagnostics: DiagnosticLog) -> Self {
+        Self {
+            diagnostics,
+            cache: HashMap::new(),
+            active: None,
+            next: 0,
+        }
+    }
     pub fn pending(&self) -> bool {
         self.active.is_some()
     }
@@ -78,9 +89,19 @@ impl JobHost {
                     continue;
                 }
             };
+            let generation = match catch_callback(preview.feature, "renderer generation", || {
+                preview.renderer.generation()
+            }) {
+                Ok(generation) => generation,
+                Err(diagnostic) => {
+                    views.push((block.range, Err(diagnostic.message.clone())));
+                    self.diagnostics.record(diagnostic);
+                    continue;
+                }
+            };
             let key = InputKey {
                 feature: preview.feature,
-                generation: preview.renderer.generation(),
+                generation,
                 source,
             };
             sources.push(key.clone());
@@ -136,11 +157,19 @@ impl JobHost {
             return false;
         }
         self.active = None;
-        if result.control.is_cancelled()
-            || result.document.document_id != current.document_id
-            || result.key.generation != result.renderer.generation()
-        {
+        if result.control.is_cancelled() || result.document.document_id != current.document_id {
             return false;
+        }
+        let generation = catch_callback(result.key.feature, "renderer generation", || {
+            result.renderer.generation()
+        });
+        match generation {
+            Ok(generation) if generation == result.key.generation => (),
+            Ok(_) => return false,
+            Err(diagnostic) => {
+                self.diagnostics.record(diagnostic);
+                return false;
+            }
         }
         // A timeout for current content is a terminal, cacheable failure. Only
         // obsolete/cancelled requests above are discarded. Otherwise refresh

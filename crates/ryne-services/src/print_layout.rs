@@ -39,10 +39,13 @@ struct Piece {
 type Line = Vec<Piece>;
 struct Layout<'a> {
     display: &'a Display,
+    formula_order: Vec<usize>,
     pages: Vec<String>,
     page: String,
     y: f32,
     widths: HashMap<(char, bool, bool, bool), f32>,
+    #[cfg(test)]
+    linear_lookup: bool,
 }
 /// Both encoders consume the same print layout, independently of live GUI geometry.
 pub(super) fn layout_pages(display: &Display) -> Result<Vec<String>, String> {
@@ -51,14 +54,24 @@ pub(super) fn layout_pages(display: &Display) -> Result<Vec<String>, String> {
     }
     let mut layout = Layout {
         display,
+        formula_order: ordered_formulas(display),
         pages: Vec::new(),
         page: String::new(),
         y: MARGIN,
         widths: HashMap::new(),
+        #[cfg(test)]
+        linear_lookup: false,
     };
     layout.document()?;
     layout.finish_page()?;
     Ok(layout.pages)
+}
+fn ordered_formulas(display: &Display) -> Vec<usize> {
+    let mut ids = (0..display.formulas.len()).collect::<Vec<_>>();
+    // Preserve the former first-match precedence even for an extension's
+    // unordered resources or duplicate positions, without sorting per cell.
+    ids.sort_by_key(|&i| (display.formulas[i].display.start, i));
+    ids
 }
 fn escape(text: &str) -> String {
     text.replace('&', "&amp;")
@@ -142,6 +155,13 @@ impl Layout<'_> {
         let mut lines = Vec::new();
         let mut line = Vec::new();
         let mut used = 0.;
+        let mut span_index = self
+            .display
+            .spans
+            .partition_point(|s| s.display.end <= range.start);
+        let mut formula_index = self
+            .formula_order
+            .partition_point(|&i| self.display.formulas[i].display.start < range.start);
         for (offset, grapheme) in text.grapheme_indices(true) {
             if grapheme == "\n" {
                 lines.push(std::mem::take(&mut line));
@@ -149,18 +169,50 @@ impl Layout<'_> {
                 continue;
             }
             let position = range.start + offset;
+            while self
+                .display
+                .spans
+                .get(span_index)
+                .is_some_and(|s| s.display.end <= position)
+            {
+                span_index += 1;
+            }
+            while self
+                .formula_order
+                .get(formula_index)
+                .is_some_and(|&i| self.display.formulas[i].display.start < position)
+            {
+                formula_index += 1;
+            }
             let style = self
                 .display
                 .spans
-                .iter()
-                .find(|s| s.display.contains(&position))
+                .get(span_index)
+                .filter(|s| s.display.contains(&position))
                 .map_or(Style::default(), |s| s.style);
             let formula = self
-                .display
-                .formulas
-                .iter()
-                .find(|f| f.display.start == position)
+                .formula_order
+                .get(formula_index)
+                .map(|&i| &self.display.formulas[i])
+                .filter(|f| f.display.start == position)
                 .map(|f| f.formula.clone());
+            #[cfg(test)]
+            let (style, formula) = if self.linear_lookup {
+                (
+                    self.display
+                        .spans
+                        .iter()
+                        .find(|s| s.display.contains(&position))
+                        .map_or(Style::default(), |s| s.style),
+                    self.display
+                        .formulas
+                        .iter()
+                        .find(|f| f.display.start == position)
+                        .map(|f| f.formula.clone()),
+                )
+            } else {
+                (style, formula)
+            };
             let advance = if let Some(formula) = &formula {
                 formula.width * size
             } else {
@@ -307,17 +359,21 @@ impl Layout<'_> {
         self.page.push_str(&format!(r##"<text x="{}" y="{}" font-family="sans-serif" font-size="{size}" fill="#727780" text-anchor="end">{}</text>"##, MARGIN + inset - 7., self.y + size + 6., escape(&label)));
     }
     fn document(&mut self) -> Result<(), String> {
+        let display = self.display;
+        let code_rows = display.code_row_index();
+        let mut list_rows = std::collections::BTreeMap::new();
+        for row in &display.lists {
+            list_rows.entry(row.start).or_insert(row);
+        }
+        let mut tables = std::collections::BTreeMap::new();
+        for table in &display.tables {
+            tables.entry(table.range.start).or_insert(table);
+        }
         let mut start = 0;
         let mut previous_code = None;
         while start < self.display.text.len() {
-            if let Some(table) = self
-                .display
-                .tables
-                .iter()
-                .find(|t| t.range.start == start)
-                .cloned()
-            {
-                self.table(&table)?;
+            if let Some(table) = tables.get(&start).copied() {
+                self.table(table)?;
                 start = table.range.end;
                 continue;
             }
@@ -359,11 +415,14 @@ impl Layout<'_> {
             let end = self.display.text[start..]
                 .find('\n')
                 .map_or(self.display.text.len(), |n| start + n);
-            let code = self.display.code_row(start);
+            let code = code_rows.code_row(start);
             let heading = self
                 .display
                 .spans
+                .get(display.spans.partition_point(|s| s.display.end <= start)..)
+                .unwrap_or_default()
                 .iter()
+                .take_while(|s| s.display.start <= end)
                 .find(|s| s.display.start <= end && start < s.display.end && s.style.heading > 0)
                 .map_or(0, |s| s.style.heading);
             let size = if code.is_some() {
@@ -378,7 +437,7 @@ impl Layout<'_> {
                     _ => 12.,
                 }
             };
-            let list = self.display.list_row(start).cloned();
+            let list = list_rows.get(&start).copied();
             let inset = code
                 .map_or(
                     list.as_ref()
@@ -435,6 +494,85 @@ impl Layout<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn ordered_print_lookup_produces_the_same_scenes_as_linear_lookup() {
+        use ryne_extensions::FormulaRenderer;
+        let formula = crate::math::FormularyRenderer::default()
+            .render("x^2")
+            .unwrap();
+        let text = "alpha ** 中 e\u{301} \u{fffc} end\ttext\n".repeat(80);
+        let mut display = Display {
+            text,
+            ..Default::default()
+        };
+        for (i, (start, ch)) in display.text.char_indices().enumerate() {
+            let range = start..start + ch.len_utf8();
+            display.spans.push(ryne_projection::Span {
+                source: range.clone(),
+                display: range.clone(),
+                style: Style {
+                    bold: i % 3 == 0,
+                    italic: i % 5 == 0,
+                    strike: i % 7 == 0,
+                    code: i % 11 == 0,
+                    ..Default::default()
+                },
+            });
+            if ch == '\u{fffc}' {
+                display.formulas.push(ryne_projection::MathView {
+                    source: range.clone(),
+                    display: range,
+                    formula: formula.clone(),
+                });
+            }
+        }
+        display.formulas.reverse();
+        let mut duplicate = display.formulas[0].clone();
+        duplicate.formula = Arc::new(Formula {
+            path: "ignored duplicate".into(),
+            width: 9999.,
+            ascent: 1.,
+            descent: 0.,
+            svg: Vec::new(),
+        });
+        display.formulas.push(duplicate);
+        let mut old = Layout {
+            display: &display,
+            formula_order: ordered_formulas(&display),
+            pages: Vec::new(),
+            page: String::new(),
+            y: MARGIN,
+            widths: HashMap::new(),
+            linear_lookup: true,
+        };
+        old.document().unwrap();
+        old.finish_page().unwrap();
+        assert_eq!(layout_pages(&display).unwrap(), old.pages);
+        // Independent subranges model cell wrapping and out-of-order callers.
+        let range = display.text.find('中').unwrap()..display.text.find('\n').unwrap();
+        let mut new = Layout {
+            display: &display,
+            formula_order: ordered_formulas(&display),
+            pages: Vec::new(),
+            page: String::new(),
+            y: MARGIN,
+            widths: HashMap::new(),
+            linear_lookup: false,
+        };
+        let old_lines = old.wrap(range.clone(), 11., 120.).unwrap();
+        let new_lines = new.wrap(range, 11., 120.).unwrap();
+        let signature = |lines: Vec<Line>| {
+            lines
+                .into_iter()
+                .map(|line| {
+                    line.into_iter()
+                        .map(|p| (p.text, p.style, p.width, p.formula.map(|f| f.path.clone())))
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(signature(old_lines), signature(new_lines));
+    }
     #[test]
     fn folded_task_states_survive_print_including_empty_items() {
         use editable_markdown_parser::Source;

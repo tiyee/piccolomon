@@ -143,3 +143,58 @@ fn timed_out_content_keeps_diagnostic_and_does_not_starve_later_jobs() {
     let (_, next) = doc.diagram_views(false, &[]);
     assert_eq!(next.unwrap().key.source, "changed");
 }
+
+#[test]
+fn generation_panics_at_start_and_completion_do_not_starve_healthy_jobs() {
+    struct GenerationFailure(std::sync::atomic::AtomicBool);
+    impl DiagramRenderer for GenerationFailure {
+        fn generation(&self) -> u64 {
+            assert!(!self.0.load(Ordering::SeqCst), "generation failure");
+            1
+        }
+        fn render(&self, _: &str, control: CancelControl) -> DiagramOutcome {
+            FakeRenderer(AtomicU64::new(1)).render("", control)
+        }
+    }
+    let broken = Arc::new(GenerationFailure(std::sync::atomic::AtomicBool::new(false)));
+    let mut services = super::regression_tests::services();
+    services.features = Arc::new(
+        ryne_features::MarkdownFeatures::new(
+            Arc::new(ryne_services::math::FormularyRenderer::default()),
+            vec![
+                ryne_features::diagrams::FencedPreview {
+                    id: "generation-fault",
+                    language: "alpha",
+                    renderer: broken.clone(),
+                },
+                ryne_features::diagrams::FencedPreview {
+                    id: "healthy-generation",
+                    language: "beta",
+                    renderer: Arc::new(FakeRenderer(AtomicU64::new(1))),
+                },
+            ],
+        )
+        .unwrap(),
+    );
+    let raw = "```alpha\nbody\n```\n\n```beta\nbody\n```\n\ntail";
+    let mut doc = EditorSession::new(raw, services);
+    doc.select(raw.len(), false, false);
+    let (_, request) = doc.diagram_views(false, &[]);
+    let result = request.unwrap().run();
+    broken.0.store(true, Ordering::SeqCst);
+    doc.complete_job(result);
+    assert!(!doc.jobs.pending());
+    assert_eq!(doc.diagnostics.len(), 1);
+    let (views, request) = doc.diagram_views(false, &[]);
+    assert!(views[0].1.is_err());
+    let request = request.unwrap();
+    assert_eq!(request.key.feature, "healthy-generation");
+    doc.complete_job(request.run());
+    assert_eq!(doc.diagnostics.len(), 1);
+    broken.0.store(false, Ordering::SeqCst);
+    let (_, request) = doc.diagram_views(false, &[]);
+    assert_eq!(request.unwrap().key.feature, "generation-fault");
+    assert_eq!(doc.source.text(), raw);
+    assert_eq!(doc.history_len(false), 0);
+    assert!(!doc.dirty());
+}

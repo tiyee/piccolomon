@@ -161,7 +161,10 @@ fn execution_uses_validated_priority_dependencies_and_first_acceptance() {
         calls: calls.clone(),
     };
     let state = EditingState::new(Source::new("unchanged"));
-    let services = FeatureServices { formulas: &NoMath };
+    let services = FeatureServices {
+        formulas: &NoMath,
+        planning: Default::default(),
+    };
     for inputs in [[&a, &b, &z], [&z, &b, &a]] {
         calls.lock().unwrap().clear();
         let features: Vec<&dyn BuiltinFeature> = inputs

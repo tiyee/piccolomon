@@ -15,7 +15,13 @@ fn main() {
                     language: "mermaid",
                     renderer: Arc::new(ryne_services::mermaid::MermanRenderer),
                 }],
-            ) {
+            )
+            .and_then(|mut features| {
+                for fixture in ryne_ui::smoke_features() {
+                    features = features.with_feature(fixture)?;
+                }
+                Ok(features)
+            }) {
                 Ok(features) => features,
                 Err(error) => {
                     eprintln!("初始化失败：{error}");

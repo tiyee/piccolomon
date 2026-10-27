@@ -9,3 +9,6 @@ pub mod pdf_v2;
 pub mod updates;
 
 mod print_layout;
+
+#[cfg(test)]
+mod pdf_tests;

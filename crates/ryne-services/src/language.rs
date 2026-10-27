@@ -12,10 +12,14 @@ pub struct TreeSitterLanguageDetector;
 
 impl CodeLanguageDetector for TreeSitterLanguageDetector {
     fn detect(&self, code: &str) -> Option<&'static str> {
+        self.detect_before(code, Instant::now() + Duration::from_millis(50))
+    }
+}
+impl TreeSitterLanguageDetector {
+    pub(crate) fn detect_before(&self, code: &str, deadline: Instant) -> Option<&'static str> {
         if code.trim().is_empty() || code.len() > MAX_DETECTION_BYTES {
             return None;
         }
-        let deadline = Instant::now() + Duration::from_millis(50);
         let mut parser = Parser::new();
         let mut found = Vec::new();
         for (name, grammar) in [

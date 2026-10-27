@@ -7,6 +7,12 @@ use std::ops::Range;
 pub struct Cell {
     pub content: Range<usize>,
 }
+pub(crate) struct CellLocation {
+    range: Range<usize>,
+    table: usize,
+    row: usize,
+    column: usize,
+}
 #[derive(Clone, Debug, PartialEq)]
 pub struct Row {
     pub line: Range<usize>,
@@ -69,6 +75,75 @@ pub fn tables(parse: &ParseSnapshot) -> Vec<Table> {
 pub fn cached(parse: &ParseSnapshot) -> &[Table] {
     let parse = parse.semantic();
     parse.tables.get_or_init(|| build_tables(parse))
+}
+/// Exact containment in a validated table, excluding an adjacent boundary.
+pub fn containing(parse: &ParseSnapshot, position: usize) -> Option<&Table> {
+    let tables = cached(parse);
+    tables
+        .get(tables.partition_point(|t| t.range.end <= position))
+        .filter(|t| t.range.contains(&position))
+}
+pub fn cell_containing(parse: &ParseSnapshot, position: usize) -> Option<&Cell> {
+    let parse = parse.semantic();
+    let tables = cached(parse);
+    let cells = parse.table_cells.get_or_init(|| {
+        tables
+            .iter()
+            .enumerate()
+            .flat_map(|(t, table)| {
+                table.rows.iter().enumerate().flat_map(move |(r, row)| {
+                    row.cells
+                        .iter()
+                        .enumerate()
+                        .map(move |(c, cell)| CellLocation {
+                            range: cell.content.clone(),
+                            table: t,
+                            row: r,
+                            column: c,
+                        })
+                })
+            })
+            .collect::<Vec<_>>()
+    });
+    let location = cells.get(cells.partition_point(|c| c.range.end <= position))?;
+    location
+        .range
+        .contains(&position)
+        .then(|| &tables[location.table].rows[location.row].cells[location.column])
+}
+#[cfg(test)]
+mod containment_tests {
+    use super::*;
+    use editable_markdown_parser::Source;
+    #[test]
+    fn indexed_membership_matches_linear_tables_and_cells_in_containers() {
+        for newline in ["\n", "\r\n", "\r"] {
+            let raw = concat!(
+                "before `ordinary`\n\n",
+                "> | a | b |\n> | --- | --- |\n> | `中\\|😀` | |\n\n",
+                "- item\n\n  | c | d |\n  | --- | --- |\n  | **bold** | `literal` |\n\n",
+                "| ragged | row |\n| --- | --- |\n| extra | cell | ignored |\n\nafter `code`\n"
+            )
+            .replace('\n', newline);
+            let parse = ParseSnapshot::with_math(Source::new(&raw));
+            let tables = cached(&parse);
+            assert_eq!(tables.len(), 2);
+            for p in 0..=raw.len() {
+                assert_eq!(
+                    containing(&parse, p),
+                    tables.iter().find(|t| t.range.contains(&p))
+                );
+                assert_eq!(
+                    cell_containing(&parse, p),
+                    tables
+                        .iter()
+                        .flat_map(|t| &t.rows)
+                        .flat_map(|r| &r.cells)
+                        .find(|c| c.content.contains(&p))
+                );
+            }
+        }
+    }
 }
 fn build_tables(parse: &ParseSnapshot) -> Vec<Table> {
     let text = parse.source().text();

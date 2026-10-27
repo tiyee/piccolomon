@@ -27,6 +27,9 @@ pub(super) struct FileOperationState {
     pub close_after_save: bool,
 }
 pub(super) struct ViewportState {
+    pub window_title: Option<String>,
+    pub highlight_task: Option<Task<()>>,
+    pub highlight_generation: u64,
     pub diagram_images: Vec<std::sync::Arc<RenderImage>>,
     pub display: std::sync::Arc<ryne_projection::IndexedDisplay>,
     pub geometry: Option<Geometry>,

@@ -288,7 +288,7 @@ fn failing_observer_cannot_rollback_a_published_transaction_or_break_undo() {
     doc.undo(false);
     assert_eq!(doc.source.text(), "a");
     assert!(!doc.dirty());
-    assert_eq!(doc.diagnostics.len(), 2);
+    assert_eq!(doc.diagnostics.len(), 1);
 }
 
 struct RegisteredInput;

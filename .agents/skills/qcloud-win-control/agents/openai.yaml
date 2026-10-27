@@ -1,0 +1,3 @@
+interface:
+  display_name: "腾讯云 Windows 远程桌面控制"
+  short_description: "通过本机 Windows App 登录并操作腾讯云 Windows 服务器"

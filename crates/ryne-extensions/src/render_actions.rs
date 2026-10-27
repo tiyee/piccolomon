@@ -83,6 +83,11 @@ pub struct RenderActionRequest {
     pub command: &'static str,
 }
 pub trait RenderActionProvider: Send + Sync {
+    /// Opt in only when these dependencies fully describe controls and actions.
+    /// The host also keys source mode and applies local-source filtering.
+    fn cache_dependencies(&self) -> Option<crate::CacheDependencies> {
+        None
+    }
     fn id(&self) -> &'static str;
     fn commands(&self) -> &'static [&'static str];
     fn controls(&self, state: &EditingState) -> Result<Vec<RenderControl>, String>;
@@ -96,6 +101,50 @@ pub trait RenderActionProvider: Send + Sync {
 pub struct RenderControlBatch {
     pub controls: Vec<RenderControl>,
     pub diagnostics: Vec<Diagnostic>,
+}
+/// Session-owned cache: at most one validated result for each current provider.
+#[derive(Default)]
+pub struct RenderControlCache {
+    entries: BTreeMap<&'static str, ControlEntry>,
+    aggregate: Option<ControlAggregate>,
+}
+struct ControlEntry {
+    provider: Arc<dyn RenderActionProvider>,
+    key: crate::PresentationKey,
+    controls: Arc<Vec<RenderControl>>,
+}
+struct ControlAggregate {
+    parts: Vec<Arc<Vec<RenderControl>>>,
+    controls: Arc<Vec<RenderControl>>,
+}
+pub struct CachedRenderControlBatch {
+    pub controls: Arc<Vec<RenderControl>>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+impl RenderControlCache {
+    pub fn clear(&mut self) {
+        self.entries.clear();
+        self.aggregate = None;
+    }
+    fn aggregate(&mut self, parts: Vec<Arc<Vec<RenderControl>>>) -> Arc<Vec<RenderControl>> {
+        if let Some(old) = &self.aggregate
+            && old.parts.len() == parts.len()
+            && old.parts.iter().zip(&parts).all(|(a, b)| Arc::ptr_eq(a, b))
+        {
+            return old.controls.clone();
+        }
+        let controls = Arc::new(
+            parts
+                .iter()
+                .flat_map(|p| p.iter().cloned())
+                .collect::<Vec<_>>(),
+        );
+        self.aggregate = Some(ControlAggregate {
+            parts,
+            controls: controls.clone(),
+        });
+        controls
+    }
 }
 #[derive(Default, Clone)]
 pub struct RenderActionRegistry {
@@ -148,6 +197,91 @@ impl RenderActionRegistry {
             }
         }
         batch
+    }
+    /// Unknown/failing contributions recompute independently of healthy entries.
+    pub fn cached_control_batch(
+        &self,
+        state: &EditingState,
+        cache: &mut RenderControlCache,
+    ) -> CachedRenderControlBatch {
+        if state.parse.source().id() != state.source.id() {
+            cache.clear();
+            return CachedRenderControlBatch {
+                controls: Arc::new(Vec::new()),
+                diagnostics: vec![Diagnostic {
+                    feature: "render-controls".into(),
+                    message: "stale semantics".into(),
+                }],
+            };
+        }
+        let current = self
+            .providers
+            .iter()
+            .map(|p| (p.id(), p))
+            .collect::<BTreeMap<_, _>>();
+        cache.entries.retain(|id, entry| {
+            current
+                .get(id)
+                .is_some_and(|p| Arc::ptr_eq(p, &entry.provider))
+        });
+        let mut diagnostics = Vec::new();
+        let mut parts = Vec::new();
+        if !state.source_mode {
+            for provider in &self.providers {
+                let mut key = || match crate::catch_callback(
+                    provider.id(),
+                    "control cache dependencies",
+                    || {
+                        provider
+                            .cache_dependencies()
+                            .map(|deps| crate::PresentationKey::for_state(state, deps))
+                    },
+                ) {
+                    Ok(key) => key,
+                    Err(error) => {
+                        diagnostics.push(error);
+                        None
+                    }
+                };
+                let before = key();
+                if let Some(before) = &before
+                    && let Some(entry) = cache.entries.get(provider.id())
+                    && entry.key == *before
+                {
+                    parts.push(entry.controls.clone());
+                    continue;
+                }
+                cache.entries.remove(provider.id());
+                match self.provider_controls(provider.as_ref(), state) {
+                    Ok(controls) => {
+                        let controls = Arc::new(controls);
+                        if let Some(before) = before
+                            && key().as_ref() == Some(&before)
+                        {
+                            cache.entries.insert(
+                                provider.id(),
+                                ControlEntry {
+                                    provider: provider.clone(),
+                                    key: before,
+                                    controls: controls.clone(),
+                                },
+                            );
+                        }
+                        parts.push(controls);
+                    }
+                    Err(message) => diagnostics.push(Diagnostic {
+                        feature: provider.id().into(),
+                        message,
+                    }),
+                }
+            }
+        } else {
+            cache.entries.clear();
+        }
+        CachedRenderControlBatch {
+            controls: cache.aggregate(parts),
+            diagnostics,
+        }
     }
     fn provider_controls(
         &self,
@@ -224,3 +358,7 @@ impl RenderActionRegistry {
         .unwrap_or_else(|_| Err("render action provider panicked".into()))
     }
 }
+
+#[cfg(test)]
+#[path = "render_cache_tests.rs"]
+mod cache_tests;

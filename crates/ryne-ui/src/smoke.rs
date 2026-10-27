@@ -1,4 +1,43 @@
 use super::*;
+static CACHE_SMOKE_COMMANDS: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(0);
+struct CacheSmokeCommand;
+/// Startup-only fixture for the real application's smoke run.
+pub fn smoke_features() -> Vec<std::sync::Arc<dyn ryne_extensions::FeatureModule + Send + Sync>> {
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--smoke-test")) {
+        vec![std::sync::Arc::new(CacheSmokeCommand)]
+    } else {
+        Vec::new()
+    }
+}
+impl ryne_extensions::FeatureModule for CacheSmokeCommand {
+    fn manifest(&self) -> ryne_extensions::FeatureManifest {
+        ryne_extensions::FeatureManifest::builtin("smoke-command")
+    }
+    fn register(&self, r: &mut ryne_extensions::Registrar) -> Result<(), String> {
+        r.command(
+            ryne_extensions::Contribution {
+                id: "smoke.command",
+                slot: ryne_extensions::Slot::Command("edit"),
+                exclusive: false,
+                priority: 10,
+            },
+            std::sync::Arc::new(Self),
+        )
+    }
+}
+impl ryne_extensions::CommandHandler for CacheSmokeCommand {
+    fn plan(
+        &self,
+        _: &ryne_extensions::EditIntent,
+        _: &ryne_extensions::EditingState,
+        _: &ryne_extensions::FeatureServices<'_>,
+    ) -> Result<Option<ryne_extensions::CommandPlan>, String> {
+        CACHE_SMOKE_COMMANDS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        Ok(None)
+    }
+}
+
 pub(super) const SAMPLE: &str = "# Ryne（如言）\n\n点击 **粗体**、*斜体*、~~删除线~~、`inline code` 或 [链接](https://example.org)。\n\n光标进入时展开 Markdown 标记，离开后收起。\n试试 **粗体中的 *斜体***，也可以直接输入 Markdown。\n\n| 功能 | 状态 | 示例 |\n| :--- | :---: | ---: |\n| 表格编辑 | 可用 | `code` |\n| Tab 切换单元格 | Shift+Enter 换行 | 123 |\n\n- 无序列表：点击正文编辑\n  - 嵌套列表与 **粗体**\n- Enter 续项，空项 Enter 退出\n\n1. 有序列表\n2. Tab 缩进，Shift+Tab 反缩进\n\n```rust\nfn main() {\n    println!(\"Hello, Markdown\");\n}\n```\n\nEnter 分段 · Shift+Enter 硬换行\n支持跨行选择、粘贴和撤销，长段落随窗口宽度自动折行。\n\n```mermaid\nflowchart LR\n    A[打开文件] --> B[编辑 Markdown] --> C[保存]\n```\n\n行内公式：$E = mc^2$，以及 $\\frac{a_1}{\\sqrt{b}}$。\n\nCmd+O 打开 · Cmd+S 保存 · Cmd+Z 撤销\nCmd+Shift+M 切换全文源码\n\n";
 impl Editor {
     pub(super) fn smoke_pointer(
@@ -84,19 +123,39 @@ impl Editor {
             let mut cached_projection: Option<std::sync::Arc<ryne_projection::IndexedDisplay>> = None;
             let mut cached_controls: Option<std::sync::Arc<Vec<ryne_extensions::RenderControl>>> = None;
             let mut quote_control: Option<Bounds<Pixels>> = None;
+            let mut second_source=String::new();
+            let mut third_source=None;
             let code_language_only = std::env::var_os("RYNE_SMOKE_CODE_LANGUAGE_ONLY").is_some();
             let performance_only=std::env::var_os("RYNE_SMOKE_PERFORMANCE_ONLY").is_some();
-            let stages: Vec<u16> = if performance_only {
+            let first_batch_only=std::env::var_os("RYNE_SMOKE_FIRST_BATCH_ONLY").is_some();
+            let second_batch_only=std::env::var_os("RYNE_SMOKE_SECOND_BATCH_ONLY").is_some();
+            let third_batch_only=std::env::var_os("RYNE_SMOKE_THIRD_BATCH_ONLY").is_some();
+            let stages: Vec<u16> = if third_batch_only {
+                std::iter::once(0).chain(287..296).collect()
+            } else if second_batch_only {
+                std::iter::once(0).chain(279..288).collect()
+            } else if first_batch_only {
+                std::iter::once(0).chain(271..280).collect()
+            } else if performance_only {
                 std::iter::once(0).chain(266..272).collect()
             } else if code_language_only {
                 std::iter::once(0).chain(259..267).collect()
             } else {
-                (0..272).collect()
+                (0..296).collect()
             };
             for stage in stages {
                 cx.background_executor()
                     .timer(std::time::Duration::from_millis(500))
                     .await;
+                if matches!(stage, 272 | 277) && !performance_only {
+                    // No editor input/refresh here: the scheduled host task must
+                    // finish automatic highlighting by itself.
+                    for _ in 0..200 {
+                        let pending = this.update_in(cx, |editor, _, _| editor.viewport.highlight_task.is_some()).unwrap_or(false);
+                        if !pending { break; }
+                        cx.background_executor().timer(std::time::Duration::from_millis(50)).await;
+                    }
+                }
                 if stage >= 44 {
                     for _ in 0..40 {
                         let pending = this.update_in(cx, |editor, _, _| editor.document.jobs.pending()).unwrap_or(false);
@@ -118,7 +177,7 @@ impl Editor {
                     }
                     let ready = this.update_in(cx, |editor, window, cx| {
                         let ready = editor.viewport.geometry.as_ref().is_some_and(|geometry| {
-                            geometry.snapshot == editor.document.source.id()
+                            geometry.is_current(editor)
                                 && geometry.display.text == editor.viewport.display.text
                                 && geometry.display.spans == editor.viewport.display.spans
                                 && geometry.display.formulas == editor.viewport.display.formulas
@@ -136,6 +195,7 @@ impl Editor {
                         eprintln!("GUI smoke stage {stage}");
                     }
                     let geometry = editor.viewport.geometry.as_ref().ok_or("native frame was not laid out")?.clone();
+                    check!(geometry.is_current(editor));
                     check_eq!(geometry.snapshot, editor.document.source.id());
                     check_eq!(geometry.display.text, editor.viewport.display.text);
                     check!(!geometry.lines.is_empty());
@@ -1024,6 +1084,14 @@ impl Editor {
                             check!(control.right() <= geometry.position(geometry.display.position_at(block.anchor)).x);
                             check!(!editor.document.dirty());
                             editor.update_block_hover(control.center(),cx);
+                            if stage - 1 == 61 && editor.menus.block_menu.is_none() {
+                                return Err(format!(
+                                    "code menu hover rejected: current={}, epoch={}/{}, append={}, active={:?}, target={:?}, dragging={}",
+                                    geometry.is_current(editor), geometry.frame_epoch, editor.viewport.frame_epoch,
+                                    geometry.append_zone.is_some_and(|zone| zone.contains(&control.center())),
+                                    editor.active_block(), geometry.block_target, editor.viewport.dragging,
+                                ));
+                            }
                         }
                         53 | 56 | 59 => {
                             check!(editor.menus.block_menu.is_some());
@@ -1886,7 +1954,9 @@ impl Editor {
                                     editor.open_render_menu(geometry.render_key(window.viewport_size()), region.key(), window, cx);
                                 }
                                 _ => {
-                                    check_eq!(geometry.render_menu_bounds.len(), 1);
+                                    if geometry.render_menu_bounds.len() != 1 {
+                                        return Err(format!("translated list menu missing: language={language:?}, bounds={}, menu={:?}, frame={:?}, triggers={:?}", geometry.render_menu_bounds.len(), editor.menus.render_menu.as_ref().map(|m| (&m.key, &m.region, m.selected, m.submenu)), geometry.render_key(window.viewport_size()), geometry.render_buttons));
+                                    }
                                     let menu = editor.menus.render_menu.as_ref().ok_or("missing translated list menu")?;
                                     for row in &menu.rows {
                                         if let RenderMenuRow::Action(item) = row {
@@ -2608,6 +2678,221 @@ impl Editor {
                         269 => {
                             check!(!editor.document.dirty());check_eq!(editor.document.history_len(false),0);
                             println!("P1/P2 GUI checks passed: indexed CRLF/Unicode mappings, viewport line/control/selection clipping, scroll layout reuse and preedit geometry without source/history changes");
+                        }
+                        270 => {
+                            if performance_only {
+                                println!("P1/P2 performance GUI smoke passed");cx.quit();return Ok(());
+                            }
+                            let raw=(0..128).map(|i|format!("```\r\nfn first_batch_{i}() {{}}\r\n```\r\n\r\n")).collect::<String>();
+                            editor.document=editor.document.fork(&raw);
+                            editor.document.select(raw.len(),false,false);
+                            editor.viewport.scroll=px(0.);editor.viewport.ensure_caret=false;
+                            editor.refresh(cx);
+                            check!(editor.viewport.highlight_task.is_some());
+                        }
+                        271 => {
+                            check!(editor.viewport.highlight_task.is_none());
+                            check_eq!(editor.viewport.display.code_blocks.len(),128);
+                            for block in &editor.viewport.display.code_blocks {
+                                let start=block.source.rows.first().ok_or("missing auto-code body")?.content.start;
+                                check!(editor.viewport.display.spans.iter().any(|s|s.source.contains(&start)&&s.style.syntax.is_some()));
+                            }
+                            check!(!editor.document.dirty());check_eq!(editor.document.history_len(false),0);
+                            cached_projection=Some(editor.viewport.display.clone());
+                            cx.notify();
+                        }
+                        272 => {
+                            check!(cached_projection.as_ref().is_some_and(|p|std::sync::Arc::ptr_eq(p,&editor.viewport.display)));
+                            let raw="- [ ] one\r\n  - nested\r\n\r\n| a | b |\r\n| --- | --- |\r\n| x | y |\r\n\r\n```rust\r\nfn main() {}\r\n```\r\n";
+                            editor.document=editor.document.fork(raw);
+                            editor.refresh(cx);
+                            check!(!editor.viewport.render_controls.is_empty());
+                            editor.document.set_block_source(Some(0..raw.len()));
+                            editor.refresh(cx);
+                        }
+                        273 => {
+                            check!(editor.viewport.render_controls.is_empty());
+                            editor.document.set_block_source(None);editor.refresh(cx);
+                        }
+                        274 => {
+                            check!(!editor.viewport.render_controls.is_empty());
+                            check!(!editor.document.dirty());check_eq!(editor.document.history_len(false),0);
+                            let raw=(0..80).map(|i|format!("```\nfn preedit_batch_{i}() {{}}\n```\n\n")).collect::<String>();
+                            editor.document=editor.document.fork(&raw);
+                            editor.document.select(raw.len(),false,false);editor.refresh(cx);
+                            editor.replace_and_mark_text_in_range(None,"临时",Some(2..2),window,cx);
+                        }
+                        275 => {
+                            check!(editor.document.composition().is_some());
+                            check!(editor.viewport.highlight_task.is_none());
+                            check!(!editor.document.dirty());check_eq!(editor.document.history_len(false),0);
+                            editor.escape(&Escape,window,cx);
+                        }
+                        276 => {
+                            check!(editor.document.composition().is_none());
+                            check!(editor.viewport.highlight_task.is_none());
+                            check!(!editor.document.dirty());check_eq!(editor.document.history_len(false),0);
+                            let raw=(0..80).map(|i|format!("```\nfn obsolete_batch_{i}() {{}}\n```\n\n")).collect::<String>();
+                            editor.document=editor.document.fork(&raw);editor.refresh(cx);
+                            check!(editor.viewport.highlight_task.is_some());
+                            editor.viewport.dragging=true;editor.refresh(cx);
+                            check!(editor.viewport.highlight_task.is_none());
+                            editor.viewport.dragging=false;
+                            editor.document=editor.document.fork("replacement 中😀\r\n");editor.refresh(cx);
+                        }
+                        277 => {
+                            check_eq!(editor.document.source.text(),"replacement 中😀\r\n");
+                            check!(editor.viewport.highlight_task.is_none());
+                            check!(!editor.document.dirty());check_eq!(editor.document.history_len(false),0);
+                            println!("First-batch GUI checks passed: automatic 128-block completion without input, stable idle projection, local source controls restored, IME/drag deferral and obsolete-task cancellation without source/history changes");
+                            if first_batch_only {cx.quit();return Ok(());}
+                        }
+                        278 => {
+                            let raw=(0..80).map(|i|format!("before {i} 中😀\n\n```rust\nfn item_{i}() {{}}\n```\n\n| a | b |\n| --- | --- |\n| $a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a$ {} | 中😀 $x^2$ |\n\ntail {i}\n\n","wrapped words ".repeat(30))).collect::<String>();
+                            editor.document=editor.document.fork(&raw);editor.document.select(raw.len(),false,false);
+                            editor.viewport.scroll=px(0.);editor.viewport.ensure_caret=false;editor.refresh(cx);
+                        }
+                        279 => {
+                            let mut max_candidates=0;
+                            check_eq!(geometry.display.formulas.len(),160);
+                            for row in geometry.rows.iter().step_by((geometry.rows.len()/48).max(1)) {
+                                for fraction in [0.1,0.5,0.9] {
+                                    for x in [0.,100.,400.,760.] {
+                                        let position=geometry.bounds.origin+point(px(geometry.page.left+x),px(geometry.page.top)+row.top+row.line_height*fraction-geometry.scroll);
+                                        max_candidates=max_candidates.max(geometry.hit_candidate_count(position));
+                                        #[cfg(debug_assertions)]
+                                        check_eq!(geometry.hit_caret(position),geometry.hit_caret_linear(position));
+                                        let expected=geometry.display.formulas.iter().find(|formula| {
+                                            let a=geometry.position_with_affinity(formula.display.start,Affinity::Downstream);
+                                            let b=geometry.position_with_affinity(formula.display.end,Affinity::Upstream);
+                                            position.x>=a.x&&position.x<b.x&&position.y>=a.y&&position.y<a.y+geometry.line_height(formula.display.start)
+                                        });
+                                        check_eq!(geometry.formula_at_point(position).map(|f|&f.source),expected.map(|f|&f.source));
+                                    }
+                                }
+                            }
+                            check!(max_candidates<=12);check!(geometry.rows.len()>1000);
+                            let mut overflow_hits=0;
+                            for formula in geometry.display.formulas.iter().step_by(20) {
+                                let a=geometry.position_with_affinity(formula.display.start,Affinity::Downstream);
+                                let b=geometry.position_with_affinity(formula.display.end,Affinity::Upstream);
+                                let row=geometry.row_for(formula.display.start,Affinity::Downstream).ok_or("missing formula row")?;
+                                let cell=geometry.lines[row.line].cell.ok_or("formula not in cell")?;
+                                let position=point(geometry.bounds.left()+px(geometry.page.left)+cell.right()+px(2.),a.y+row.line_height/2.);
+                                if position.x>=a.x && position.x<b.x {
+                                    check_eq!(geometry.formula_at_point(position).map(|f|&f.source),Some(&formula.source));
+                                    overflow_hits+=1;
+                                }
+                            }
+                            check!(overflow_hits>0);
+                            println!("Second-batch hit candidates: max={max_candidates}, total_rows={}",geometry.rows.len());
+                            cached_layout=Some(geometry.text_layout.clone());
+                            editor.viewport.scroll=geometry.height;editor.viewport.ensure_caret=false;cx.notify();
+                        }
+                        280 => {
+                            check!(cached_layout.as_ref().is_some_and(|p|std::sync::Arc::ptr_eq(p,&geometry.text_layout)));
+                            let at=editor.document.source.text().rfind("tail 79").ok_or("missing final paragraph")?;
+                            let position=geometry.position(geometry.display.position_at(at))+point(px(8.),px(12.));
+                            let selection=editor.document.selection();
+                            editor.mouse_move(&MouseMoveEvent {position,..Default::default()},window,cx);
+                            check_eq!(editor.document.selection(),selection);
+                            check!(editor.menus.hovered_block.as_ref().is_some_and(|(_,b)|b.range.contains(&at)));
+                            check!(!editor.document.dirty());
+                            second_source="plain 中😀 e\u{301}\n\n".repeat(5000)+"tail 中😀 👩‍👩‍👦 🇨🇳 e\u{301}";
+                            editor.document=editor.document.fork(&second_source);editor.document.select(second_source.len(),false,false);
+                            editor.refresh(cx);
+                        }
+                        281 => {
+                            for _ in 0..20 {
+                                let p=editor.viewport.display.position_at(editor.document.head);
+                                let next=editor.viewport.display.text.grapheme_indices(true).map(|(p,_)|p).take_while(|&q|q<p).last().unwrap_or(0);
+                                let expected=editor.viewport.display.source_at(next,Affinity::Downstream);
+                                editor.horizontal(false,false,cx);check_eq!(editor.document.head,expected);
+                            }
+                            for _ in 0..20 {editor.horizontal(true,true,cx);}
+                            check_eq!(editor.document.head,second_source.len());
+                            check!(!editor.document.selection().is_empty());
+                            editor.move_to(second_source.len(),false,cx);
+                            editor.backspace(&Backspace,window,cx);
+                            check_eq!(editor.document.source.text(),second_source.trim_end_matches("e\u{301}"));
+                            check!(editor.document.dirty());check_eq!(editor.document.history_len(false),1);
+                        }
+                        282 => {
+                            check!(editor.viewport.window_title.as_ref().is_some_and(|s|s.contains('•')));
+                            editor.undo(&Undo,window,cx);
+                            check!(!geometry.is_current(editor));
+                            check_eq!(editor.document.source.text(),second_source);
+                            check!(!editor.document.dirty());check_eq!(editor.document.history_len(false),0);
+                        }
+                        283 => {
+                            check!(editor.viewport.window_title.as_ref().is_some_and(|s|!s.contains('•')));
+                            editor.replace_and_mark_text_in_range(None,"临时",Some(2..2),window,cx);
+                            check!(!geometry.is_current(editor));
+                        }
+                        284 => {
+                            let range=editor.marked_text_range(window,cx).ok_or("missing indexed preedit range")?;
+                            check!(editor.bounds_for_range(range,Bounds::default(),window,cx).is_some());
+                            editor.escape(&Escape,window,cx);
+                        }
+                        285 => {
+                            check_eq!(editor.document.source.text(),second_source);
+                            check!(!editor.document.dirty());check_eq!(editor.document.history_len(false),0);
+                            println!("Second-batch GUI checks passed: indexed hit oracle, bounded candidates, scrolled code-tail hover, Unicode horizontal/extended navigation, grapheme deletion, exact dirty/title state, undo and preedit geometry");
+                            if second_batch_only {cx.quit();return Ok(());}
+                        }
+                        286 => {
+                            CACHE_SMOKE_COMMANDS.store(0,std::sync::atomic::Ordering::Relaxed);
+                            let raw="# heading\r\n\r\nplain 中😀 tail and **bold**\r\n\r\n- first\r\n  - nested\r\n\r\n| a | b |\r\n| --- | --- |\r\n| x | y |\r\n\r\n```rust\r\nlet x = 1;\r\n```\r\n";
+                            editor.document=editor.document.fork(raw);third_source=Some(editor.document.source.clone());editor.viewport.scroll=px(0.);
+                            editor.move_to(raw.find("plain").ok_or("missing plain")?,false,cx);
+                        }
+                        287 => {
+                            cached_projection=Some(editor.viewport.display.clone());
+                            cached_controls=Some(editor.viewport.render_controls.clone());
+                            cached_layout=Some(geometry.text_layout.clone());
+                            for _ in 0..5 {editor.horizontal(true,false,cx);}
+                            for _ in 0..5 {editor.horizontal(false,true,cx);}
+                        }
+                        288 => {
+                            check!(CACHE_SMOKE_COMMANDS.load(std::sync::atomic::Ordering::Relaxed)>0);
+                            check!(cached_projection.as_ref().is_some_and(|p|std::sync::Arc::ptr_eq(p,&editor.viewport.display)));
+                            check!(cached_controls.as_ref().is_some_and(|p|std::sync::Arc::ptr_eq(p,&editor.viewport.render_controls)));
+                            check!(cached_layout.as_ref().is_some_and(|p|std::sync::Arc::ptr_eq(p,&geometry.text_layout)));
+                            check!(!editor.document.dirty());check_eq!(editor.document.history_len(false),0);
+                            editor.move_to(3,false,cx);editor.document.reveal_clicked_heading();editor.refresh(cx);
+                        }
+                        289 => {
+                            check!(!cached_projection.as_ref().is_some_and(|p|std::sync::Arc::ptr_eq(p,&editor.viewport.display)));
+                            check!(!cached_layout.as_ref().is_some_and(|p|std::sync::Arc::ptr_eq(p,&geometry.text_layout)));
+                            editor.document.set_block_source(Some(0..editor.document.source.text().len()));editor.refresh(cx);
+                        }
+                        290 => {
+                            check!(editor.viewport.render_controls.is_empty());
+                            check_eq!(editor.viewport.display.text,editor.document.source.text().replace("\r\n","\n"));
+                            editor.document.set_block_source(None);editor.move_to(editor.document.source.text().len(),false,cx);
+                            check!(!geometry.is_current(editor));
+                            editor.replace_and_mark_text_in_range(None,"临时😀",Some(4..4),window,cx);
+                        }
+                        291 => {
+                            check!(editor.document.composition().is_some());
+                            let range=editor.marked_text_range(window,cx).ok_or("missing third-batch preedit")?;
+                            check!(editor.bounds_for_range(range,Bounds::default(),window,cx).is_some());
+                            editor.escape(&Escape,window,cx);
+                        }
+                        292 => {
+                            check!(editor.document.composition().is_none());check!(!editor.document.dirty());check_eq!(editor.document.history_len(false),0);
+                            check!(!editor.viewport.render_controls.is_empty());
+                            cached_projection=Some(editor.viewport.display.clone());cached_controls=Some(editor.viewport.render_controls.clone());cached_layout=Some(geometry.text_layout.clone());
+                            editor.refresh(cx);
+                        }
+                        293 => {
+                            check!(cached_projection.as_ref().is_some_and(|p|std::sync::Arc::ptr_eq(p,&editor.viewport.display)));
+                            check!(cached_controls.as_ref().is_some_and(|p|std::sync::Arc::ptr_eq(p,&editor.viewport.render_controls)));
+                            check!(cached_layout.as_ref().is_some_and(|p|std::sync::Arc::ptr_eq(p,&geometry.text_layout)));
+                            check_eq!(third_source.as_ref().map(|s|s.id()),Some(editor.document.source.id()));
+                            check_eq!(third_source.as_ref().map(|s|s.text()),Some(editor.document.source.text()));
+                            println!("Third-batch GUI checks passed: actual command extension dispatched; projection/control/layout reuse across navigation and selection; heading/local-source invalidation, stale-frame rejection and preedit recovery without source/history changes");
+                            if third_batch_only {cx.quit();return Ok(());}
                         }
                         _ => {
                             if performance_only {

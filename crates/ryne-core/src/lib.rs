@@ -84,15 +84,18 @@ struct History<C> {
 }
 pub struct DocumentCore<C> {
     source: Source,
-    saved: String,
+    saved: Source,
+    dirty: bool,
     undo: Vec<History<C>>,
     redo: Vec<History<C>>,
 }
 impl<C: Clone> DocumentCore<C> {
     pub fn new(text: &str) -> Self {
+        let source = Source::new(text);
         Self {
-            source: Source::new(text),
-            saved: text.into(),
+            saved: source.clone(),
+            source,
+            dirty: false,
             undo: Vec::new(),
             redo: Vec::new(),
         }
@@ -101,7 +104,10 @@ impl<C: Clone> DocumentCore<C> {
         &self.source
     }
     pub fn dirty(&self) -> bool {
-        self.source.text() != self.saved
+        self.dirty
+    }
+    fn update_dirty(&mut self) {
+        self.dirty = self.source.id() != self.saved.id() && self.source.text() != self.saved.text();
     }
     pub fn history_len(&self, redo: bool) -> usize {
         if redo {
@@ -118,6 +124,7 @@ impl<C: Clone> DocumentCore<C> {
         });
         self.redo.clear();
         self.source = edit.applied.source;
+        self.update_dirty();
         Ok(())
     }
     /// Prepare first; a failed inverse leaves both stacks and the current source intact.
@@ -147,6 +154,7 @@ impl<C: Clone> DocumentCore<C> {
             checkpoint,
         });
         self.source = edit.applied.source;
+        self.update_dirty();
         Ok(())
     }
     /// The receipt binds the actual written snapshot, even when new editing has happened.
@@ -154,7 +162,8 @@ impl<C: Clone> DocumentCore<C> {
         if snapshot.id().document_id != self.source.id().document_id {
             return Err(Error::StaleSnapshot);
         }
-        self.saved = snapshot.text().into();
+        self.saved = snapshot.clone();
+        self.update_dirty();
         Ok(())
     }
 }

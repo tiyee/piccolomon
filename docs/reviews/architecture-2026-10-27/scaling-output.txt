@@ -1,0 +1,8 @@
+table_kind=plain tables=256 bytes=8960 samples=3 warmup=1 debug=true p50_ms=17.385
+table_kind=plain tables=512 bytes=17920 samples=3 warmup=1 debug=true p50_ms=34.990
+table_kind=plain tables=1024 bytes=35840 samples=3 warmup=1 debug=true p50_ms=74.871
+table_kind=plain tables=2048 bytes=71680 samples=3 warmup=1 debug=true p50_ms=153.773
+table_kind=inline-code tables=256 bytes=9984 samples=3 warmup=1 debug=true p50_ms=48.907
+table_kind=inline-code tables=512 bytes=19968 samples=3 warmup=1 debug=true p50_ms=136.116
+table_kind=inline-code tables=1024 bytes=39936 samples=3 warmup=1 debug=true p50_ms=422.468
+table_kind=inline-code tables=2048 bytes=79872 samples=3 warmup=1 debug=true p50_ms=1477.456

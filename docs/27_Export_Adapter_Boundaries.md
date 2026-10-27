@@ -22,3 +22,20 @@
 - 完整真实窗口冒烟退出码 1：第 176 阶段表格菜单几何检查 `render_menu_bounds.len()` 未达到期望的 2；本轮未修改该检查及菜单实现，未建立改造前对照，不能确认其来源。不能宣称完整 GUI 验证通过。
 
 后续增量：导出描述已包含标签键与回退文案，两种桌面菜单改为遍历注册描述，通过通用导出动作分发。见 [组件化记录](28_Static_Feature_Components.md)。本文件前述静态菜单限制记录的是第一轮状态。
+
+## 2026-10-26 PDF 回归补充
+
+保留 PDF v1 的 pdf-writer 0.12.1 / svg2pdf 0.13.0 与 PDF v2 的 Krilla 0.8.2
+（内部使用 pdf-writer 0.15.0），不调整依赖版本。
+
+- `crates/ryne-services/src/pdf_tests.rs` 对两套真实编码器执行相同契约：空文档 A4、
+  多页完整编码、`startxref` 字节偏移、非法控制字符、4 MiB 文本限制及 500 页限制。
+  原先仅针对 v2 的空文档和失败检查合并到此处。
+- `crates/ryne-session/src/export.rs` 覆盖快照捕获后继续编辑、LF / CRLF / CR、
+  未确认 IME、局部/全文源码范围、dirty、路径、选区及撤销/重做保持；
+  无效、不完整、未闭合、超过字节或行数限制的 Mermaid 保留字面代码。
+- `examples/export-pdf.rs` 已通过 `test = true` 纳入默认 `cargo test --locked`，
+  混合中文、行内格式、代码、列表、表格、公式和 Mermaid 在三种换行下经两套编码器导出，
+  编码后再次检查编辑状态；长段落、代码和表格单元格分页检查两套后端页数一致。
+
+这些回归验证当前编码和会话契约，不替代 PDF 阅读器中的视觉对比、人工交互或 Windows 实机验收。

@@ -121,6 +121,66 @@ fn generic_keys_preserve_container_rules_graphemes_and_single_undo() {
     assert_eq!(doc.source.text(), "e\u{301}");
 }
 
+#[test]
+fn unicode_17_deletion_preserves_container_bytes_and_single_undo() {
+    let grapheme = "e\u{1acf}";
+    for newline in ["\n", "\r\n", "\r"] {
+        for source_mode in [false, true] {
+            for forward in [false, true] {
+                let raw = format!("> - {grapheme}x{newline}> - tail");
+                let mut doc = new_document(&raw);
+                doc.set_source_mode(source_mode);
+                let start = raw.find(grapheme).unwrap();
+                let caret = if forward {
+                    start
+                } else {
+                    start + grapheme.len()
+                };
+                doc.select(caret, false, false);
+                let selection = doc.selection();
+                assert_eq!(selection, caret..caret);
+                assert!(doc.delete(forward).unwrap());
+                assert_eq!(doc.source.text(), format!("> - x{newline}> - tail"));
+                assert_eq!(doc.history_len(false), 1);
+                doc.undo(false);
+                assert_eq!(doc.source.text(), raw);
+                assert_eq!(doc.selection(), selection);
+                assert!(!doc.dirty());
+                doc.undo(true);
+                assert_eq!(doc.source.text(), format!("> - x{newline}> - tail"));
+            }
+        }
+    }
+}
+
+#[test]
+fn unicode_17_composition_joins_previous_character_in_one_transaction() {
+    let mut doc = new_document("e");
+    doc.select(1, false, false);
+    let source = doc.source.id();
+    doc.update_composition(None, "\u{1acf}", Some(3..3))
+        .unwrap();
+    assert_eq!(doc.editable_text(), "e\u{1acf}");
+    assert_eq!(doc.source.id(), source);
+    assert_eq!(doc.history_len(false), 0);
+    assert!(!doc.dirty());
+    let (state, _) = doc.projection_state(&[]);
+    let temporary = doc.project(&state, None, &[]);
+    assert_eq!(temporary.deletion_range(4, false), Some(0..4));
+    assert!(doc.commit_composition().unwrap());
+    assert_eq!(doc.source.text(), "e\u{1acf}");
+    assert_eq!(doc.head, 4);
+    assert_eq!(doc.history_len(false), 1);
+    assert!(doc.delete(false).unwrap());
+    assert_eq!(doc.source.text(), "");
+    doc.undo(false);
+    assert_eq!(doc.source.text(), "e\u{1acf}");
+    doc.undo(false);
+    assert_eq!(doc.source.text(), "e");
+    assert_eq!(doc.head, 1);
+    assert!(!doc.dirty());
+}
+
 struct OverrideKeys;
 impl BuiltinFeature for OverrideKeys {
     fn manifest(&self) -> FeatureManifest {

@@ -7,6 +7,7 @@ mod element;
 mod export;
 mod files;
 mod frame_index;
+mod hit_index;
 mod i18n;
 mod input;
 mod layout;
@@ -18,6 +19,7 @@ mod profile;
 mod recent;
 mod render_controls;
 mod smoke;
+pub use smoke::smoke_features;
 mod text_layout;
 mod theme;
 mod visibility;
@@ -417,6 +419,9 @@ impl Editor {
                 close_after_save: false,
             },
             viewport: ViewportState {
+                window_title: None,
+                highlight_task: None,
+                highlight_generation: 0,
                 diagram_images: Vec::new(),
                 display,
                 geometry: None,
@@ -464,18 +469,23 @@ impl Editor {
         }
     }
     fn refresh(&mut self, cx: &mut Context<Self>) {
+        self.refresh_presentation(true, cx);
+    }
+    fn refresh_presentation(&mut self, interaction: bool, cx: &mut Context<Self>) {
         let _profile = profile::Scope::new("refresh");
         // Keep preedit and drag geometry stable; apply the saved choice when
         // the normal input lifecycle next refreshes a settled document.
         if !self.viewport.dragging && self.document.composition().is_none() {
             self.formulas.set_font(self.math_font.font);
         }
-        self.reset_caret_blink();
-        self.menus.render_menu = None;
-        self.menus.block_menu = None;
-        self.menus.block_insert = None;
-        self.menus.append_menu = None;
-        self.menus.append_hovered = false;
+        if interaction {
+            self.reset_caret_blink();
+            self.menus.render_menu = None;
+            self.menus.block_menu = None;
+            self.menus.block_insert = None;
+            self.menus.append_menu = None;
+            self.menus.append_hovered = false;
+        }
         let batch = if self.document.composition().is_some() {
             Ok(ryne_session::CachedControls {
                 controls: Default::default(),
@@ -502,7 +512,7 @@ impl Editor {
         {
             self.menus.hovered_block = None;
         }
-        if self.document.composition().is_none() {
+        if interaction && self.document.composition().is_none() {
             self.document.normalize_heading_caret();
         }
         let frozen = self.viewport.dragging
@@ -545,11 +555,49 @@ impl Editor {
             && self.viewport.display != next_display
         {
             self.viewport.frame_epoch = self.viewport.frame_epoch.wrapping_add(1);
+            self.menus.render_menu = None;
         }
         self.viewport.display = next_display;
         self.viewport.diagram_images =
             crate::assets::diagram_images(&self.viewport.display, &self.viewport.geometry);
+        self.schedule_highlight_refresh(cx);
         cx.notify();
+    }
+    fn schedule_highlight_refresh(&mut self, cx: &mut Context<Self>) {
+        // Replacing this task cancels an older scheduled pass. Never let a timer
+        // for another source/preedit reinterpret the current frame.
+        self.viewport.highlight_task = None;
+        self.viewport.highlight_generation = self.viewport.highlight_generation.wrapping_add(1);
+        let pending = match ryne_extensions::catch_callback("highlight", "pending work", || {
+            self.highlighter.has_pending_work()
+        }) {
+            Ok(pending) => pending,
+            Err(diagnostic) => {
+                self.document.record_diagnostics(vec![diagnostic]);
+                false
+            }
+        };
+        if !pending || self.viewport.dragging || self.document.composition().is_some() {
+            return;
+        }
+        let source = self.document.source.id();
+        let generation = self.viewport.highlight_generation;
+        self.viewport.highlight_task = Some(cx.spawn(async move |this, cx| {
+            cx.background_executor()
+                .timer(std::time::Duration::from_millis(16))
+                .await;
+            let _ = this.update(cx, |editor, cx| {
+                if editor.viewport.highlight_generation != generation
+                    || editor.document.source.id() != source
+                {
+                    return;
+                }
+                editor.viewport.highlight_task = None;
+                if !editor.viewport.dragging && editor.document.composition().is_none() {
+                    editor.refresh_presentation(false, cx);
+                }
+            });
+        }));
     }
     fn commit_composition(&mut self, cx: &mut Context<Self>) -> bool {
         match self.document.commit_composition() {
@@ -647,20 +695,12 @@ impl Editor {
         let next = if forward {
             self.viewport
                 .display
-                .text
-                .grapheme_indices(true)
-                .map(|(p, _)| p)
-                .chain(std::iter::once(self.viewport.display.text.len()))
-                .find(|&p| p > position)
+                .next_grapheme(position)
                 .unwrap_or(position)
         } else {
             self.viewport
                 .display
-                .text
-                .grapheme_indices(true)
-                .map(|(p, _)| p)
-                .take_while(|&p| p < position)
-                .last()
+                .previous_grapheme(position)
                 .unwrap_or(0)
         };
         let affinity = if forward {
@@ -1040,29 +1080,15 @@ impl Editor {
             // Resolve once against the displayed layout, then retain source anchors.
             let (hit, affinity) = geometry.hit_caret(event.position);
             let source = if !event.modifiers.shift {
-                geometry
-                    .display
-                    .formulas
-                    .iter()
-                    .find(|formula| {
-                        let a = geometry
-                            .position_with_affinity(formula.display.start, Affinity::Downstream);
-                        let b = geometry
-                            .position_with_affinity(formula.display.end, Affinity::Upstream);
-                        event.position.x >= a.x
-                            && event.position.x < b.x
-                            && event.position.y >= a.y
-                            && event.position.y < a.y + geometry.line_height(formula.display.start)
-                    })
-                    .map_or_else(
-                        || {
-                            geometry
-                                .display
-                                .source_byte_at(ryne_core::DisplayByte(hit), affinity)
-                                .0
-                        },
-                        |formula| formula.source.start + 1,
-                    )
+                geometry.formula_at_point(event.position).map_or_else(
+                    || {
+                        geometry
+                            .display
+                            .source_byte_at(ryne_core::DisplayByte(hit), affinity)
+                            .0
+                    },
+                    |formula| formula.source.start + 1,
+                )
             } else {
                 geometry
                     .display
@@ -1071,8 +1097,17 @@ impl Editor {
             };
             let source = if !event.modifiers.shift {
                 geometry
+                    .text_layout
+                    .visibility
                     .lines
-                    .iter()
+                    .visible(
+                        event.position.y - geometry.bounds.top() - px(geometry.page.top)
+                            + geometry.scroll,
+                        event.position.y - geometry.bounds.top() - px(geometry.page.top)
+                            + geometry.scroll,
+                    )
+                    .into_iter()
+                    .map(|i| &geometry.lines[i])
                     .find_map(|line| {
                         let index = line.diagram?;
                         let top = geometry.bounds.top() + px(geometry.page.top) + line.top
@@ -1187,50 +1222,13 @@ impl Editor {
             }
             return;
         }
-        let block =
-            geometry
-                .bounds
-                .contains(&position)
-                .then(|| {
-                    let y = position.y - geometry.bounds.top() - px(geometry.page.top)
-                        + geometry.scroll;
-                    // Code panels include a language header and padding outside their
-                    // text rows; these belong to the same hover target as the body.
-                    if let Some(source) = geometry.display.code_blocks.iter().enumerate().find_map(
-                        |(index, block)| {
-                            let mut lines = geometry
-                                .lines
-                                .iter()
-                                .filter(|line| line.code == Some(index));
-                            let first = lines.next()?;
-                            let last = lines.next_back().unwrap_or(first);
-                            (first.top - px(32.) <= y
-                                && y < last.top
-                                    + last.shaped.size(last.line_height).height
-                                    + px(12.))
-                            .then_some(block.source.anchor)
-                        },
-                    ) {
-                        return crate::block::at(&self.document.parse, source);
-                    }
-                    let line = geometry.lines.iter().find(|line| {
-                        line.top <= y && y < line.top + line.shaped.size(line.line_height).height
-                    })?;
-                    let source = if let Some(index) = line.diagram {
-                        geometry.display.diagrams[index].source.anchor
-                    } else if let Some(index) = line.code {
-                        geometry.display.code_blocks[index].source.anchor
-                    } else {
-                        let (hit, affinity) = geometry.hit_caret(position);
-                        geometry
-                            .display
-                            .source_byte_at(ryne_core::DisplayByte(hit), affinity)
-                            .0
-                    };
-                    crate::block::at(&self.document.parse, source)
-                })
-                .flatten()
-                .map(|block| (geometry.snapshot, block));
+        let block = geometry
+            .bounds
+            .contains(&position)
+            .then(|| geometry.hover_source(position))
+            .flatten()
+            .and_then(|source| crate::block::at(&self.document.parse, source))
+            .map(|block| (geometry.snapshot, block));
         let closed_menu = self.menus.block_menu.take().is_some();
         if self.menus.hovered_block != block || closed_menu {
             self.menus.hovered_block = block;

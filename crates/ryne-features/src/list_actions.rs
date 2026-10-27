@@ -54,6 +54,9 @@ pub(crate) fn extent(state: &EditingState, item: &list::Item) -> Range<usize> {
     Extents::new(state).get(item)
 }
 impl RenderActionProvider for ListActions {
+    fn cache_dependencies(&self) -> Option<CacheDependencies> {
+        Some(CacheDependencies::default())
+    }
     fn id(&self) -> &'static str {
         "list"
     }
@@ -192,6 +195,7 @@ impl RenderActionProvider for ListActions {
             state: state.clone(),
             prepared: None,
             renderer: self.formulas.as_ref(),
+            mapping: None,
         };
         planner.list_action(request)?;
         Ok(match planner.prepared {

@@ -1,0 +1,21 @@
+formula requests for one Backspace command outside math, without GUI refresh: 2
+preview provider panic escapes session boundary: true
+observer diagnostics after 100 selections: 100
+controls local source: before=3 cached=3 fresh=0 reused=true
+controls leaving local: before=0 cached=0 fresh=3 reused=true
+highlight frame=0 colored=8/80 generation=None
+highlight frame=1 colored=16/80 generation=None
+highlight frame=2 colored=24/80 generation=None
+highlight frame=3 colored=32/80 generation=None
+highlight frame=4 colored=40/80 generation=None
+highlight frame=5 colored=48/80 generation=None
+highlight frame=6 colored=56/80 generation=None
+highlight frame=7 colored=64/80 generation=None
+highlight frame=8 colored=72/80 generation=None
+highlight frame=9 colored=64/80 generation=None
+highlight frame=10 colored=64/80 generation=None
+highlight frame=11 colored=64/80 generation=None
+highlight frame=12 colored=64/80 generation=None
+highlight frame=13 colored=64/80 generation=None
+highlight frame=14 colored=64/80 generation=None
+highlight frame=15 colored=64/80 generation=None

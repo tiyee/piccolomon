@@ -13,6 +13,8 @@ pub struct ParseSnapshot {
     pub(crate) items: OnceLock<Vec<list::Item>>,
     pub(crate) rows: OnceLock<Vec<list::Row>>,
     pub(crate) tables: OnceLock<Vec<table::Table>>,
+    pub(crate) table_cells: OnceLock<Vec<table::CellLocation>>,
+    paragraphs: OnceLock<Vec<Range<usize>>>,
     index: OnceLock<SemanticIndex>,
     utf16: OnceLock<crate::Utf16Index>,
     pub(crate) formulas: OnceLock<Vec<crate::math::SourceFormula>>,
@@ -42,6 +44,8 @@ impl ParseSnapshot {
             items: OnceLock::new(),
             rows: OnceLock::new(),
             tables: OnceLock::new(),
+            table_cells: OnceLock::new(),
+            paragraphs: OnceLock::new(),
             index: OnceLock::new(),
             utf16: OnceLock::new(),
             formulas: OnceLock::new(),
@@ -83,6 +87,28 @@ impl ParseSnapshot {
     }
     pub fn index(&self) -> &SemanticIndex {
         self.index.get_or_init(|| SemanticIndex::new(self))
+    }
+    pub fn paragraphs(&self) -> &[Range<usize>] {
+        let parse = self.semantic();
+        parse.paragraphs.get_or_init(|| {
+            parse
+                .nodes
+                .iter()
+                .filter(|node| {
+                    node.kind == NodeKind::Paragraph
+                        && node
+                            .parent
+                            .is_some_and(|p| parse.nodes[p].kind == NodeKind::Document)
+                })
+                .map(|node| {
+                    node.envelope.start
+                        ..node.envelope.start
+                            + parse.source().text()[node.envelope.clone()]
+                                .trim_end_matches(['\r', '\n'])
+                                .len()
+                })
+                .collect()
+        })
     }
 }
 

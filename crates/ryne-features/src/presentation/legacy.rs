@@ -86,14 +86,14 @@ impl LegacyPresentationBuilder<'_> {
             }
         }
         for (id, node) in parse.nodes.iter().enumerate() {
-            if !editable_inline(parse, id, all_tables)
+            if !legacy_editable_inline(parse, id, all_tables)
                 || code_blocks
                     .iter()
                     .any(|block| block.range.contains(&node.envelope.start))
             {
                 continue;
             }
-            let envelope = inline_range(parse, id, all_tables);
+            let envelope = legacy_inline_range(parse, id, all_tables);
             if formulas
                 .iter()
                 .any(|f| f.range.start <= envelope.start && envelope.end <= f.range.end)
@@ -510,6 +510,7 @@ fn interval_composition_matches_byte_oracle_for_structure_reveal_and_source_mode
         "Setext *x*\n===\n\n$x_1$ and **$x^2$**\n",
         "- [x] task\n- \n\n> \n",
         "text e\u{301}👩‍👩‍👧‍👦 **e\u{301}**\n",
+        "before `ordinary`\n\n| a | b |\n| --- | --- |\n| `中\\|😀` | **bold** |\n\nbetween `code`\n\n> | x | y |\n> | --- | --- |\n> | `literal` | |\n",
     ];
     for newline in ["\n", "\r\n", "\r"] {
         for case in cases {
@@ -546,4 +547,63 @@ fn interval_composition_matches_byte_oracle_for_structure_reveal_and_source_mode
             }
         }
     }
+}
+
+fn legacy_editable_inline(parse: &ParseSnapshot, id: usize, tables: &[table::Table]) -> bool {
+    if !inline(&parse.nodes[id].kind) {
+        return false;
+    }
+    let mut parent = parse.nodes[id].parent;
+    while let Some(p) = parent {
+        if matches!(
+            parse.nodes[p].kind,
+            NodeKind::Image { .. } | NodeKind::CodeBlock(_) | NodeKind::HtmlBlock
+        ) {
+            return false;
+        }
+        if matches!(parse.nodes[p].kind, NodeKind::Table(_))
+            && !tables
+                .iter()
+                .any(|t| t.range.contains(&parse.nodes[id].envelope.start))
+        {
+            return false;
+        }
+        parent = parse.nodes[p].parent;
+    }
+    inline(&parse.nodes[id].kind)
+}
+
+fn legacy_inline_range(parse: &ParseSnapshot, id: usize, tables: &[table::Table]) -> Range<usize> {
+    let node = &parse.nodes[id];
+    if matches!(node.kind, NodeKind::Code(_))
+        && let Some(cell) = tables
+            .iter()
+            .flat_map(|t| &t.rows)
+            .flat_map(|r| &r.cells)
+            .find(|cell| cell.content.contains(&node.envelope.start))
+    {
+        let text = parse.source().text();
+        let width = text[node.envelope.start..cell.content.end]
+            .bytes()
+            .take_while(|b| *b == b'`')
+            .count();
+        if width > 0 {
+            let mut position = node.envelope.start + width;
+            while position < cell.content.end {
+                let ticks = text[position..cell.content.end]
+                    .bytes()
+                    .take_while(|b| *b == b'`')
+                    .count();
+                if ticks == width {
+                    return node.envelope.start..position + width;
+                }
+                position += if ticks > 0 {
+                    ticks
+                } else {
+                    text[position..].chars().next().map_or(1, char::len_utf8)
+                };
+            }
+        }
+    }
+    node.envelope.clone()
 }

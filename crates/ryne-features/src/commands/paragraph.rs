@@ -1,20 +1,7 @@
 use super::*;
 impl Planner<'_> {
-    pub(super) fn paragraph_ranges(&self) -> impl Iterator<Item = Range<usize>> + '_ {
-        self.state.parse.nodes.iter().filter_map(|node| {
-            if node.kind != NodeKind::Paragraph
-                || !node
-                    .parent
-                    .is_some_and(|parent| self.state.parse.nodes[parent].kind == NodeKind::Document)
-            {
-                return None;
-            }
-            let end = node.envelope.start
-                + self.state.source.text()[node.envelope.clone()]
-                    .trim_end_matches(['\r', '\n'])
-                    .len();
-            Some(node.envelope.start..end)
-        })
+    pub(super) fn paragraph_ranges(&self) -> &[Range<usize>] {
+        self.state.parse.paragraphs()
     }
     pub(super) fn newline_at(&self, caret: usize) -> &'static str {
         let text = self.state.source.text();
@@ -38,24 +25,30 @@ impl Planner<'_> {
         }
         let caret = self.state.head;
         let text = self.state.source.text();
-        let ranges = self.paragraph_ranges().collect::<Vec<_>>();
+        let ranges = self.paragraph_ranges();
         let boundary = if forward {
-            if !ranges.iter().any(|range| range.end == caret) {
+            if !ranges
+                .get(ranges.partition_point(|range| range.end < caret))
+                .is_some_and(|range| range.end == caret)
+            {
                 return Ok(false);
             }
             let end = ranges
-                .iter()
-                .find(|range| caret < range.start)
+                .get(ranges.partition_point(|range| range.start <= caret))
                 .map_or(text.len(), |range| range.start);
             caret..end
         } else {
-            if caret != text.len() && !ranges.iter().any(|range| range.start == caret) {
+            if caret != text.len()
+                && ranges
+                    .binary_search_by_key(&caret, |range| range.start)
+                    .is_err()
+            {
                 return Ok(false);
             }
             let start = ranges
-                .iter()
-                .rev()
-                .find(|range| range.end < caret)
+                .partition_point(|range| range.end < caret)
+                .checked_sub(1)
+                .and_then(|i| ranges.get(i))
                 .map_or(caret, |range| range.end);
             start..caret
         };
@@ -81,11 +74,12 @@ impl Planner<'_> {
     pub fn paragraph_line_break(&mut self, hard: bool) -> Result<(), Error> {
         let selection = self.selection();
         let newline = self.newline_at(selection.start);
-        let paragraph = !self.state.source_mode
-            && !self.in_block_source(selection.start)
-            && self
-                .paragraph_ranges()
-                .any(|range| range.start <= selection.start && selection.start <= range.end);
+        let paragraph = !self.state.source_mode && !self.in_block_source(selection.start) && {
+            let ranges = self.paragraph_ranges();
+            ranges
+                .get(ranges.partition_point(|range| range.end < selection.start))
+                .is_some_and(|range| range.start <= selection.start && selection.start <= range.end)
+        };
         let replacement = if paragraph && hard {
             format!("  {newline}")
         } else if paragraph {

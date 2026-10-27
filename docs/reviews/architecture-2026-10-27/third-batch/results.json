@@ -1,0 +1,27 @@
+{
+  "platform": "macOS",
+  "rust": "1.99.1",
+  "tests_passed": 280,
+  "exit_codes": {
+    "architecture": 0,
+    "fmt": 0,
+    "diff_check": 0,
+    "tests": 0,
+    "clippy": 0,
+    "smoke": 0,
+    "smoke_specialized": 0,
+    "smoke_failure_expected": 1,
+    "probe": 0
+  },
+  "probe": {
+    "caret_refreshes": 10,
+    "before_projection_reused": 0,
+    "before_controls_reused": 0,
+    "after_projection_reused": 10,
+    "after_controls_reused": 10
+  },
+  "notes": [
+    "No release latency or peak RSS measurement.",
+    "Windows desktop not tested."
+  ]
+}

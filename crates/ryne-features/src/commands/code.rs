@@ -7,11 +7,18 @@ impl Planner<'_> {
         {
             return Ok(false);
         }
-        for block in code_block::cached(&self.state.parse) {
+        let blocks = code_block::cached(&self.state.parse);
+        if let Some(block) = blocks
+            .get(blocks.partition_point(|b| b.range.end < self.state.head))
+            .filter(|b| b.range.start <= self.state.head && self.state.head <= b.range.end)
+        {
             if block.rows.is_empty() && self.state.head == block.anchor {
                 return Ok(true);
             }
-            for (index, row) in block.rows.iter().enumerate() {
+            let index = block
+                .rows
+                .partition_point(|row| row.content.end < self.state.head);
+            if let Some(row) = block.rows.get(index) {
                 if !forward && self.state.head == row.content.start {
                     if let Some(previous) = index.checked_sub(1).and_then(|i| block.rows.get(i)) {
                         self.replace(previous.content.end..self.state.head, "")?;

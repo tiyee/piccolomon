@@ -5,20 +5,33 @@ pub struct CachedProjection {
     pub display: Arc<ryne_projection::IndexedDisplay>,
     pub diagnostics: Vec<Diagnostic>,
 }
-pub struct CachedControls {
-    pub controls: Arc<Vec<RenderControl>>,
-    pub diagnostics: Vec<Diagnostic>,
-}
+pub use ryne_extensions::CachedRenderControlBatch as CachedControls;
 struct ProjectionEntry {
     key: PresentationKey,
     highlighter: Option<u64>,
     diagrams: Vec<DiagramViewInput>,
     display: Arc<ryne_projection::IndexedDisplay>,
 }
+#[derive(PartialEq, Eq)]
+struct ControlKey {
+    document: ryne_core::DocumentKey,
+    source_mode: bool,
+    block_source: Option<Range<usize>>,
+}
+impl ControlKey {
+    fn new(state: &EditingState) -> Self {
+        Self {
+            document: state.source.id(),
+            source_mode: state.source_mode,
+            block_source: state.block_source.as_ref().map(|s| s.range.clone()),
+        }
+    }
+}
 #[derive(Default)]
 pub(super) struct PresentationCache {
     projection: Option<ProjectionEntry>,
-    controls: Option<(ryne_core::DocumentKey, bool, Arc<Vec<RenderControl>>)>,
+    controls: Option<(ControlKey, Arc<Vec<RenderControl>>)>,
+    contributors: RenderControlCache,
 }
 fn same_diagrams(a: &[DiagramViewInput], b: &[DiagramViewInput]) -> bool {
     a.len() == b.len()
@@ -42,7 +55,7 @@ impl EditorSession {
     ) -> CachedProjection {
         let key = if self.composition.is_none() {
             std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                self.services.features.presentation_key(state)
+                self.features.presentation_key(state)
             }))
             .ok()
             .flatten()
@@ -76,7 +89,10 @@ impl EditorSession {
         let display = Arc::new(ryne_projection::IndexedDisplay::new(batch.display));
         self.presentation_cache.borrow_mut().projection = key
             .zip(generation(&highlighter))
-            .filter(|_| batch.diagnostics.is_empty())
+            .filter(|(before, _)| {
+                batch.diagnostics.is_empty()
+                    && self.features.presentation_key(state).as_ref() == Some(before)
+            })
             .map(|(key, highlighter)| ProjectionEntry {
                 key,
                 highlighter,
@@ -94,25 +110,31 @@ impl EditorSession {
     ) -> Result<CachedControls, String> {
         let cacheable = self.composition.is_none()
             && std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                self.services.features.cache_source_controls()
+                self.features.cache_source_controls()
             }))
             .unwrap_or(false);
+        let key = ControlKey::new(state);
         if cacheable
-            && let Some((document, mode, controls)) = &self.presentation_cache.borrow().controls
-            && *document == state.source.id()
-            && *mode == state.source_mode
+            && let Some((cached, controls)) = &self.presentation_cache.borrow().controls
+            && *cached == key
         {
             return Ok(CachedControls {
                 controls: controls.clone(),
                 diagnostics: Vec::new(),
             });
         }
+        if self.composition.is_none() && !cacheable {
+            self.presentation_cache.borrow_mut().controls = None;
+            return self.features.render_control_batch_cached(
+                state,
+                &mut self.presentation_cache.borrow_mut().contributors,
+            );
+        }
         self.presentation_cache.borrow_mut().controls = None;
         let batch = self.project_render_control_batch(state)?;
         let controls = Arc::new(batch.controls);
         if cacheable && batch.diagnostics.is_empty() {
-            self.presentation_cache.borrow_mut().controls =
-                Some((state.source.id(), state.source_mode, controls.clone()));
+            self.presentation_cache.borrow_mut().controls = Some((key, controls.clone()));
         }
         Ok(CachedControls {
             controls,
@@ -306,7 +328,7 @@ mod tests {
         assert_eq!(*complete, doc.highlighted_display(&mut highlighter));
     }
     #[test]
-    fn unknown_highlighter_and_additional_features_do_not_opt_in_implicitly() {
+    fn unknown_highlighter_is_uncached_and_inert_features_do_not_disable_primary_cache() {
         struct Unknown;
         impl SyntaxHighlighter for Unknown {
             fn begin_frame(&mut self) {}
@@ -344,7 +366,7 @@ mod tests {
         .unwrap()
         .with_feature(Arc::new(Additional))
         .unwrap();
-        assert!(features.presentation_key(&doc).is_none());
+        assert!(features.presentation_key(&doc).is_some());
         assert!(!features.cache_source_controls());
     }
     #[test]

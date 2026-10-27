@@ -25,6 +25,12 @@ impl<'a> SemanticQuery<'a> {
     pub fn tables(&self) -> &'a [table::Table] {
         table::cached(self.parse)
     }
+    pub fn table_containing(&self, position: usize) -> Option<&'a table::Table> {
+        table::containing(self.parse, position)
+    }
+    pub fn cell_containing(&self, position: usize) -> Option<&'a table::Cell> {
+        table::cell_containing(self.parse, position)
+    }
     pub fn list_items(&self) -> &'a [list::Item] {
         list::cached_items(self.parse)
     }

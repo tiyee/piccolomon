@@ -1,7 +1,11 @@
 //! Code highlighting is a disposable view of Markdown source, never editable data.
 pub use ryne_projection::Class;
 use ryne_syntax::code_block::CodeBlock;
-use std::{collections::HashMap, ops::Range};
+use std::{
+    collections::HashMap,
+    ops::Range,
+    time::{Duration, Instant},
+};
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter};
 
 const CAPTURES: &[(&str, Class)] = &[
@@ -132,17 +136,47 @@ struct CachedBlock {
 const MAX_BLOCK_BYTES: usize = 256 * 1024;
 const MAX_CACHE_BYTES: usize = 2 * 1024 * 1024;
 const MAX_CACHE_ENTRIES: usize = 64;
+const MAX_DETECTION_ENTRIES: usize = 4096;
+const DETECTION_BUDGET: Duration = Duration::from_millis(50);
 
-#[derive(Default)]
+struct Detection {
+    language: Option<Language>,
+    used: bool,
+}
+
 pub struct CodeHighlighter {
     highlighter: Highlighter,
     configurations: HashMap<Language, Option<HighlightConfiguration>>,
     cache: Vec<CachedBlock>,
-    detections: Vec<(String, Option<Language>)>,
+    detections: HashMap<String, Detection>,
+    detection_bytes: usize,
+    max_detection_entries: usize,
+    max_detection_bytes: usize,
     detection_attempts: usize,
+    detection_remaining: Duration,
+    detection_overflow: bool,
     deferred: bool,
     #[cfg(test)]
     parses: usize,
+}
+impl Default for CodeHighlighter {
+    fn default() -> Self {
+        Self {
+            highlighter: Highlighter::default(),
+            configurations: HashMap::new(),
+            cache: Vec::new(),
+            detections: HashMap::new(),
+            detection_bytes: 0,
+            max_detection_entries: MAX_DETECTION_ENTRIES,
+            max_detection_bytes: MAX_CACHE_BYTES,
+            detection_attempts: 0,
+            detection_remaining: DETECTION_BUDGET,
+            detection_overflow: false,
+            deferred: false,
+            #[cfg(test)]
+            parses: 0,
+        }
+    }
 }
 
 impl CodeHighlighter {
@@ -151,7 +185,12 @@ impl CodeHighlighter {
     }
     pub fn begin_frame(&mut self) {
         self.detection_attempts = 0;
+        self.detection_remaining = DETECTION_BUDGET;
+        self.detection_overflow = false;
         self.deferred = false;
+        for detection in self.detections.values_mut() {
+            detection.used = false;
+        }
         for block in &mut self.cache {
             block.used = false;
         }
@@ -159,6 +198,19 @@ impl CodeHighlighter {
 
     pub fn end_frame(&mut self) {
         self.cache.retain(|block| block.used);
+        let before = self.detections.len();
+        self.detections.retain(|text, detection| {
+            if !detection.used {
+                self.detection_bytes -= text.len();
+            }
+            detection.used
+        });
+        // Removed/changed blocks may free a slot after an earlier new block was
+        // skipped. Retry once space is actually freed; a full current document
+        // instead reaches a stable plain-code fallback without endless work.
+        if self.detection_overflow && self.detections.len() < before {
+            self.deferred = true;
+        }
     }
 
     /// Return UTF-8 source ranges, excluding fences and container indentation.
@@ -193,32 +245,41 @@ impl CodeHighlighter {
             }
         }
         let language = if automatic {
-            if let Some(cached) = self.detections.iter().find(|(text, _)| *text == code) {
-                cached.1
+            if let Some(cached) = self.detections.get_mut(&code) {
+                cached.used = true;
+                cached.language
             } else {
-                if self.detection_attempts >= 8 || code.len() > crate::language::MAX_DETECTION_BYTES
+                if code.len() > self.max_detection_bytes {
+                    return Vec::new();
+                }
+                if self.detections.len() >= self.max_detection_entries
+                    || self.detection_bytes + code.len() > self.max_detection_bytes
                 {
+                    self.detection_overflow = true;
+                    return Vec::new();
+                }
+                if self.detection_attempts >= 8 || self.detection_remaining.is_zero() {
                     self.deferred = true;
                     return Vec::new();
                 }
                 self.detection_attempts += 1;
-                let detected = ryne_extensions::CodeLanguageDetector::detect(
-                    &crate::language::TreeSitterLanguageDetector,
-                    &code,
-                )
-                .and_then(Language::from_info);
-                while self.detections.len() >= MAX_CACHE_ENTRIES
-                    || self
-                        .detections
-                        .iter()
-                        .map(|(text, _)| text.len())
-                        .sum::<usize>()
-                        + code.len()
-                        > MAX_CACHE_BYTES
-                {
-                    self.detections.remove(0);
-                }
-                self.detections.push((code.clone(), detected));
+                // Charge only detection time. Earlier highlighting or source
+                // mapping must not consume the whole budget and permanently
+                // starve a later automatic block on every pass.
+                let started = Instant::now();
+                let detected = crate::language::TreeSitterLanguageDetector
+                    .detect_before(&code, started + self.detection_remaining)
+                    .and_then(Language::from_info);
+                self.detection_remaining =
+                    self.detection_remaining.saturating_sub(started.elapsed());
+                self.detection_bytes += code.len();
+                self.detections.insert(
+                    code.clone(),
+                    Detection {
+                        language: detected,
+                        used: true,
+                    },
+                );
                 detected
             }
         } else {
@@ -350,6 +411,9 @@ impl CodeHighlighter {
 }
 
 impl ryne_extensions::SyntaxHighlighter for CodeHighlighter {
+    fn has_pending_work(&self) -> bool {
+        self.deferred
+    }
     fn presentation_generation(&self) -> Option<u64> {
         (!self.deferred).then_some(0)
     }
@@ -376,6 +440,35 @@ mod tests {
     use editable_markdown_parser::Source;
     use ryne_syntax::code_block;
     use ryne_syntax::ParseSnapshot;
+
+    #[test]
+    fn first_batch_many_automatic_blocks_eventually_complete() {
+        for count in [8usize, 64, 80, 128] {
+            let raw = (0..count)
+                .map(|i| format!("```\nfn main_{i}() {{}}\n```\n\n"))
+                .collect::<String>();
+            let parse = ParseSnapshot::new(Source::new(&raw));
+            let blocks = code_block::blocks(&parse);
+            let mut highlighter = CodeHighlighter::default();
+            let mut complete = false;
+            for _ in 0..count + 2 {
+                highlighter.begin_frame();
+                let colored = blocks
+                    .iter()
+                    .filter(|b| !highlighter.spans(&raw, b).is_empty())
+                    .count();
+                highlighter.end_frame();
+                if ryne_extensions::SyntaxHighlighter::presentation_generation(&highlighter)
+                    .is_some()
+                {
+                    assert_eq!(colored, count);
+                    complete = true;
+                    break;
+                }
+            }
+            assert!(complete, "{count} automatic blocks did not converge");
+        }
+    }
 
     fn spans(highlighter: &mut CodeHighlighter, raw: &str) -> Vec<Span> {
         let parse = ParseSnapshot::new(Source::new(raw));
@@ -516,7 +609,7 @@ mod tests {
             assert_eq!(highlighter.detection_attempts, 0);
         }
         assert!(spans(&mut highlighter, "```auto\nx = 1\n```").is_empty());
-        assert_eq!(highlighter.detections.len(), 2);
+        assert_eq!(highlighter.detections.len(), 1);
         assert!(spans(&mut highlighter, "```auto\nx = 1\n```").is_empty());
         assert_eq!(highlighter.detection_attempts, 0);
         assert!(spans(
@@ -527,7 +620,76 @@ mod tests {
             )
         )
         .is_empty());
-        assert_eq!(highlighter.detections.len(), 2);
+        assert!(highlighter.detections.is_empty());
+    }
+
+    #[test]
+    fn detection_limits_finish_with_plain_code_and_reclaim_removed_content() {
+        for (entries, bytes) in [(4, 2048), (4096, 40)] {
+            let raw = (0..12)
+                .map(|i| format!("```\nfn main_{i}() {{}}\n```\n\n"))
+                .collect::<String>();
+            let parse = ParseSnapshot::new(Source::new(&raw));
+            let blocks = code_block::blocks(&parse);
+            let mut h = CodeHighlighter {
+                max_detection_entries: entries,
+                max_detection_bytes: bytes,
+                ..Default::default()
+            };
+            for _ in 0..16 {
+                h.begin_frame();
+                for block in &blocks {
+                    h.spans(&raw, block);
+                }
+                h.end_frame();
+                if !h.deferred {
+                    break;
+                }
+            }
+            assert!(!h.deferred);
+            assert!(h.detections.len() <= entries);
+            assert!(h.detection_bytes <= bytes);
+            let retained = h.detections.len();
+            assert!(retained > 0 && retained < 12);
+            let changed = "```\nfn replacement() {}\n```\n";
+            let changed_parse = ParseSnapshot::new(Source::new(changed));
+            let block = &code_block::blocks(&changed_parse)[0];
+            for _ in 0..3 {
+                h.begin_frame();
+                h.spans(changed, block);
+                h.end_frame();
+                if !h.deferred {
+                    break;
+                }
+            }
+            assert!(!h.deferred);
+            assert_eq!(h.detections.len(), 1);
+            assert_eq!(h.detection_bytes, "fn replacement() {}\n".len());
+        }
+    }
+
+    #[test]
+    fn shared_deadline_defers_without_spending_attempts_and_next_pass_resumes() {
+        let raw = "```\nfn main() {}\n```\n";
+        let parse = ParseSnapshot::new(Source::new(raw));
+        let block = &code_block::blocks(&parse)[0];
+        let mut h = CodeHighlighter::default();
+        h.begin_frame();
+        let explicit = raw.replacen("```", "```rust", 1);
+        let explicit_parse = ParseSnapshot::new(Source::new(&explicit));
+        h.spans(&explicit, &code_block::blocks(&explicit_parse)[0]);
+        assert_eq!(h.detection_remaining, DETECTION_BUDGET);
+        assert_eq!(h.detection_attempts, 0);
+        h.detection_remaining = Duration::ZERO;
+        assert!(h.spans(raw, block).is_empty());
+        h.end_frame();
+        assert!(h.deferred);
+        assert_eq!(h.detection_attempts, 0);
+        h.begin_frame();
+        assert!(!h.spans(raw, block).is_empty());
+        h.end_frame();
+        assert!(!h.deferred);
+        assert_eq!(h.detection_attempts, 1);
     }
 
     #[test]

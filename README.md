@@ -6,7 +6,7 @@ A native GPUI Markdown editor named Ryne (如言). One window, one document, wit
 markers revealed around the caret and folded back into styled text when it leaves.
 This repository builds a desktop application and is not published as a crate.
 
-Mermaid fences support native color previews and source editing with Merman 0.7.0.
+Mermaid fences support native color previews and source editing with Merman 0.9.2.
 See the [renderer evaluation](docs/13_Mermaid_Renderer_Evaluation.md) for dependency
 compatibility, rendering details and the original comparison.
 
@@ -16,7 +16,8 @@ Requires a current stable Rust toolchain (development uses Rust 1.99), plus
 Xcode command-line tools on macOS, or Visual Studio 2022/2026 Build Tools with
 the C++ desktop workload and Windows 10/11 SDK on Windows x64.
 GPUI remains pinned to 0.2.2. The parser uses the
-published `editable_markdown_parser` 0.0.4 crate with its opt-in math API.
+published `editable_markdown_parser` 0.0.5 crate with its opt-in math API.
+The parser and editor share `unicode-segmentation` 1.13.3 (Unicode 17).
 GPUI's `runtime_shaders` feature avoids requiring the separately downloaded Metal
 compiler component.
 
@@ -44,7 +45,7 @@ resource 1 in the executable for Explorer and GPUI's window/taskbar icon.
 Packaging verifies that Windows can load the embedded icon before creating the ZIP;
 MSIX builds reuse the same executable and retain their separate manifest logos.
 
-If a registry mirror has not synchronized `editable_markdown_parser` 0.0.4,
+If a registry mirror has not synchronized `editable_markdown_parser` 0.0.5,
 use the official crates.io registry or wait for the mirror to synchronize.
 
 ## GitHub Actions packages
@@ -270,7 +271,10 @@ settings, commands and signing behavior.
   and default `auto`. Choosing `auto` clears the fence info string. Automatic
   detection uses the bundled grammars for highlighting without rewriting the fence;
   ambiguous, incomplete or over-32-KiB bodies keep plain styling. Detection is cached,
-  with at most eight uncached attempts per frame and a 50 ms deadline per attempt.
+  with at most eight uncached attempts and a shared 50 ms detection budget per pass.
+  Deferred work continues automatically; composition and dragging pause scheduled passes.
+  Detection results retain at most 4096 entries and 2 MiB of body keys, separately from
+  the highlight cache. Excess content keeps stable plain styling instead of retrying forever.
   Explicit language choices edit only the language token and preserve trailing metadata;
   `auto` clears all info so metadata cannot become a language. Code body bytes, containers,
   selection and line endings are preserved in one undo step. The SVG dropdown arrow is
@@ -378,6 +382,20 @@ confirmation keeps the preedit intact. Block identity uses semantic types indepe
 of icons and translations. Main projection failures fall back to mapped source text;
 invalid or failed highlighting retains plain code with diagnostics.
 See [boundary improvements and measurements](docs/26_Architecture_Boundary_Improvements.md).
+Local-source ranges participate in control cache identity. Preview input failures are
+isolated by provider; runtime feature getters and diagram generations use host fault
+boundaries. Failed observer registrations are disabled after their first panic, and
+diagnostics are deduplicated and bounded. See the [first-batch repair plan and validation](docs/33_First_Batch_Repair.md).
+Pointer hit testing and code-panel hover query layout-owned geometry indexes; horizontal
+navigation uses the published grapheme index. Delete handlers share a lazy mapping for
+one command, and inline table membership uses snapshot-owned range indexes. Print layout
+advances through styles and formulas in order. Dirty queries read an exact cached value,
+and the native title updates only when its text changes. See the [second-batch repairs and measurements](docs/34_Second_Batch_Repair.md).
+
+Cache contracts belong to executable contributors. Command-only extensions preserve document
+and static control reuse; undeclared or changing control providers recompute independently.
+Selection, visibility, input state and configuration generations can be declared explicitly.
+See the [third-batch plan and validation](docs/35_Third_Batch_Repair.md).
 
 See [implementation and validation](docs/18_Ryne_Architecture_Implementation.md)
 for the dependency graph, regression coverage and internal extension limits. This

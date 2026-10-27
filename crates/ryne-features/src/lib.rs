@@ -39,6 +39,7 @@ impl MarkdownFeatures {
     fn feature_services(&self) -> FeatureServices<'_> {
         FeatureServices {
             formulas: self.formulas.as_ref(),
+            planning: Default::default(),
         }
     }
     pub fn with_feature(
@@ -61,26 +62,18 @@ impl MarkdownFeatures {
 }
 impl FeatureEngine for MarkdownFeatures {
     fn presentation_key(&self, state: &EditingState) -> Option<PresentationKey> {
-        if !self.additional.is_empty() {
-            return None;
-        }
-        Some(PresentationKey {
-            document: state.source.id(),
-            source_mode: state.source_mode,
-            inline: (!state.source_mode)
-                .then(|| state.reveal.as_ref().map(|s| s.range.clone()))
-                .flatten(),
-            heading: (!state.source_mode)
-                .then(|| state.heading_reveal.as_ref().map(|s| s.range.clone()))
-                .flatten(),
-            block: (!state.source_mode)
-                .then(|| self.block_window(state))
-                .flatten(),
-            generation: self.formulas.presentation_generation()?,
-        })
+        self.registry
+            .presentation_key(state, &self.feature_services())
     }
-    fn cache_source_controls(&self) -> bool {
-        self.additional.is_empty()
+    fn render_control_batch_cached(
+        &self,
+        state: &EditingState,
+        cache: &mut RenderControlCache,
+    ) -> Result<CachedRenderControlBatch, String> {
+        Ok(self
+            .registry
+            .render_actions()
+            .cached_control_batch(state, cache))
     }
     fn snapshot(&self) -> Option<Arc<dyn FeatureEngine>> {
         let mut frozen = self.clone();
@@ -121,6 +114,7 @@ impl FeatureEngine for MarkdownFeatures {
             state: state.clone(),
             prepared: None,
             renderer: self.formulas.as_ref(),
+            mapping: None,
         }
         .block_window()
     }
@@ -129,11 +123,15 @@ impl FeatureEngine for MarkdownFeatures {
             state: state.clone(),
             prepared: None,
             renderer: self.formulas.as_ref(),
+            mapping: None,
         }
         .remove_table_boundary(forward)
     }
     fn preview_inputs(&self, state: &EditingState) -> Vec<PreviewInput> {
         self.registry.preview_inputs(state)
+    }
+    fn preview_batch(&self, state: &EditingState) -> PreviewBatch {
+        self.registry.preview_batch(state)
     }
     fn block_ui(&self, block: &ryne_syntax::block::Block, source_open: bool) -> AdornmentSpec {
         self.registry.block_ui(block, source_open)

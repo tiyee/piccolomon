@@ -1,7 +1,7 @@
 //! Startup-only registration. Contributions are staged before the registry is published.
 use crate::{
     CommandHandler, CommandPlan, EditIntent, EditingState, FeatureServices, InsertBlock,
-    PresentationProvider, PreviewInput, RenderActionProvider, RenderActionRegistry,
+    PresentationProvider, PreviewBatch, PreviewInput, RenderActionProvider, RenderActionRegistry,
     SyntaxHighlighter,
 };
 use ryne_projection::{DiagramViewInput, Display};
@@ -339,6 +339,7 @@ impl Registry {
         state: &EditingState,
         services: &FeatureServices<'_>,
     ) -> Result<Option<CommandPlan>, String> {
+        services.planning.clear();
         for (_, contribution) in &self.contributions {
             if let Some(handler) = self.commands.get(contribution.id) {
                 let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -351,6 +352,17 @@ impl Registry {
             }
         }
         Ok(None)
+    }
+    /// Only the executable primary provider controls document cacheability.
+    pub fn presentation_key(
+        &self,
+        state: &EditingState,
+        services: &FeatureServices<'_>,
+    ) -> Option<crate::PresentationKey> {
+        self.contributions
+            .iter()
+            .find_map(|(_, contribution)| self.presentations.get(contribution.id))
+            .and_then(|provider| provider.cache_key(state, services))
     }
     pub fn display(
         &self,
@@ -371,16 +383,35 @@ impl Registry {
         &self.insert_templates
     }
     pub fn preview_inputs(&self, state: &EditingState) -> Vec<PreviewInput> {
-        ryne_syntax::SemanticQuery::new(&state.parse)
-            .code_blocks()
-            .iter()
-            .filter_map(|block| {
-                self.contributions
-                    .iter()
-                    .find_map(|(_, c)| self.previews.get(c.id).and_then(|p| p.input(state, block)))
-            })
-            .take(32)
-            .collect()
+        self.preview_batch(state).inputs
+    }
+    pub fn preview_batch(&self, state: &EditingState) -> PreviewBatch {
+        let mut batch = PreviewBatch::default();
+        let mut failed = BTreeSet::new();
+        for block in ryne_syntax::SemanticQuery::new(&state.parse).code_blocks() {
+            for (_, c) in &self.contributions {
+                let Some(provider) = self.previews.get(c.id).filter(|_| !failed.contains(c.id))
+                else {
+                    continue;
+                };
+                match crate::catch_callback(c.id, "preview input", || provider.input(state, block))
+                {
+                    Ok(Some(input)) => {
+                        batch.inputs.push(input);
+                        break;
+                    }
+                    Ok(None) => (),
+                    Err(diagnostic) => {
+                        failed.insert(c.id);
+                        batch.diagnostics.push(diagnostic);
+                    }
+                }
+            }
+            if batch.inputs.len() == 32 {
+                break;
+            }
+        }
+        batch
     }
     pub fn block_ui(&self, block: &ryne_syntax::block::Block, source_open: bool) -> AdornmentSpec {
         self.contributions

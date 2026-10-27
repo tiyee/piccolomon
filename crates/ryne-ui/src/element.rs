@@ -352,11 +352,15 @@ impl Render for Editor {
             f32::from(window.bounds().size.width),
             self.document.source_mode,
         );
-        window.set_window_title(&format!(
+        let title = format!(
             "{}{} — Ryne",
             name,
             if self.document.dirty() { " •" } else { "" }
-        ));
+        );
+        if self.viewport.window_title.as_ref() != Some(&title) {
+            window.set_window_title(&title);
+            self.viewport.window_title = Some(title);
+        }
         div()
             .size_full()
             .flex()

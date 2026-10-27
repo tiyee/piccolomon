@@ -134,19 +134,32 @@ impl Planner<'_> {
         {
             return Ok(false);
         }
-        let rows = list::rows(&self.state.parse);
+        let rows = list::cached_rows(&self.state.parse);
+        // Hidden-prefix mapping is only relevant to this physical list row.
+        let at = rows.partition_point(|r| r.line.end < self.state.head);
+        if !rows
+            .get(at)
+            .is_some_and(|r| r.line.start <= self.state.head && self.state.head <= r.line.end)
+        {
+            return Ok(false);
+        }
         let display = self.display();
         let caret = display.position_at(self.state.head);
-        let Some(index) = rows.iter().position(|r| {
-            caret
-                == display.position_at(if forward {
-                    r.content.end
-                } else {
-                    r.content.start
-                })
-        }) else {
+        let Some(index) = rows[at..]
+            .iter()
+            .take_while(|r| r.line.start <= self.state.head)
+            .position(|r| {
+                caret
+                    == display.position_at(if forward {
+                        r.content.end
+                    } else {
+                        r.content.start
+                    })
+            })
+        else {
             return Ok(false);
         };
+        let index = at + index;
         let row = &rows[index];
         if !forward && row.first {
             return self.indent_list(true);

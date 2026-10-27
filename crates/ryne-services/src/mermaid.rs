@@ -1,5 +1,9 @@
 //! Bounded, disposable Mermaid views; the document owns every editable byte.
-use merman::render::{layout_parsed, HeadlessRenderer, LayoutOptions, SvgPipeline};
+use merman::svg::{RenderResourcePolicy, ResourceLimitId, SvgPipeline};
+use merman::{
+    Engine, MermaidConfig, OperationControl, ParseOptions, RenderOutput, RenderTarget, Renderer,
+    SvgEnvironment, SvgRequest,
+};
 pub use ryne_projection::Diagram;
 #[cfg(test)]
 use ryne_syntax::code_block::CodeBlock;
@@ -90,7 +94,6 @@ fn render_inner(source: &str, control: Control) -> Outcome {
         return Err("图表超过 32 KiB，保留源码".into());
     }
     control.checkpoint().map_err(str::to_owned)?;
-    // Stable 0.7 is compatible with the parser's exact grapheme dependency.
     // Bound recursive input before parsing, and semantic work before layout.
     let mut nesting = 0usize;
     for ch in source.chars() {
@@ -108,14 +111,35 @@ fn render_inner(source: &str, control: Control) -> Outcome {
     if source.lines().count() > 256 {
         return Err("图表超过 256 行，保留源码".into());
     }
-    let renderer = HeadlessRenderer::new()
-        .with_strict_parsing()
-        .with_svg_pipeline(SvgPipeline::resvg_safe());
+    let mut resources = RenderResourcePolicy::interactive();
+    for (id, limit) in [
+        (ResourceLimitId::MaxSourceBytes, MAX_SOURCE),
+        (ResourceLimitId::MaxModelItems, 2048),
+        (ResourceLimitId::MaxModelNestingDepth, 32),
+        (ResourceLimitId::MaxModelTextBytes, MAX_SOURCE * 4),
+        (ResourceLimitId::MaxSvgBytes, 2 * 1024 * 1024),
+    ] {
+        resources
+            .apply_limit(id, limit)
+            .map_err(|e| e.to_string())?;
+    }
+    // Select the former presentation choices without compiling ELK or a second math engine.
+    let renderer = Renderer::new()
+        .with_engine(Engine::new().with_site_config(MermaidConfig::from_value(
+            serde_json::json!({ "layout": "dagre", "theme": "default", "look": "classic" }),
+        )))
+        .with_parse_options(ParseOptions::strict())
+        .with_resource_policy(*resources.input_policy());
+    let operation =
+        OperationControl::new().with_deadline(control.remaining().map_err(str::to_owned)?);
+    let cancelled_operation = operation.clone();
+    let _cancellation = control.on_cancel(move || cancelled_operation.cancel());
     let parsed = renderer
-        .parse_diagram_sync(source)
+        .prepare_semantic(source, operation)
         .map_err(|e| e.to_string())?
         .ok_or("未识别图表，保留源码")?;
-    let mut pending = vec![(&parsed.model, 0usize)];
+    let model = parsed.compatibility_json().map_err(|e| e.to_string())?;
+    let mut pending = vec![(model.as_value(), 0usize)];
     let mut items = 0usize;
     let mut text_bytes = 0usize;
     while let Some((value, depth)) = pending.pop() {
@@ -137,12 +161,18 @@ fn render_inner(source: &str, control: Control) -> Outcome {
         }
     }
     control.checkpoint().map_err(str::to_owned)?;
-    let layout = layout_parsed(&parsed, &LayoutOptions::headless_svg_defaults())
+    let request = SvgRequest {
+        environment: SvgEnvironment::deterministic().with_resource_policy(resources),
+        pipeline: Some(SvgPipeline::resvg_safe()),
+        ..Default::default()
+    };
+    let output = parsed
+        .render(RenderTarget::Svg(request))
         .map_err(|e| e.to_string())?;
-    control.checkpoint().map_err(str::to_owned)?;
-    let svg = renderer
-        .render_layouted_svg_sync(&layout)
-        .map_err(|e| e.to_string())?;
+    let RenderOutput::Svg(Some(svg)) = output else {
+        return Err("未生成图表，保留源码".into());
+    };
+    let (svg, _) = svg.into_parts();
     if svg.len() > 2 * 1024 * 1024 {
         return Err("图表 SVG 超限，保留源码".into());
     }
@@ -205,7 +235,7 @@ impl ryne_extensions::DiagramRenderer for MermanRenderer {
         render(source, control)
     }
     fn generation(&self) -> u64 {
-        7
+        902
     }
 }
 
@@ -266,6 +296,11 @@ mod tests {
         let cancelled = control();
         cancelled.cancel();
         assert!(render("flowchart LR\nA-->B", cancelled).is_err());
+        assert!(render(
+            "flowchart LR\nA-->B",
+            Control::with_timeout(std::time::Duration::ZERO)
+        )
+        .is_err());
     }
     #[test]
     fn basic_diagram_families_render_through_the_pinned_backend() {

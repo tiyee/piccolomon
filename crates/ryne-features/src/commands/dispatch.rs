@@ -100,6 +100,7 @@ impl CommandHandler for BuiltinCommand {
             state: state.clone(),
             prepared: None,
             renderer: services.formulas,
+            mapping: Some(&services.planning),
         };
         let result: Result<bool, editable_markdown_parser::Error> = match (self, intent) {
             (Self::Format, EditIntent::FormatSource) => {

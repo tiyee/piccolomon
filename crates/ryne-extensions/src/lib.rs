@@ -9,7 +9,7 @@ use std::{
     path::Path,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, Mutex, Weak,
     },
     time::{Duration, Instant},
 };
@@ -132,9 +132,24 @@ pub trait FeatureEngine: Send + Sync {
     fn presentation_key(&self, _: &EditingState) -> Option<PresentationKey> {
         None
     }
-    /// Opt in when controls depend only on source identity and source mode.
+    /// Opt in when controls depend only on source identity, source mode and
+    /// the explicit local-source range. The host keys all three inputs.
     fn cache_source_controls(&self) -> bool {
         false
+    }
+    /// Per-contributor caching is optional; legacy engines keep their existing
+    /// whole-batch opt-in. Unknown engines recompute by default.
+    fn render_control_batch_cached(
+        &self,
+        state: &EditingState,
+        cache: &mut RenderControlCache,
+    ) -> Result<CachedRenderControlBatch, String> {
+        cache.clear();
+        self.render_control_batch(state)
+            .map(|batch| CachedRenderControlBatch {
+                controls: Arc::new(batch.controls),
+                diagnostics: batch.diagnostics,
+            })
     }
     /// Freeze presentation settings for a detached background export.
     fn snapshot(&self) -> Option<Arc<dyn FeatureEngine>> {
@@ -150,6 +165,12 @@ pub trait FeatureEngine: Send + Sync {
     fn block_window(&self, state: &EditingState) -> Option<Range<usize>>;
     fn protects_table_boundary(&self, state: &EditingState, forward: bool) -> bool;
     fn preview_inputs(&self, state: &EditingState) -> Vec<PreviewInput>;
+    fn preview_batch(&self, state: &EditingState) -> PreviewBatch {
+        PreviewBatch {
+            inputs: self.preview_inputs(state),
+            diagnostics: Vec::new(),
+        }
+    }
     fn block_ui(&self, block: &ryne_syntax::block::Block, source_open: bool) -> AdornmentSpec;
     fn insert_templates(&self) -> &[(&'static str, InsertBlock)];
     fn render_controls(&self, _: &EditingState) -> Result<Vec<RenderControl>, String> {
@@ -199,6 +220,11 @@ pub trait SyntaxHighlighter {
     fn presentation_generation(&self) -> Option<u64> {
         None
     }
+    /// Explicitly request a later host pass. Unknown/non-cacheable services do
+    /// not implicitly schedule work just because their generation is None.
+    fn has_pending_work(&self) -> bool {
+        false
+    }
     fn begin_frame(&mut self);
     fn end_frame(&mut self);
     fn spans(&mut self, source: &str, block: &CodeBlock) -> Vec<HighlightSpan>;
@@ -211,6 +237,38 @@ pub struct PresentationKey {
     pub heading: Option<Range<usize>>,
     pub block: Option<Range<usize>>,
     pub generation: u64,
+    pub selection: Option<(usize, usize)>,
+    pub closers: Option<Vec<Range<usize>>>,
+}
+/// An explicit promise that all undeclared inputs cannot affect this contribution.
+/// Source identity, source mode and local-source filtering are always keyed.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct CacheDependencies {
+    pub selection: bool,
+    pub visibility: bool,
+    pub closers: bool,
+    /// Must change whenever configuration/resources affecting output change.
+    pub generation: u64,
+}
+impl PresentationKey {
+    pub fn for_state(state: &EditingState, dependencies: CacheDependencies) -> Self {
+        Self {
+            document: state.source.id(),
+            source_mode: state.source_mode,
+            block: state.block_source.as_ref().map(|s| s.range.clone()),
+            inline: dependencies
+                .visibility
+                .then(|| state.reveal.as_ref().map(|s| s.range.clone()))
+                .flatten(),
+            heading: dependencies
+                .visibility
+                .then(|| state.heading_reveal.as_ref().map(|s| s.range.clone()))
+                .flatten(),
+            selection: dependencies.selection.then_some((state.anchor, state.head)),
+            closers: dependencies.closers.then(|| state.closers.clone()),
+            generation: dependencies.generation,
+        }
+    }
 }
 /// Conservative language inference over literal code, without document ownership.
 pub trait CodeLanguageDetector: Send + Sync {
@@ -220,6 +278,21 @@ pub trait CodeLanguageDetector: Send + Sync {
 pub struct CancelControl {
     cancelled: Arc<AtomicBool>,
     deadline: Instant,
+    callbacks: Arc<Mutex<Vec<Weak<CancelCallback>>>>,
+}
+type CancelCallback = Mutex<Option<Box<dyn FnOnce() + Send>>>;
+
+/// Keeps a backend cancellation relay registered until the operation finishes.
+pub struct CancellationRegistration {
+    _callback: Arc<CancelCallback>,
+}
+
+fn invoke_cancellation(callback: &CancelCallback) {
+    let callback = callback.lock().unwrap_or_else(|e| e.into_inner()).take();
+    if let Some(callback) = callback {
+        // Cancellation may originate in a native event callback or Drop.
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(callback));
+    }
 }
 impl Default for CancelControl {
     fn default() -> Self {
@@ -231,13 +304,46 @@ impl CancelControl {
         Self {
             cancelled: Arc::new(AtomicBool::new(false)),
             deadline: Instant::now() + timeout,
+            callbacks: Default::default(),
         }
     }
     pub fn cancel(&self) {
-        self.cancelled.store(true, Ordering::Relaxed)
+        self.cancelled.store(true, Ordering::Release);
+        let callbacks = {
+            let mut callbacks = self.callbacks.lock().unwrap_or_else(|e| e.into_inner());
+            callbacks
+                .drain(..)
+                .filter_map(|c| c.upgrade())
+                .collect::<Vec<_>>()
+        };
+        for callback in callbacks {
+            invoke_cancellation(&callback);
+        }
     }
     pub fn is_cancelled(&self) -> bool {
-        self.cancelled.load(Ordering::Relaxed)
+        self.cancelled.load(Ordering::Acquire)
+    }
+    /// Registers an at-most-once relay, including cancellation before registration.
+    /// Dropping the registration stops retaining the relay; panics are contained.
+    pub fn on_cancel(&self, callback: impl FnOnce() + Send + 'static) -> CancellationRegistration {
+        let callback: Arc<CancelCallback> = Arc::new(Mutex::new(Some(Box::new(callback))));
+        {
+            let mut callbacks = self.callbacks.lock().unwrap_or_else(|e| e.into_inner());
+            callbacks.retain(|c| c.strong_count() > 0);
+            callbacks.push(Arc::downgrade(&callback));
+        }
+        if self.is_cancelled() {
+            invoke_cancellation(&callback);
+        }
+        CancellationRegistration {
+            _callback: callback,
+        }
+    }
+    pub fn remaining(&self) -> Result<Duration, &'static str> {
+        self.checkpoint()?;
+        self.deadline
+            .checked_duration_since(Instant::now())
+            .ok_or("图表处理超时，保留源码")
     }
     pub fn checkpoint(&self) -> Result<(), &'static str> {
         if self.is_cancelled() {
@@ -261,6 +367,9 @@ pub trait Validator: Send + Sync {
     fn validate(&self, before: &EditingState, plan: &CommandPlan) -> Result<(), String>;
 }
 pub trait Observer: Send + Sync {
+    fn id(&self) -> &'static str {
+        std::any::type_name::<Self>()
+    }
     fn observe(&self, event: &SessionEvent, state: &EditingState);
 }
 #[derive(Clone, Debug)]
@@ -306,6 +415,15 @@ pub struct PreviewInput {
     pub input: Result<String, String>,
     pub renderer: Arc<dyn DiagramRenderer>,
 }
+#[derive(Default)]
+pub struct PreviewBatch {
+    pub inputs: Vec<PreviewInput>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+mod host;
+pub use host::{catch_callback, DiagnosticLog, GuardedFeatureEngine};
+#[cfg(test)]
+mod cancellation_tests;
 #[cfg(test)]
 mod registry_tests;
 
