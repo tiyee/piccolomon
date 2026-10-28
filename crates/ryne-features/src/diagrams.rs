@@ -27,6 +27,11 @@ impl BuiltinFeature for FencedPreview {
     }
 }
 impl PreviewProvider for FencedPreview {
+    fn source_cache_generation(&self) -> Option<u64> {
+        // The descriptor and renderer instance are immutable after registration.
+        // Renderer output generations are checked independently by JobHost.
+        Some(0)
+    }
     fn input(&self, state: &EditingState, block: &CodeBlock) -> Option<PreviewInput> {
         if block.language.split_whitespace().next() != Some(self.language)
             || block.closing.is_none()

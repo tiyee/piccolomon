@@ -1,0 +1,6 @@
+list_extent items=100 code_blocks=100 code_candidates=20000
+list_extent items=200 code_blocks=200 code_candidates=80000
+list_extent items=400 code_blocks=400 code_candidates=320000
+list_extent items=800 code_blocks=800 code_candidates=1280000
+empty_extension unchanged_controls_reuse=false export_rejected=true
+atomic_save symlink_preserved=false target_updated=false alias_contains_edit=true

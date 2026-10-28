@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-29",
+  "baseline": "cc455d4",
+  "python3 scripts/check-architecture.py": {
+    "exit_code": 0
+  },
+  "cargo test --locked --workspace": {
+    "exit_code": 0,
+    "passed": 307
+  },
+  "cargo fmt --check": {
+    "exit_code": 0
+  },
+  "python3 docs/reviews/architecture-2026-10-28/run.py": {
+    "exit_code": 0
+  },
+  "python3 docs/reviews/architecture-2026-10-28/followup/run.py": {
+    "exit_code": 0
+  },
+  "python3 docs/reviews/architecture-2026-10-29/run.py": {
+    "exit_code": 0
+  },
+  "RYNE_PROFILE=1 cargo run --locked -- --smoke-test": {
+    "exit_code": 0,
+    "platform": "macOS",
+    "profile": "debug",
+    "stages": "0-374",
+    "purpose": "regression; not release performance benchmark"
+  },
+  "production_files_changed": false,
+  "not_run": [
+    "clippy",
+    "Windows desktop acceptance",
+    "release large-document latency and peak RSS"
+  ]
+}

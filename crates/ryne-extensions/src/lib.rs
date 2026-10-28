@@ -171,6 +171,11 @@ pub trait FeatureEngine: Send + Sync {
             diagnostics: Vec::new(),
         }
     }
+    /// Session-owned candidate cache; unknown engines retain uncached behavior.
+    fn preview_batch_cached(&self, state: &EditingState, cache: &mut PreviewCache) -> PreviewBatch {
+        cache.clear();
+        self.preview_batch(state)
+    }
     fn block_ui(&self, block: &ryne_syntax::block::Block, source_open: bool) -> AdornmentSpec;
     fn insert_templates(&self) -> &[(&'static str, InsertBlock)];
     fn render_controls(&self, _: &EditingState) -> Result<Vec<RenderControl>, String> {
@@ -431,6 +436,7 @@ pub use registry::*;
 mod render_actions;
 pub use render_actions::*;
 
+#[derive(Clone)]
 pub struct PreviewInput {
     pub feature: &'static str,
     pub block: CodeBlock,
@@ -442,6 +448,8 @@ pub struct PreviewBatch {
     pub inputs: Vec<PreviewInput>,
     pub diagnostics: Vec<Diagnostic>,
 }
+mod preview;
+pub use preview::PreviewCache;
 mod host;
 pub use host::{catch_callback, DiagnosticLog, GuardedFeatureEngine};
 #[cfg(test)]

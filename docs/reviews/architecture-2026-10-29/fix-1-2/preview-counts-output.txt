@@ -1,0 +1,13 @@
+warning: `/Users/jiangtao/.cargo/config` is deprecated in favor of `config.toml`
+  |
+  = help: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+   Compiling ryne-extensions v0.2.5 (/Users/jiangtao/code/github.com/piccolomon/crates/ryne-extensions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.76s
+     Running unittests src/lib.rs (target/debug/deps/ryne_extensions-7150c768d0e85ecf)
+
+running 1 test
+preview_candidates blocks=1001 cold_calls=1001 refreshes=10 additional_calls=0
+test preview::tests::source_candidates_and_negative_matches_survive_view_changes_without_scanning ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.05s
+

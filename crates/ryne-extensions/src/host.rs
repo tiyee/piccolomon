@@ -137,6 +137,22 @@ impl FeatureEngine for GuardedFeatureEngine {
         }
         batch.inputs
     }
+    fn preview_batch_cached(&self, state: &EditingState, cache: &mut PreviewCache) -> PreviewBatch {
+        let batch = self.call("preview_inputs", || {
+            self.inner.preview_batch_cached(state, cache)
+        });
+        let batch = match batch {
+            Ok(batch) => batch,
+            Err(_) => {
+                cache.clear();
+                PreviewBatch::default()
+            }
+        };
+        for diagnostic in &batch.diagnostics {
+            self.diagnostics.record(diagnostic.clone());
+        }
+        batch
+    }
     fn block_ui(&self, block: &ryne_syntax::block::Block, source_open: bool) -> AdornmentSpec {
         self.call("block_ui", || self.inner.block_ui(block, source_open))
             .unwrap_or_else(|_| AdornmentSpec {

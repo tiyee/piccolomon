@@ -1,0 +1,40 @@
+{
+  "date": "2026-10-29",
+  "production_base": "cc455d4",
+  "scope": [
+    "N1 list extent queries",
+    "R6 source-only preview candidates"
+  ],
+  "cargo test --locked --workspace": {
+    "exit_code": 0,
+    "passed": 319
+  },
+  "/usr/local/opt/rust/bin/cargo-clippy clippy --locked --all-targets -- -D warnings": {
+    "exit_code": 0
+  },
+  "python3 scripts/check-architecture.py": {
+    "exit_code": 0
+  },
+  "cargo fmt --check": {
+    "exit_code": 0
+  },
+  "git diff --check": {
+    "exit_code": 0
+  },
+  "RYNE_PROFILE=1 cargo run --locked -- --smoke-test": {
+    "exit_code": 0,
+    "platform": "macOS",
+    "profile": "debug",
+    "stages": "0-374"
+  },
+  "cargo test --locked -p ryne-features mixed_lists_and_fences -- --nocapture": {
+    "exit_code": 0
+  },
+  "cargo test --locked -p ryne-extensions source_candidates_and_negative -- --nocapture": {
+    "exit_code": 0
+  },
+  "python3 docs/reviews/architecture-2026-10-29/run.py": {
+    "exit_code": 0
+  },
+  "performance_evidence": "work counts, not release latency or RSS"
+}

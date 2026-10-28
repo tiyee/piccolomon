@@ -1,0 +1,13 @@
+warning: `/Users/jiangtao/.cargo/config` is deprecated in favor of `config.toml`
+  |
+  = help: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+    Blocking waiting for file lock on build directory
+    Checking ryne-extensions v0.2.5 (/Users/jiangtao/code/github.com/piccolomon/crates/ryne-extensions)
+    Checking ryne-services v0.2.5 (/Users/jiangtao/code/github.com/piccolomon/crates/ryne-services)
+    Checking ryne-session v0.2.5 (/Users/jiangtao/code/github.com/piccolomon/crates/ryne-session)
+    Checking ryne-features v0.2.5 (/Users/jiangtao/code/github.com/piccolomon/crates/ryne-features)
+    Checking ryne-ui v0.2.5 (/Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui)
+    Checking ryne-app v0.2.5 (/Users/jiangtao/code/github.com/piccolomon)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 28.70s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6, proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 6`

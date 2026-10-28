@@ -1,0 +1,1882 @@
+warning: `/Users/jiangtao/.cargo/config` is deprecated in favor of `config.toml`
+  |
+  = help: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.93s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6, proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 6`
+     Running `target/debug/ryne --smoke-test`
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.0443}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":193.4532}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":194.9789}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":25.3859}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.4446}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.2311}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.9517}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":6.8292}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":8.0026}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":2.1636}
+GUI smoke stage 0
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1778}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.3406}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9584}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.0579}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":7.2502}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":7.9731}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":4.0031}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.5058}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":2.0251}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":2.1950}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.9822}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":2.6751}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":2.4875}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":3.7070}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":3.0587}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.3753}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":2.6565}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.9159}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.8496}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.2884}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.8584}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.2548}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.1452}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.0173}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":2.0224}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2673}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1538}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1384}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0375}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1454}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1067}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.1730}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.4618}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1552}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2751}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4171}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.3326}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":285.0876}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.8059}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3311}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1722}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.9588}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.0968}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.1939}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3539}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1085}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.3971}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.6645}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2842}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2312}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1222}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1499}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.5235}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8207}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5157}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0582}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.1439}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1157}
+GUI smoke stage 10
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1590}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1237}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.2840}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.4717}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3983}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1911}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1153}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1414}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1156}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1197}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1121}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0972}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0893}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0937}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1358}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0854}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0757}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1248}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.2650}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.3449}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.4361}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0412}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0210}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0201}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0198}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0195}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0196}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0933}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0934}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6916}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":2.4892}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.6171}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":10.5450}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0654}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0281}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0245}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0240}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1937}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.4453}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.1139}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.7604}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0668}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2222}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2048}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1450}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.1548}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.4692}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.4763}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.9797}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.7959}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.6998}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.9012}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0797}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7810}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2708}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5951}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0494}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0452}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0435}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.1299}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7154}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2411}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.5846}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.0808}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":2.4514}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0750}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0655}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":35.6387}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3210}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.4583}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.4240}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.6358}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.1146}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4076}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.2168}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.1808}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2636}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1013}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4985}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3685}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4111}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2819}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.1037}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.7415}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.6433}
+GUI smoke stage 20
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.0004}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2478}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.4421}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.5324}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2208}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3535}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.8122}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.5475}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":3.7938}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0951}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7563}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5203}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6112}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0826}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5873}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5580}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5111}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7841}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4287}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.6928}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.0621}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3596}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0586}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0318}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3627}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3189}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.7027}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.4468}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5842}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7641}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.1578}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.5931}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":2.5413}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0661}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0321}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2944}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6963}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3032}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.1382}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.5577}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2521}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0780}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2782}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2924}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1926}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2063}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1711}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1610}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.1012}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.5256}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1540}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6208}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.2806}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.7373}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":5.2354}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0531}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0297}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0284}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.3888}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8580}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0745}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.1406}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7625}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7606}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7320}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.8131}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6069}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5988}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0363}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.8009}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7976}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.9561}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.9174}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6047}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.9661}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.2633}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.8037}
+GUI smoke stage 30
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0618}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0248}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6194}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7355}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.4347}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.9954}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.9576}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.9277}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4305}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.2159}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.6309}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2637}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0599}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3155}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2382}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0365}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2796}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2449}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3588}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.5690}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.0235}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5575}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0569}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5137}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4326}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6652}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4031}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2785}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2174}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.4186}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.5475}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3016}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3967}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4769}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.9954}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.8143}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9543}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0770}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0474}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0369}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4983}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4119}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1817}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.4071}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.5511}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1733}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0589}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0313}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1956}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2026}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.5046}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.2669}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6572}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5832}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1868}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":2.3604}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1362}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":6.6940}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":12.2535}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":12.7080}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":8.5347}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4096}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":2.0339}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.5989}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":2.1758}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0675}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.8332}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7411}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6314}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5468}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3278}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.8619}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.1299}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5522}
+GUI smoke stage 40
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0597}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3837}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4520}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3930}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3670}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.4789}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.7799}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4093}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0671}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0338}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6210}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4855}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0393}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.4999}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8189}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3517}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4607}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3680}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0397}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.5283}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8685}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4700}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4089}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5260}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3923}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4099}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.9765}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.6887}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":4.6749}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7980}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4320}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1500}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2881}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.8721}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.0082}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":3.5515}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0940}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6269}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4995}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4527}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0887}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4477}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5242}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1015}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3840}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.4268}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.0079}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.7799}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3596}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2384}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.2612}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.7869}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4533}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0974}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3054}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3256}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0898}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3729}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.2869}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9942}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9318}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3434}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3551}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2707}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3871}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3597}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.3432}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.7968}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9016}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3244}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3806}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.6931}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":91.1741}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.5912}
+GUI smoke stage 50
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0856}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5675}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3517}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4969}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3787}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.8057}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.0880}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9162}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5125}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3159}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.2529}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":4.8869}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8165}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.5384}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.3349}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.4381}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":4.4306}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.4728}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":3.2288}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6796}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":5.5545}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":6.8176}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":30.2407}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.2141}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0814}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.7517}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.0294}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.1990}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":4.1885}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":4.1559}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1430}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.0930}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9578}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1010}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.6576}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.0659}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":5.2977}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":2.5340}
+GUI smoke stage 60
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1213}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.1098}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6946}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0912}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.2992}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.1669}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":4.2014}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":2.0232}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.0872}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":3.0771}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":3.4817}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.4178}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7201}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":2.9226}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":3.0613}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.7815}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.8274}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.5846}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":4.9470}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":8.0434}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":24.1455}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5261}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.6036}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.2387}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.1452}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2801}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.5196}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8152}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4316}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5621}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.7826}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.6948}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.1616}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":5.0670}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":3.6448}
+GUI smoke stage 70
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.6723}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.7967}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.2910}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":5.2647}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1244}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2323}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2137}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2788}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2255}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.3569}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8073}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3746}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2264}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.4950}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.6822}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4823}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3757}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.4393}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.4136}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6135}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3248}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3989}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3011}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4433}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3645}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.3101}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8564}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3610}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2818}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.4297}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.6869}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4090}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3171}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.4292}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.7276}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5408}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0662}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1290}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1212}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1288}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1173}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1151}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1144}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2634}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3463}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.8360}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.1856}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5196}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6074}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.6350}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.2311}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3265}
+GUI smoke stage 80
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4064}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5340}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.0698}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4677}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6052}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5005}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4536}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2552}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.3171}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.1606}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.7971}
+GUI smoke stage 81
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3275}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.0712}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.1645}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0337}
+GUI smoke stage 82
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.7584}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5122}
+GUI smoke stage 83
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":20.6639}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":22.4135}
+GUI smoke stage 84
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":33.3486}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.7967}
+GUI smoke stage 85
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5876}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1167}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.3817}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.5723}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.9976}
+GUI smoke stage 86
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4640}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1838}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.2629}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.3653}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0666}
+GUI smoke stage 87
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2968}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6471}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.2740}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.6147}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3931}
+GUI smoke stage 88
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2483}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0517}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.3040}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.6552}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0578}
+GUI smoke stage 89
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.8126}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":9.0830}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":9.3054}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.3535}
+GUI smoke stage 90
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9731}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5689}
+GUI smoke stage 91
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":6.0037}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":2.3487}
+GUI smoke stage 92
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.1149}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":4.5689}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":4.7899}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6765}
+GUI smoke stage 93
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.9503}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":2.4943}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":4.0839}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":7.0137}
+GUI smoke stage 94
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3389}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.4670}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.6102}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.3720}
+GUI smoke stage 95
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":26.5100}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4929}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.9616}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.1344}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9927}
+GUI smoke stage 96
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.1103}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5568}
+GUI smoke stage 97
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":40.1661}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":62.2808}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":62.5583}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":31.6170}
+GUI smoke stage 98
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":56.9877}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":57.1894}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":6.0520}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.1802}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":7.3462}
+GUI smoke stage 99
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":78.0612}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":78.2417}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":10.0142}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0502}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":5.1948}
+GUI smoke stage 100
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":27.6407}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":27.7788}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":4.9734}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0604}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":5.4405}
+GUI smoke stage 101
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.1377}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":5.1692}
+GUI smoke stage 102
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.8875}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":2.1659}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.9767}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":3.3925}
+GUI smoke stage 103
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3508}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.2393}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.3814}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9889}
+GUI smoke stage 104
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0566}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5588}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.5690}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.7119}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3348}
+GUI smoke stage 105
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5838}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0334}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0347}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.3546}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.7653}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.7768}
+GUI smoke stage 106
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":2.1773}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":4.7730}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":5.2952}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":6.0346}
+GUI smoke stage 107
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":3.6313}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":3.9682}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.8719}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.4831}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":3.0623}
+GUI smoke stage 108
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.5590}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.6355}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.4882}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.9896}
+GUI smoke stage 109
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4888}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":2.2617}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.9506}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9719}
+GUI smoke stage 110
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0903}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.6621}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6815}
+GUI smoke stage 111
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0745}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.6506}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5140}
+GUI smoke stage 112
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3567}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":2.1015}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":3.0941}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.2334}
+GUI smoke stage 113
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0894}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.5499}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4782}
+GUI smoke stage 114
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0620}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.5774}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6201}
+GUI smoke stage 115
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4776}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.6690}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.2816}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5032}
+GUI smoke stage 116
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0824}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.6260}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5534}
+GUI smoke stage 117
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3331}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.3839}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.4872}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9608}
+GUI smoke stage 118
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0486}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0575}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3816}
+GUI smoke stage 119
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0618}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4478}
+GUI smoke stage 120
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3631}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2547}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2860}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3526}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":3.2416}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":3.4065}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.6523}
+GUI smoke stage 121
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0748}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1289}
+GUI smoke stage 122
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0978}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1692}
+GUI smoke stage 123
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0940}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1054}
+GUI smoke stage 124
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0894}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1357}
+GUI smoke stage 125
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0960}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1070}
+GUI smoke stage 126
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0830}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1382}
+GUI smoke stage 127
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2697}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2703}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2611}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2817}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.4450}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.7176}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.1323}
+GUI smoke stage 128
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3079}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.3495}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.5593}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8069}
+GUI smoke stage 129
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2984}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.6046}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.0186}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.7806}
+GUI smoke stage 130
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2528}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.4213}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.6927}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":2.5328}
+GUI smoke stage 131
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2619}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.3932}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.6401}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":2.4869}
+GUI smoke stage 132
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3133}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.3794}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.6379}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":2.7963}
+GUI smoke stage 133
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.1673}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2534}
+GUI smoke stage 134
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4132}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.8754}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.1506}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6511}
+GUI smoke stage 135
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.3765}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4778}
+GUI smoke stage 136
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":6.2104}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":10.8311}
+GUI smoke stage 137
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":4.2455}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":4.4083}
+GUI smoke stage 138
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6046}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.1478}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.6562}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5619}
+GUI smoke stage 139
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4967}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0407}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.3664}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8292}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6573}
+GUI smoke stage 140
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5209}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.5592}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.1094}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6055}
+GUI smoke stage 141
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4786}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.3474}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8002}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5561}
+GUI smoke stage 142
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":6.0838}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.5267}
+GUI smoke stage 143
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2871}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.6716}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.0714}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3289}
+GUI smoke stage 144
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6306}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2481}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.7584}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8620}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3119}
+GUI smoke stage 145
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4976}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0409}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.9253}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.3562}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4690}
+GUI smoke stage 146
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7903}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.6006}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.7601}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.7161}
+GUI smoke stage 147
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4031}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.6031}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.0734}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4960}
+GUI smoke stage 148
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0947}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0991}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3691}
+GUI smoke stage 149
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0745}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.3365}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4280}
+GUI smoke stage 150
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3543}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.6812}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.1962}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4703}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2109}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1773}
+GUI smoke stage 151
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.4203}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2044}
+GUI smoke stage 152
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.7532}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":4.1690}
+GUI smoke stage 153
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4520}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.7455}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.1730}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2866}
+GUI smoke stage 154
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4647}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0423}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.2845}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.7815}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2890}
+GUI smoke stage 155
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.9968}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9692}
+GUI smoke stage 156
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4454}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.7044}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.2022}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3367}
+GUI smoke stage 157
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4390}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5402}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.7479}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.0105}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8725}
+GUI smoke stage 158
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5130}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2844}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.8545}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9557}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4128}
+GUI smoke stage 159
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4889}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0497}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.2131}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.8069}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3499}
+GUI smoke stage 160
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.0619}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.1347}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":3.5329}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.0754}
+GUI smoke stage 161
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.7402}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5179}
+GUI smoke stage 162
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5471}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.9122}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.2593}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6940}
+GUI smoke stage 163
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7582}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":15.8423}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":16.7369}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5545}
+GUI smoke stage 164
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4514}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.3614}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.1007}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2879}
+GUI smoke stage 165
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6667}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.1862}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.6068}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9234}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8396}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4265}
+GUI smoke stage 166
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.8021}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.3577}
+GUI smoke stage 167
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":21.3369}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":7.7598}
+GUI smoke stage 168
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":5.6212}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":5.3811}
+GUI smoke stage 169
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":3.8695}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.8990}
+GUI smoke stage 170
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":6.1047}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":3.7349}
+GUI smoke stage 171
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":16.3276}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":7.0466}
+GUI smoke stage 172
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":4.6100}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":2.7174}
+GUI smoke stage 173
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":3.1362}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.6209}
+GUI smoke stage 174
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.6577}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":3.7059}
+GUI smoke stage 175
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":9.3088}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":2.9079}
+GUI smoke stage 176
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":3.5692}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.2745}
+GUI smoke stage 177
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.0404}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.8323}
+GUI smoke stage 178
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.1449}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":2.9280}
+GUI smoke stage 179
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":23.7609}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":6.3694}
+GUI smoke stage 180
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":8.4901}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":6.1547}
+GUI smoke stage 181
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":5.1506}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.7881}
+GUI smoke stage 182
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":8.6864}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":4.7774}
+GUI smoke stage 183
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":13.7969}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":7.7876}
+GUI smoke stage 184
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":7.1750}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":4.6197}
+GUI smoke stage 185
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":3.9082}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":3.1376}
+GUI smoke stage 186
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":3.1071}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":4.2157}
+GUI smoke stage 187
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":9.4617}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":5.4407}
+GUI smoke stage 188
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":5.2573}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":2.9131}
+GUI smoke stage 189
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":5.8582}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":2.4721}
+GUI smoke stage 190
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.6369}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.7853}
+GUI smoke stage 191
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":7.2732}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":3.1811}
+GUI smoke stage 192
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":3.3204}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.7818}
+GUI smoke stage 193
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.7263}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.8543}
+GUI smoke stage 194
+Menu localization passed: block titles/actions, list/table provider labels and alignment submenu in all seven languages; measured translated text, icons and shortcut space; unchanged source, selection, dirty state and undo/redo
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.4554}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.7789}
+GUI smoke stage 195
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":14.9686}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":6.1778}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":29.6307}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":30.3572}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":22.0361}
+GUI smoke stage 196
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":9.9977}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":6.0186}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":24.7323}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":25.0772}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":20.8478}
+GUI smoke stage 197
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":13.2104}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":10.0977}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":24.5966}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":25.1722}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":9.8672}
+GUI smoke stage 198
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":9.8303}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":7.8292}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":37.6117}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":38.2442}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":51.8264}
+GUI smoke stage 199
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":12.7421}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":9.2140}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":71.7014}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":72.0029}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":29.0021}
+GUI smoke stage 200
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":18.7641}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":11.7248}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":28.0688}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":28.4881}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":5.7466}
+GUI smoke stage 201
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":14.5409}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":10.3105}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":27.7714}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":28.3605}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":5.6777}
+GUI smoke stage 202
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":10.0195}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":21.4339}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":21.5678}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":4.3304}
+GUI smoke stage 203
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":10.6816}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":3.9355}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":4.0694}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":2.0635}
+GUI smoke stage 204
+Default guides passed: native layout in all seven languages, format panels, language/system switching, source-mode preservation, fresh geometry, clean history and protection of edited guides and redo
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.1520}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":2.2641}
+GUI smoke stage 205
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":15.6326}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3412}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1308}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1479}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.0967}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.3244}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0252}
+GUI smoke stage 206
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4293}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.5053}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.3994}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6946}
+GUI smoke stage 207
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3611}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.5839}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.3852}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.7097}
+GUI smoke stage 208
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3288}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.5256}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.1663}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.0059}
+GUI smoke stage 209
+Application menus passed: localized native menus, language preference without document changes, blank new document, recent open, CRLF reload, concurrent-edit rejection, IME/save guards and clear history
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.4950}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3383}
+GUI smoke stage 210
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5754}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.9131}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.9418}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":3.6207}
+GUI smoke stage 211
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5494}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.3912}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.5568}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4289}
+GUI smoke stage 212
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.3457}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5943}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5023}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6384}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.1001}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.4788}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6719}
+GUI smoke stage 213
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3461}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1651}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.6490}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.7687}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.2376}
+GUI smoke stage 214
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5077}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0755}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.8622}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.2612}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3473}
+GUI smoke stage 215
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1267}
+Task checkboxes passed: embedded checked/unchecked SVGs, nested real-window marker geometry, toggle with preserved selection and atomic undo, stale frame and source/IME/drag protection
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.4624}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4630}
+GUI smoke stage 216
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3612}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.5850}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9005}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8949}
+GUI smoke stage 217
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.7872}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8293}
+GUI smoke stage 218
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":6.9077}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":4.1226}
+GUI smoke stage 219
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2606}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.6828}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.5714}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1845}
+GUI smoke stage 220
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2137}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0808}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.2383}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.6764}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2130}
+GUI smoke stage 221
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.8212}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.4681}
+GUI smoke stage 222
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":6.1438}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.4817}
+GUI smoke stage 223
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3788}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.8196}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.3333}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8619}
+GUI smoke stage 224
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2055}
+Adjacent block insertion passed: first-block below-only, shared type picker geometry and hover, Escape back, above/below source transactions, CRLF, undo, stale target and IME protection
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.1869}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.5931}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1459}
+GUI smoke stage 225
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":2.3246}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.7330}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.4418}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":8.0066}
+GUI smoke stage 226
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":8.4606}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.6511}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.1400}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":10.2608}
+GUI smoke stage 227
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.8518}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5352}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3277}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.8450}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.4857}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4404}
+GUI smoke stage 228
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1254}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4328}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.4140}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9229}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5226}
+GUI smoke stage 229
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5326}
+Math font menu passed: native action availability, Lete/STIX live metrics and SVG identity, fresh geometry, persisted preference, IME/drag deferral, unchanged Unicode/CRLF source, selection, dirty and history
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.6881}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.4326}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6411}
+GUI smoke stage 230
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7924}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.1708}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.4004}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6741}
+GUI smoke stage 231
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6011}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.9047}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.9459}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4124}
+GUI smoke stage 232
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1225}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.4019}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.6704}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.2918}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2649}
+GUI smoke stage 233
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4390}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1268}
+Source formatting passed: toolbar action availability, explicit heading repair, marker/fence rules, CRLF and literal code, fresh geometry, atomic undo/redo, idempotence and IME/drag protection
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.4301}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.0069}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2343}
+GUI smoke stage 234
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7447}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.6319}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.5734}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":3.2222}
+GUI smoke stage 235
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8295}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5430}
+GUI smoke stage 236
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1633}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.7372}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5122}
+GUI smoke stage 237
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.3583}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.9086}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5713}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.7055}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3440}
+GUI smoke stage 238
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.2150}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.9093}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5656}
+GUI smoke stage 239
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.6611}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.7943}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5073}
+GUI smoke stage 240
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.9022}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.6868}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.3522}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5119}
+GUI smoke stage 241
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.3235}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.3024}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.5628}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6614}
+GUI smoke stage 242
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4311}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.1196}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.7381}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4895}
+GUI smoke stage 243
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3523}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.8684}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.1140}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5665}
+GUI smoke stage 244
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5577}
+Layout cache passed: blink/caret/hover reuse; resize/font/control-space/edit/IME/source-mode invalidation; unchanged document/history and shared source geometry
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.8293}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9922}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4050}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0550}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3973}
+GUI smoke stage 245
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2480}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2337}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.4683}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.5644}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0933}
+GUI smoke stage 246
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1572}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1116}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0956}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1116}
+Session boundary checks passed: rejected IME confirmation retains temporary text and geometry, close is blocked, generic deletion respects graphemes and undo
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.5926}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9015}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1970}
+GUI smoke stage 247
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7226}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.9163}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":3.5106}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":4.0930}
+GUI smoke stage 248
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1218}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7598}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.9762}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.8237}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.1613}
+GUI smoke stage 249
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7455}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.4756}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.2904}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.4049}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9211}
+GUI smoke stage 250
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.7891}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.0950}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.2187}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.7051}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.1666}
+GUI smoke stage 251
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.5187}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.3822}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.4517}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.1516}
+GUI smoke stage 252
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0854}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.9957}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":3.4037}
+GUI smoke stage 253
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.0816}
+Quote presentation passed: one outer block/panel across lines and nested prose, quote_bubble type icon and quoter body icon, stable menu origin, complete block selection, wrapping/literal code, Unicode mapping, editing/undo and local/full source without dirty/history changes
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.7256}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.0997}
+GUI smoke stage 254
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2924}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1512}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.2898}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.7841}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2805}
+GUI smoke stage 255
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2251}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.5831}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9387}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1861}
+GUI smoke stage 256
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2000}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.2862}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9151}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1554}
+GUI smoke stage 257
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2802}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.1879}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.6646}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5055}
+GUI smoke stage 258
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.5679}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1799}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1174}
+Quote Enter passed: continuation prefix, background and inset on the empty new row, shared caret/hit mapping, empty-row exit, atomic undo and IME confirmation without an extra newline
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.6387}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9336}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2679}
+GUI smoke stage 259
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":2.4593}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.4023}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.2331}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4469}
+GUI smoke stage 260
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":9.5190}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":6.3206}
+GUI smoke stage 261
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.3702}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.0913}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.1865}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8108}
+GUI smoke stage 262
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":3.4625}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.7964}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.1738}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5748}
+GUI smoke stage 263
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.1544}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":2.7598}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2366}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.9350}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.2383}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4552}
+GUI smoke stage 264
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4129}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":2.3171}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.3075}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.9030}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8275}
+GUI smoke stage 265
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":2.8548}
+Code language menu passed: header geometry, empty-source auto, removed empty choice, popup hides block controls, keyboard selection, literal CRLF source edits, atomic undo, source/IME suppression
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.8488}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.7530}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3514}
+GUI smoke stage 266
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":70.6216}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":36.6018}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":37.8804}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.7014}
+GUI smoke stage 267
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.5940}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.1087}
+GUI smoke stage 268
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3654}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":60.0387}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":37.9217}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":38.2766}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.0174}
+GUI smoke stage 269
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":30.1265}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":39.4715}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":40.6042}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":2.3966}
+GUI smoke stage 270
+P1/P2 GUI checks passed: indexed CRLF/Unicode mappings, viewport line/control/selection clipping, scroll layout reuse and preedit geometry without source/history changes
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9824}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.3771}
+GUI smoke stage 271
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":23.8746}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":17.8786}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":15.8305}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":16.2268}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":21.3619}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":17.2078}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":15.8838}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":19.9160}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":20.8173}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":19.8483}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":18.9261}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":24.8305}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":21.6093}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":22.9808}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":22.6801}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":26.2812}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":45.4814}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":48.0206}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":3.9695}
+GUI smoke stage 272
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.9406}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.2099}
+GUI smoke stage 273
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.3335}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.8122}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":2.5130}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":3.0274}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":4.2301}
+GUI smoke stage 274
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6816}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.9423}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.6030}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.7269}
+GUI smoke stage 275
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":15.8603}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":19.3461}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":19.2375}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":20.1600}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.2858}
+GUI smoke stage 276
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":19.9955}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":15.9293}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":17.5200}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":15.1048}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":16.6652}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":16.1545}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":19.3760}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":18.6528}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":23.3672}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":25.6126}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.2355}
+GUI smoke stage 277
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":17.2799}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":13.7410}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3447}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.3193}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.5403}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3596}
+GUI smoke stage 278
+First-batch GUI checks passed: automatic 128-block completion without input, stable idle projection, local source controls restored, IME/drag deferral and obsolete-task cancellation without source/history changes
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2832}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2655}
+GUI smoke stage 279
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":315.8800}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":122.8239}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":124.3904}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":35.9605}
+GUI smoke stage 280
+Second-batch hit candidates: max=3, total_rows=1841
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.1013}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.2421}
+GUI smoke stage 281
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":78.0522}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":239.8224}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":240.0326}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5590}
+GUI smoke stage 282
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0735}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0767}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0739}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0714}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0702}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0781}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0723}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1300}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0733}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0793}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0692}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0770}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0743}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0670}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1400}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1466}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0765}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0796}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0735}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1481}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0765}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0713}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0749}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0827}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0303}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0302}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0300}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0300}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0300}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0298}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0300}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0756}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0528}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0277}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0261}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0261}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0560}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0268}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0393}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0443}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0347}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":84.9965}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":233.1868}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":233.6413}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":18.1048}
+GUI smoke stage 283
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":76.5353}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":250.7386}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":251.1268}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":6.7528}
+GUI smoke stage 284
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":174.4596}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":251.8120}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":251.9628}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":8.8759}
+GUI smoke stage 285
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":64.3937}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":255.2277}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":255.5875}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":8.4998}
+GUI smoke stage 286
+Second-batch GUI checks passed: indexed hit oracle, bounded candidates, scrolled code-tail hover, Unicode horizontal/extended navigation, grapheme deletion, exact dirty/title state, undo and preedit geometry
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.1993}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6564}
+GUI smoke stage 287
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.8769}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":2.8334}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":4.0288}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":11.0425}
+GUI smoke stage 288
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0864}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0440}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0405}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0401}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0400}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0358}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0356}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0385}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0354}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0354}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9616}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9210}
+GUI smoke stage 289
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1780}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6190}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":2.6799}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":3.9478}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.1382}
+GUI smoke stage 290
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.2096}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":2.0406}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.3919}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.7112}
+GUI smoke stage 291
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.9068}
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":1.7163}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":2.1960}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.7624}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5477}
+GUI smoke stage 292
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.8332}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.8261}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.1299}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8056}
+GUI smoke stage 293
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1696}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8005}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5776}
+GUI smoke stage 294
+Third-batch GUI checks passed: actual command extension dispatched; projection/control/layout reuse across navigation and selection; heading/local-source invalidation, stale-frame rejection and preedit recovery without source/history changes
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8853}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6178}
+GUI smoke stage 295
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":4.2130}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.0027}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.0049}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.4124}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.2023}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3153}
+GUI smoke stage 296
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4458}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.9624}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.3720}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":3.1347}
+GUI smoke stage 297
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.0089}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.1893}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":2.5868}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1959}
+GUI smoke stage 298
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.6891}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.0041}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.6959}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.2569}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4477}
+GUI smoke stage 299
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4510}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.3048}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.7691}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2942}
+GUI smoke stage 300
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.0826}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2680}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3105}
+GUI smoke stage 301
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.8337}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9573}
+GUI smoke stage 302
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9266}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9103}
+GUI smoke stage 303
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.0511}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8015}
+GUI smoke stage 304
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9359}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8254}
+GUI smoke stage 305
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.1115}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.2215}
+GUI smoke stage 306
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8030}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8963}
+GUI smoke stage 307
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.2503}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.7202}
+GUI smoke stage 308
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8642}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8264}
+GUI smoke stage 309
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8032}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.0350}
+GUI smoke stage 310
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9585}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8392}
+GUI smoke stage 311
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9959}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8350}
+GUI smoke stage 312
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.1993}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.3000}
+GUI smoke stage 313
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.3118}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8825}
+GUI smoke stage 314
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9247}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8405}
+GUI smoke stage 315
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9549}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.0981}
+GUI smoke stage 316
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9819}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.8580}
+GUI smoke stage 317
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8957}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.7798}
+GUI smoke stage 318
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.0160}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":1.0956}
+GUI smoke stage 319
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.0042}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9118}
+GUI smoke stage 320
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.1857}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9907}
+GUI smoke stage 321
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8112}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.9919}
+GUI smoke stage 322
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.1794}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.7377}
+GUI smoke stage 323
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.1915}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3086}
+GUI smoke stage 324
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2354}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3091}
+GUI smoke stage 325
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2442}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.4113}
+GUI smoke stage 326
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2619}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3782}
+GUI smoke stage 327
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2334}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6552}
+GUI smoke stage 328
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2358}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6877}
+GUI smoke stage 329
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.8533}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.5880}
+GUI smoke stage 330
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2408}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3010}
+GUI smoke stage 331
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2433}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6499}
+GUI smoke stage 332
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2274}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2339}
+GUI smoke stage 333
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.1947}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2975}
+GUI smoke stage 334
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2676}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3384}
+GUI smoke stage 335
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2251}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3951}
+GUI smoke stage 336
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2445}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2421}
+GUI smoke stage 337
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.3021}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3446}
+GUI smoke stage 338
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2519}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2951}
+GUI smoke stage 339
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.1836}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2163}
+GUI smoke stage 340
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2916}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2771}
+GUI smoke stage 341
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2484}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3232}
+GUI smoke stage 342
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2361}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2878}
+GUI smoke stage 343
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2433}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3398}
+GUI smoke stage 344
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.3173}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.7960}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9323}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2741}
+GUI smoke stage 345
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4183}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.2558}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.5566}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2141}
+GUI smoke stage 346
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.4889}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":1.1582}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":1.7847}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.3001}
+GUI smoke stage 347
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.2324}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.2911}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.6247}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.6016}
+GUI smoke stage 348
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":0.1875}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":0.6737}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.9513}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.2277}
+GUI smoke stage 349
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0437}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1544}
+GUI smoke stage 350
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0403}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0712}
+GUI smoke stage 351
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0425}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0664}
+GUI smoke stage 352
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0421}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0654}
+GUI smoke stage 353
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0457}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0675}
+GUI smoke stage 354
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.1397}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0727}
+GUI smoke stage 355
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0436}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0551}
+GUI smoke stage 356
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0431}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0713}
+GUI smoke stage 357
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0538}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0695}
+GUI smoke stage 358
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0439}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0583}
+GUI smoke stage 359
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0439}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0679}
+GUI smoke stage 360
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0431}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1489}
+GUI smoke stage 361
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0471}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0546}
+GUI smoke stage 362
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0390}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0542}
+GUI smoke stage 363
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0400}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0531}
+GUI smoke stage 364
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0404}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0806}
+GUI smoke stage 365
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0483}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1465}
+GUI smoke stage 366
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.1002}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0552}
+GUI smoke stage 367
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0417}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.1480}
+GUI smoke stage 368
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0447}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0649}
+GUI smoke stage 369
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0420}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0673}
+GUI smoke stage 370
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0464}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0688}
+GUI smoke stage 371
+P1 repair GUI passed: guarded table/formula layout recovery, temporary IME mapping, source/local suppression, full-snapshot block invalidation, and 20 redraws each with menu open, menu closed and no block; unchanged source/history/projection/controls/layout
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.0466}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":0.0888}
+GUI smoke stage 372
+RYNE_PROFILE {"metric":"refresh","elapsed_ms":351.2513}
+RYNE_PROFILE {"metric":"text_layout_build","elapsed_ms":19.3726}
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":19.8983}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":278.9919}
+GUI smoke stage 373
+Low-risk layout checks passed: 180 formulas in one Unicode paragraph at four widths; ordered formula placement/metrics; ordinary/table vertical navigation matches linear oracle with wrapped and empty cells, formula heights, and table boundaries; source/history unchanged
+RYNE_PROFILE {"metric":"layout_frame","elapsed_ms":0.2076}
+RYNE_PROFILE {"metric":"paint","elapsed_ms":7.4501}
+GUI smoke stage 374
+GUI smoke idle blink observed: true
+List controls passed: ordered/unordered/nested and panel-first regions, leading SVG trigger and marker spacing, one whole-list type icon at the upper left clear of item triggers across nested items, hover without reflow/selection changes, focused innermost target, clicked menu, whole-subtree movement across 9->10, outdent, empty sibling insertion, undo, source/IME/drag suppression
+Cell controls passed: real region geometry, reserved text space, hover/focus SVG trigger, clicked popup, grouped alignment submenu, keyboard activation and shortcuts, row/column edits with atomic undo, unchanged outside selection, stale frame rejection, source/IME/drag suppression and preedit layout reservation
+GUI smoke passed: seven interface languages, persisted selection, system reset and unchanged Unicode/CRLF source, selection, history and IME composition; continuous caret text/strike/code shaping, natural spacing, Unicode/IME hit mapping, inline/code/right-aligned table/source geometry; font-sized caret, IME bounds, wrapped affinity and blink focus/selection/composition/drag lifecycle; typography, semantic spacing, source fonts, resize anchoring and caret mapping; invisible append block, hover menu, viewport positioning, source/IME/drag suppression, stale menu rejection and atomic insertion undo; inline completion, heading, block menu, Mermaid, math, highlighting, table, list and code regressions

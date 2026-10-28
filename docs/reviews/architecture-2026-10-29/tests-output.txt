@@ -1,0 +1,427 @@
+warning: `/Users/jiangtao/.cargo/config` is deprecated in favor of `config.toml`
+  |
+  = help: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.64s
+warning: the following packages contain code that will be rejected by a future version of Rust: block v0.1.6, proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 6`
+     Running unittests src/main.rs (target/debug/deps/ryne-745b2136d2b148b9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/export-pdf.rs (target/debug/examples/export_pdf-471fb11aacc11409)
+
+running 2 tests
+test tests::folded_export_keeps_editor_state_and_literal_fallbacks ... ok
+test tests::export_paginates_long_paragraphs_code_and_table_cells ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 18.26s
+
+     Running unittests examples/windows-icon.rs (target/debug/examples/windows_icon-0d7586c8153b8cfa)
+
+running 2 tests
+test icon::tests::invalid_svg_is_reported ... ok
+test icon::tests::logo_has_decodable_images_at_every_shell_size ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running unittests src/lib.rs (target/debug/deps/ryne_core-d115dd44a8e9aa6e)
+
+running 3 tests
+test tests::invalid_and_stale_candidates_never_publish_or_change_history ... ok
+test tests::multi_edit_history_and_written_snapshot_baseline_are_atomic ... ok
+test tests::dirty_preserves_exact_bytes_through_retyping_old_receipts_and_history ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/ryne_extensions-1631c8854582b265)
+
+running 18 tests
+test cancellation_tests::cancellation_relays_are_scoped_and_run_once_across_clones ... ok
+test registry::registration_tests::rejected_duplicates_preserve_every_provider_and_staged_contribution ... ok
+test export::tests::registration_dispatches_and_preserves_naming ... ok
+test registry_tests::slot_priority_respects_explicit_edges_without_alphabetical_precedence ... ok
+test registry_tests::explicit_order_is_deterministic_independent_of_registration_input ... ok
+test registry_tests::dependency_and_exclusive_conflicts_fail_before_publication ... ok
+test cancellation_tests::cancellation_contains_panics_and_allows_reentrant_relays ... ok
+test registry_tests::execution_uses_validated_priority_dependencies_and_first_acceptance ... ok
+test render_actions::cache_tests::primary_provider_is_conservative_and_can_declare_selection_and_input_dependencies ... ok
+test render_actions::cache_tests::undeclared_controls_recompute_only_their_own_contribution_and_empty_results_reuse ... ok
+test registry::registration_tests::recovering_from_a_duplicate_still_publishes_the_original_command ... ok
+test render_actions::cache_tests::stale_semantics_cannot_bypass_validation_via_a_cached_control ... ok
+test registry_tests::a_module_publishes_controls_templates_preview_and_ui_atomically ... ok
+test render_actions::cache_tests::faults_and_changing_generations_never_poison_healthy_contributors ... ok
+test render_actions::cache_tests::registered_identity_is_never_requeried_by_cache_diagnostics_execution_or_extension ... ok
+test render_actions::cache_tests::declared_inputs_and_provider_identity_match_uncached_controls ... ok
+test host::tests::diagnostic_log_bounds_duplicates_count_bytes_and_unicode ... ok
+test cancellation_tests::cancellation_registration_cannot_miss_a_concurrent_cancel ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/debug/deps/ryne_features-596d6d5771c05a46)
+
+running 25 tests
+test presentation::contribution::tests::invalid_component_is_rejected_before_any_masks_change ... ok
+test presentation::math_tests::invalid_and_multiline_formulas_keep_raw_latex ... ok
+test presentation::tests::code_images_tables_and_incomplete_inline_remain_editable ... ok
+test presentation::tests::empty_code_has_an_editable_anchor_and_drafts_remain_visible ... ok
+test presentation::tests::empty_quote_drafts_remain_visible_and_editable ... ok
+test presentation::tests::code_blocks_fold_fences_keep_literal_text_and_map_unicode_and_crlf ... ok
+test presentation::diagram_tests::failed_render_keeps_literal_editable_code_and_diagnostic ... ok
+test presentation::tests::hidden_markers_map_content_and_crlf_without_splitting_unicode ... ok
+test presentation::tests::code_indentation_and_nested_containers_preserve_actual_code_spaces ... ok
+test presentation::tests::nested_inline_reveal_keeps_quote_presentation_and_source_unchanged ... ok
+test presentation::tests::quotes_in_lists_and_lazy_continuations_use_the_container_range ... ok
+test presentation::tests::table_projection_hides_grid_syntax_styles_cells_and_maps_unicode_escapes_and_empty_cells ... ok
+test presentation::tests::empty_lists_unrecognized_markers_and_code_literals_are_not_lost ... ok
+test presentation::tests::headings_fold_structural_syntax_and_keep_levels_and_source_maps ... ok
+test presentation::tests::lists_fold_markers_render_semantic_numbers_and_preserve_nested_mapping ... ok
+test presentation::typography_tests::local_source_and_nested_paragraphs_keep_semantic_boundaries ... ok
+test presentation::tests::table_raw_fallback_preserves_unaccounted_content_and_source_mode_preserves_markers ... ok
+test presentation::typography_tests::semantic_spacing_keeps_separators_and_code_literal_for_all_newlines ... ok
+test presentation::tests::quote_decoration_preserves_nested_mapping_literal_code_and_source_modes ... ok
+test presentation::math_tests::short_math_is_atomic_even_when_source_and_object_have_equal_byte_length ... ok
+test presentation::math_tests::table_formula_source_keeps_literal_break_tags ... ok
+test presentation::math_tests::math_reveal_expands_inline_ancestors_and_keeps_latex_literal ... ok
+test presentation::math_tests::math_in_nested_list_and_table_keeps_anchors_and_source_entry ... ok
+test presentation::diagram_tests::diagrams_are_atomic_and_keep_adjacent_blocks_and_line_endings ... ok
+test presentation::legacy::interval_composition_matches_byte_oracle_for_structure_reveal_and_source_modes ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.90s
+
+     Running unittests src/lib.rs (target/debug/deps/ryne_projection-822a75efc86d7399)
+
+running 8 tests
+test validation::tests::same_byte_length_cannot_disguise_incompatible_character_boundaries ... ok
+test validation::tests::fallback_maps_unicode_and_crlf_without_losing_source_bytes ... ok
+test code_row_index::tests::matches_scan_for_empty_duplicate_unordered_and_non_start_positions ... ok
+test validation::tests::diagram_objects_require_order_unique_complete_ranges_and_matching_spans ... ok
+test indexed::tests::special_anchor_precedence_and_overlapping_flow_are_preserved ... ok
+test code_row_index::tests::matches_scan_for_long_code_and_rebuilt_display ... ok
+test indexed::tests::indexed_mapping_and_graphemes_match_full_scans ... ok
+test indexed::tests::adjacent_boundaries_match_complete_unicode_segmentation_at_every_byte ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/lib.rs (target/debug/deps/ryne_services-57d847a3423fce9f)
+
+running 32 tests
+test highlight::tests::reordered_and_changed_content_keeps_retry_allowance_and_negative_cache_distinct ... ok
+test highlight::tests::retries_use_full_budgets_and_persistent_timeouts_converge_without_starving_later_code ... ok
+test language::tests::ambiguous_literal_incomplete_and_oversized_input_stays_unlabelled ... ok
+test language::tests::distinctive_valid_code_uses_bundled_languages ... ok
+test language::tests::expired_deadline_is_not_a_completed_negative_detection ... ok
+test math::cache::tests::evicted_live_formulas_remain_reusable_but_are_not_kept_alive ... ok
+test files::artifact_tests::replaces_binary_output_and_cleans_up_failed_rename ... ok
+test math::tests::embedded_paths_and_inline_metrics ... ok
+test math::tests::missing_glyphs_unsupported_variants_and_invalid_input_keep_source ... ok
+test math::tests::font_choice_partitions_metrics_assets_cache_and_frozen_renderer ... ok
+test mermaid::tests::cache_is_content_addressed_and_bounded ... ok
+test mermaid::tests::extracts_only_closed_mermaid_fences_and_preserves_container_bytes ... ok
+test highlight::tests::unknown_plain_empty_and_oversized_code_fall_back_without_parsing ... ok
+test highlight::tests::shared_deadline_defers_without_spending_attempts_and_next_pass_resumes ... ok
+test highlight::tests::partial_budget_timeout_retries_real_detection_with_a_fresh_budget ... ok
+test highlight::tests::automatic_highlighting_caches_success_failure_and_remaps_without_source_edits ... ok
+test highlight::tests::cache_tracks_body_and_language_but_remaps_moved_blocks ... ok
+test print_layout::tests::mixed_formulas_reserve_both_maximum_ascent_and_descent ... ok
+test print_layout::tests::folded_task_states_survive_print_including_empty_items ... ok
+test print_layout::tests::unsupported_control_characters_fail_instead_of_disappearing ... ok
+test updates::tests::checks_versions_and_rejects_invalid_release_data ... ok
+test highlight::tests::detection_limits_finish_with_plain_code_and_reclaim_removed_content ... ok
+test pdf_tests::both_backends_reject_invalid_text_and_document_limits ... ok
+test pdf_tests::both_backends_export_one_empty_a4_page ... ok
+test print_layout::tests::ordered_print_lookup_produces_the_same_scenes_as_linear_lookup ... ok
+test mermaid::tests::renders_color_unicode_and_errors_without_panicking ... ok
+test math::tests::formulary_svg_metrics_and_rasters_match_at_text_and_zoom_sizes ... ok
+test highlight::tests::bundled_grammars_and_aliases_highlight_real_tokens ... ok
+test highlight::tests::first_batch_many_automatic_blocks_eventually_complete ... ok
+test pdf_tests::both_backends_encode_every_page_of_a_long_document ... ok
+test highlight::tests::multiline_tokens_map_through_nested_prefixes_and_all_line_endings ... ok
+test mermaid::tests::basic_diagram_families_render_through_the_pinned_backend ... ok
+
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.20s
+
+     Running unittests src/lib.rs (target/debug/deps/ryne_session-993c3f72ced3f532)
+
+running 159 tests
+test architecture_tests::registered_key_override_intercepts_all_generic_keys_before_builtin_rules ... ok
+test architecture_tests::presentation_faults_fall_back_to_editable_source_without_mutating_session ... ok
+test architecture_tests::composition_failure_retains_preedit_and_retry_is_one_atomic_edit ... ok
+test architecture_tests::unicode_17_composition_joins_previous_character_in_one_transaction ... ok
+test adjacent_block_tests::unsafe_and_obsolete_targets_do_not_modify_source_or_history ... ok
+test architecture_tests::composition_platform_ranges_and_projection_preserve_unicode_and_physical_newlines ... ok
+test architecture_tests::broken_highlighting_does_not_remove_structured_code_or_escape_the_host ... ok
+test adjacent_block_tests::first_block_only_allows_below_even_after_leading_blank_lines ... ok
+test code_render_action_tests::current_default_is_clean_and_indented_literal_fences_are_not_language_fields ... ok
+test architecture_tests::indexed_platform_ranges_match_overlay_and_do_not_publish_preedit ... ok
+test code_render_action_tests::menu_defaults_aliases_and_source_ime_protection ... ok
+test contract_tests::all_validators_run_and_rejection_leaves_the_entire_session_unchanged ... ok
+test contract_tests::empty_features_support_literal_editing_and_navigation_without_content_history ... ok
+test contract_tests::cross_document_and_stale_plans_are_rejected_and_notifications_follow_publication ... ok
+test contract_tests::failing_observer_cannot_rollback_a_published_transaction_or_break_undo ... ok
+test contract_tests::failed_and_foreign_save_receipts_cannot_change_the_baseline ... ok
+test contract_tests::invalid_multi_edit_and_selection_plans_never_partially_update ... ok
+test contract_tests::foreign_input_range_is_rejected_even_with_a_current_planning_context ... ok
+test contract_tests::saving_during_editing_and_queued_saves_use_written_snapshots_and_serial_order ... ok
+test architecture_tests::generic_keys_preserve_container_rules_graphemes_and_single_undo ... ok
+test contract_tests::registered_input_runs_through_real_session_validation_and_history ... ok
+test architecture_tests::unicode_17_deletion_preserves_container_bytes_and_single_undo ... ok
+test code_render_action_tests::fence_language_preserves_body_metadata_selection_containers_and_history ... ok
+test export::tests::export_rejects_unfrozen_additional_module_without_touching_document ... ok
+test export::tests::export_freezes_preview_renderer_and_rejects_invalid_resources ... ok
+test code_render_action_tests::auto_clears_info_and_removed_empty_command_cannot_edit ... ok
+test contract_tests::panicking_save_returns_failure_and_allows_queued_or_retried_writes ... ok
+test first_batch_tests::failed_observer_is_disabled_without_starving_healthy_observers_or_history ... ok
+test code_render_action_tests::all_choices_keep_code_literal_and_new_templates_default_to_auto ... ok
+test first_batch_tests::runtime_getter_faults_and_detached_export_stay_inside_host ... ok
+test first_batch_tests::preview_fault_keeps_healthy_provider_jobs_and_editable_code ... ok
+test first_batch_tests::many_observer_failures_keep_distinct_bounded_diagnostics ... ok
+test format_tests::distinct_list_boundaries_are_preserved_by_rule ... ok
+test format_tests::format_fences_keep_literal_blank_lines_and_upgrade_for_backticks ... ok
+test first_batch_tests::local_source_control_cache_matches_rebuild_in_both_directions ... ok
+test format_tests::format_preserves_literal_unsupported_incomplete_and_sensitive_source ... ok
+test format_tests::format_source_maps_unicode_selection_and_is_one_idempotent_undoable_transaction ... ok
+test format_tests::format_tables_keeps_cell_content_alignments_containers_and_newline_bytes ... ok
+test format_tests::missing_heading_space_is_an_explicit_conservative_repair_rule ... ok
+test format_tests::tables_without_outer_pipes_empty_cells_and_cell_end_carets_stay_stable ... ok
+test format_tests::task_space_repair_requires_a_list_marker_and_keeps_code_literal ... ok
+test format_tests::unchanged_formatting_keeps_clean_history_and_redo ... ok
+test format_tests::unsafe_delimiter_changes_reject_the_entire_plan ... ok
+test job_tests::additional_fenced_previews_use_the_existing_host_and_keep_separate_resource_keys ... ok
+test job_tests::generation_panics_at_start_and_completion_do_not_starve_healthy_jobs ... ok
+test export::tests::export_keeps_invalid_incomplete_and_oversized_mermaid_as_literal_code ... ok
+test job_tests::renderer_instance_is_part_of_cache_identity ... ok
+test job_tests::obsolete_targets_documents_and_service_generations_discard_results ... ok
+test job_tests::timed_out_content_keeps_diagnostic_and_does_not_starve_later_jobs ... ok
+test list_render_action_tests::clicked_item_indent_and_outdent_reuse_subtree_rules_independently_of_caret ... ok
+test list_render_action_tests::empty_insert_before_first_item_cannot_turn_prior_paragraph_into_setext_heading ... ok
+test list_render_action_tests::boundary_commands_and_old_or_source_ime_targets_are_rejected ... ok
+test list_render_action_tests::list_move_keeps_external_paragraph_separator_at_list_end ... ok
+test list_render_action_tests::loose_lists_and_nested_tables_move_without_losing_separator_or_container_bytes ... ok
+test list_render_action_tests::move_follows_unicode_caret_and_cross_line_selection_without_splitting_graphemes ... ok
+test list_render_action_tests::moving_items_keeps_subtrees_and_source_marker_positions ... ok
+test code_render_action_tests::auto_explicit_modes_round_trip_without_display_edits ... ok
+test list_render_action_tests::moving_last_item_preserves_eof_newline_and_moving_literal_code_preserves_its_body ... ok
+test list_render_action_tests::nested_delete_removes_only_selected_subtree_and_is_atomic ... ok
+test list_render_action_tests::ordered_unordered_nested_empty_and_task_items_contribute_leading_controls ... ok
+test list_render_action_tests::task_insertion_uses_unchecked_marker_and_never_duplicates_existing_task_content ... ok
+test list_render_action_tests::quoted_number_width_move_keeps_container_only_blank_lines_unchanged ... ok
+test list_render_action_tests::task_markers_fold_in_render_mode_and_remain_literal_in_source_mode ... ok
+test list_render_action_tests::insert_siblings_preserves_prefix_newlines_subtree_and_missing_final_newline ... ok
+test list_render_action_tests::task_toggle_rejects_stale_source_ime_and_plain_list_targets ... ok
+test presentation_cache::tests::caret_reuses_projection_and_controls_but_visibility_and_edits_invalidate ... ok
+test format_tests::formatter_guards_nodes_lines_and_pathological_table_padding ... ok
+test presentation_cache::tests::changing_highlighter_generation_during_projection_does_not_cache_mixed_output ... ok
+test presentation_cache::tests::failed_highlighting_is_retried_instead_of_caching_its_fallback ... ok
+test presentation_cache::tests::deferred_language_detection_gets_another_pass_before_projection_is_reused ... ok
+test presentation_cache::tests::preedit_is_uncached_and_cancel_restores_authoritative_projection ... ok
+test presentation_cache::tests::font_and_diagram_resources_are_part_of_projection_identity ... ok
+test presentation_cache::tests::unregistered_cache_contract_keeps_recomputing ... ok
+test presentation_cache::tests::unknown_highlighter_is_uncached_and_inert_features_do_not_disable_primary_cache ... ok
+test export::tests::export_freezes_math_font_and_preserves_the_live_document ... ok
+test quote_tests::quote_enter_splits_content_and_empty_enter_exits_one_layer ... ok
+test quote_tests::quote_hard_break_source_modes_and_nested_code_list_precedence ... ok
+test quote_tests::enter_keeps_an_empty_new_row_in_the_same_quote_and_one_undo_step ... ok
+test regression_tests::automatic_code_language::return_detects_completed_body_without_touching_other_blocks_or_navigation ... ok
+test regression_tests::automatic_code_language::explicit_languages_source_modes_and_ambiguous_code_remain_literal ... ok
+test architecture_tests::batched_list_controls_keep_large_task_lists_exact_for_all_newlines ... ok
+test regression_tests::code_row_index_matches_projection_across_containers_and_source_modes ... ok
+test regression_tests::formula_editing::formulary_source_fallback_preserves_unicode_mapping_and_undo ... ok
+test regression_tests::automatic_code_language::whole_blocks_pasted_together_preserve_unicode_selection_and_save_bytes ... ok
+test regression_tests::highlighting::view_changes_preserve_source_history_selection_and_maps ... ok
+test adjacent_block_tests::nested_insertions_keep_container_prefix_and_code_literal ... ok
+test export::tests::detached_export_survives_later_edits_without_touching_history_or_preedit ... ok
+test regression_tests::math_tests::reveal_edit_undo_redo_and_save_preserve_original_math_bytes ... ok
+test regression_tests::original::append_rejects_unclosed_structures_without_source_or_history_changes ... ok
+test format_tests::formatting_is_unavailable_during_preedit_and_over_size_limit ... ok
+test regression_tests::original::appended_code_is_literal_and_templates_edit_in_their_own_context ... ok
+test regression_tests::original::code_body_editing_keeps_fences_and_local_source_mode_is_reversible ... ok
+test regression_tests::original::code_line_join_preserves_outer_boundaries_and_removes_only_structural_indent ... ok
+test regression_tests::original::empty_and_nested_code_can_be_edited_without_breaking_closing_fences ... ok
+test regression_tests::large_table_event_projection_keeps_empty_unicode_and_substitution_boundaries ... ok
+test regression_tests::localized_append_preserves_unicode_selection_newlines_and_single_undo ... ok
+test regression_tests::original::empty_items_exit_one_level_and_source_mode_is_literal ... ok
+test regression_tests::original::every_block_source_entry_is_presentation_only_and_preserves_history ... ok
+test regression_tests::original::heading_body_edit_keeps_structure_and_source_mode_exposes_markers ... ok
+test regression_tests::original::fence_typing_before_existing_newline_stays_source_until_enter ... ok
+test regression_tests::original::heading_click_changes_only_presentation_and_tracks_edits ... ok
+test regression_tests::original::heading_click_session_folds_on_caret_exit_and_preserves_history ... ok
+test regression_tests::original::heading_input_keeps_literal_contexts_and_invalid_prefixes ... ok
+test regression_tests::original::heading_input_space_finishes_prefix_and_seventh_hash_stays_literal ... ok
+test regression_tests::original::hidden_quote_and_list_prefixes_are_skipped_and_local_source_remains_editable ... ok
+test regression_tests::mixed_highlighting::incomplete_code_and_multiple_languages_keep_highlights_local ... ok
+test regression_tests::original::indenting_empty_item_keeps_it_a_list_and_does_not_create_a_heading ... ok
+test regression_tests::original::heading_input_preserves_containers_newlines_and_click_reveal ... ok
+test regression_tests::original::inline_completion_keeps_literals_escapes_selections_and_existing_markers ... ok
+test regression_tests::original::inline_completion_nests_remaps_and_reveals_ancestors ... ok
+test regression_tests::original::list_boundary_commands_keep_hidden_inline_and_heading_markers_intact ... ok
+test regression_tests::original::list_continuations_paste_and_boundary_commands_protect_neighbors ... ok
+test regression_tests::original::list_enter_continues_numbers_bullets_and_retains_line_endings_and_undo ... ok
+test regression_tests::original::inline_input_completes_after_body_and_keeps_caret_inside ... ok
+test regression_tests::original::list_indent_moves_subtree_in_one_transaction_and_restores_selection ... ok
+test regression_tests::original::fence_enter_completes_once_and_preserves_container_context_and_history ... ok
+test regression_tests::formula_projection_reuses_more_than_256_live_resources_without_document_edits ... ok
+test regression_tests::original::list_indentation_retains_quote_and_literal_code_context ... ok
+test regression_tests::original::ordered_continuation_preserves_children_when_marker_width_changes ... ok
+test regression_tests::original::paragraph_breaks_and_cross_line_selection_are_atomic_and_preserve_line_endings ... ok
+test regression_tests::original::nested_code_newline_and_multiline_paste_keep_container_context ... ok
+test regression_tests::original::paragraph_join_restores_enter_and_undo_restores_selection ... ok
+test regression_tests::original::source_and_unsupported_blocks_keep_literal_newline_behavior ... ok
+test regression_tests::original::paragraph_join_does_not_remove_intervening_blocks ... ok
+test regression_tests::original::table_appending_rows_preserves_tabbed_list_content_column ... ok
+test regression_tests::original::tab_prefixes_continue_at_tab_stops_and_outdent_without_losing_content ... ok
+test regression_tests::original::source_session_survives_syntax_changes_and_history_restores_bytes ... ok
+test regression_tests::original::inline_completion_preserves_containers_cells_and_newlines ... ok
+test first_batch_tests::many_auto_blocks_finish_then_reuse_projection_through_moves_edits_and_undo ... ok
+test regression_tests::original::save_and_open_preserve_source_and_failed_save_keeps_dirty_state ... ok
+test regression_tests::original::table_boundary_and_source_entry_keep_markers_and_container_context ... ok
+test regression_tests::original::table_cell_editing_preserves_structure_unicode_and_atomic_undo ... ok
+test regression_tests::original::table_cell_breaks_backslashes_and_compact_separators_are_atomic ... ok
+test render_action_tests::alignment_only_edits_selected_delimiter_and_active_choice_does_not_add_history ... ok
+test regression_tests::quote_presentation_body_editing_and_modes_preserve_bytes_and_history ... ok
+test regression_tests::original::table_navigation_is_clean_and_appending_rows_preserves_newlines_and_containers ... ok
+test render_action_tests::column_operations_keep_escaped_pipes_alignment_and_neighbor_bytes ... ok
+test render_action_tests::extra_provider_registers_an_executable_custom_role_without_session_branches ... ok
+test render_action_tests::controls_and_malformed_table_fallback_are_read_only ... ok
+test render_action_tests::disabled_boundaries_and_source_ime_or_stale_targets_cannot_execute ... ok
+test render_action_tests::operations_use_clicked_cell_and_preserve_outside_selection_and_completion_checkpoints ... ok
+test render_action_tests::focused_cell_tracks_row_and_column_moves_at_grapheme_boundaries ... ok
+test render_action_tests::nested_table_operations_preserve_complete_list_quote_context ... ok
+test regression_tests::original::typing_heading_hashes_waits_for_body_and_folds_atomically ... ok
+test render_action_tests::optional_outer_pipes_and_empty_fields_remain_structural_after_column_operations ... ok
+test render_action_tests::row_reordering_keeps_header_and_last_newline_convention ... ok
+test render_action_tests::render_action_validation_failure_does_not_publish_any_state ... ok
+test third_batch_tests::primary_resource_change_during_build_is_not_cached_under_an_old_key ... ok
+test second_batch_tests::indexed_deletion_keeps_cross_block_selection_code_literals_and_history ... ok
+test render_action_tests::provider_errors_panics_and_invalid_batches_do_not_disable_other_controls ... ok
+test second_batch_tests::deletion_uses_one_lazy_mapping_and_dispatch_does_not_retain_it ... ok
+test third_batch_tests::command_extensions_preserve_reuse_and_all_source_visibility_boundaries ... ok
+test list_render_action_tests::task_toggle_preserves_bytes_selection_and_atomic_history ... ok
+test regression_tests::original::append_templates_preserve_source_newlines_selection_and_atomic_history ... ok
+test render_action_tests::all_render_commands_are_atomic_preserve_context_and_round_trip ... ok
+test regression_tests::automatic_code_language::pasted_code_keeps_auto_with_exact_history_and_mapping ... ok
+test format_tests::formatted_output_cannot_exceed_the_repeatable_input_limit ... ok
+test adjacent_block_tests::adjacent_templates_keep_neighbor_bytes_newlines_selection_and_single_undo ... ok
+test p1_tests::malformed_objects_fall_back_without_state_changes_and_recover_without_poisoning_cache ... ok
+
+test result: ok. 159 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.93s
+
+     Running unittests src/lib.rs (target/debug/deps/ryne_syntax-858a6544164af4f4)
+
+running 23 tests
+test block::tests::blank_separators_do_not_inherit_the_previous_block ... ok
+test block::tests::empty_items_share_a_list_control_but_separate_lists_do_not ... ok
+test block::tests::types_follow_ast_including_setext_and_literal_code ... ok
+test block::tests::physical_line_endings_do_not_change_block_identity ... ok
+test block::tests::nested_block_scope_retains_prefix_and_line_endings ... ok
+test math::tests::consumes_parser_nodes_and_excludes_images ... ok
+test block::tests::list_control_is_shared_by_all_items_including_nested_tasks ... ok
+test snapshot::tests::normalized_and_structure_indexes_are_owned_by_the_original_snapshot ... ok
+test query::tests::queries_preserve_container_bytes_and_reject_foreign_ranges ... ok
+test table::tests::single_cell_input_escapes_pipes_and_serializes_line_breaks ... ok
+test block::tests::whole_list_ranges_preserve_containers_and_physical_line_endings ... ok
+test snapshot::tests::range_queries_match_overlapping_and_boundary_scans ... ok
+test table::tests::unsupported_ragged_or_incomplete_tables_remain_source ... ok
+test code_block::language_tests::language_tokens_match_scan_with_containers_newlines_and_drafts ... ok
+test table::cell_query_tests::nearest_cell_binary_lookup_preserves_separator_and_empty_cell_ties ... ok
+test table::tests::tables_preserve_cells_alignments_container_prefixes_and_newlines ... ok
+test table::containment_tests::indexed_membership_matches_linear_tables_and_cells_in_containers ... ok
+test block::tests::multiline_quote_has_one_control_and_complete_range_for_all_its_prose ... ok
+test utf16::tests::checkpoints_match_platform_units_and_reject_split_surrogates ... ok
+test block::indexed_tests::full_block_and_insertion_results_match_original_at_every_character_boundary ... ok
+test block::indexed_tests::deep_container_context_matches_original_without_query_rebuilds ... ok
+test code_block::language_tests::many_fences_visit_one_code_candidate_each ... ok
+test block::indexed_tests::warm_queries_do_not_rebuild_snapshot_indexes_and_snapshots_release ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s
+
+     Running unittests src/lib.rs (target/debug/deps/ryne_ui-2fa5fe10d1836dd7)
+
+running 35 tests
+test background::tests::cancellation_and_stale_receipts_cannot_clear_another_operation ... ok
+test export::tests::source_alias_protection_is_preserved ... ok
+test frame_index::tests::indexes_first_matching_line_code_extents_and_multiline_items ... ok
+test i18n::tests::locale_scripts_regions_and_posix_encodings_resolve ... ok
+test i18n::tests::all_seven_catalogs_and_localized_status_are_complete ... ok
+test layout_guard_tests::child ... ok
+test block_query_cache::tests::direction_changes_with_the_same_head_use_the_actual_selected_character ... ok
+test block_query_cache::tests::caches_none_and_keys_new_documents_and_new_versions ... ok
+test i18n::tests::block_menu_types_and_source_states_use_every_language ... ok
+test math_fonts::tests::missing_invalid_and_persisted_preferences ... ok
+test menus::tests::custom_export_appears_without_a_new_ui_action_type ... ok
+test menus::tests::native_menus_follow_language_and_recent_paths ... ok
+test menus::tests::math_font_submenu_localizes_routes_and_marks_exactly_one_choice ... ok
+test menus::tests::language_submenu_routes_every_preference_and_marks_current_choice ... ok
+test i18n::tests::preferences_round_trip_reset_and_fail_without_losing_current_language ... ok
+test recent::tests::missing_relative_paths_are_stored_as_absolute_paths ... ok
+test recent::tests::path_identity_keeps_same_named_files_in_different_directories ... ok
+test theme::tests::reading_column_is_centered_and_source_uses_viewport ... ok
+test recent::tests::aliases_of_an_existing_file_share_one_recent_entry ... ok
+test background::tests::open_and_update_panics_return_receipts_and_allow_retry ... ok
+test visibility::tests::y_queries_preserve_overlap_order_fractional_edges_and_long_panels ... ok
+test recent::tests::loading_deduplicates_before_taking_ten_newest_distinct_paths ... ok
+test assets::tests::language_chevron_has_centered_visible_bounds ... ok
+test recent::tests::bounded_deduplicated_history_round_trips_unicode_and_newlines ... ok
+test navigation_index::tests::table_targets_match_scan_with_wraps_height_ties_and_long_prefixes ... ok
+test background::tests::export_and_artifact_failures_leave_live_document_unchanged_and_release_slot ... ok
+test welcome::tests::saved_saving_and_preedit_guides_are_preserved ... ok
+test assets::tests::render_menu_svg_assets_are_embedded_and_nonempty ... ok
+test assets::tests::embedded_block_icons_render_at_control_size ... ok
+test welcome::tests::edits_undo_redo_and_identical_opened_documents_are_preserved ... ok
+test welcome::tests::pristine_guide_switches_repeatedly_without_dirty_or_history ... ok
+test welcome::tests::every_guide_parses_all_documented_formats ... ok
+test hit_index::tests::overlap_padding_gaps_ties_and_long_documents_match_linear_selection ... ok
+test window_controls_tests::titlebar_preserves_native_mouse_handling_and_document_focus ... ok
+test layout_guard_tests::malformed_consumer_inputs_terminate_in_two_seconds ... ok
+
+test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.58s
+
+   Doc-tests ryne_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ryne_extensions
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ryne_features
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ryne_projection
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ryne_services
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ryne_session
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ryne_syntax
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests ryne_ui
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

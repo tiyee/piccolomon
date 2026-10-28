@@ -9,15 +9,19 @@ pub(crate) struct ListActions {
 /// Per-snapshot physical context, shared by all item controls in a batch.
 struct Extents<'a> {
     state: &'a EditingState,
-    lines: Vec<Range<usize>>,
-    code: Vec<code_block::CodeBlock>,
+    lines: &'a [Range<usize>],
+    code: &'a [code_block::CodeBlock],
+    #[cfg(test)]
+    code_comparisons: std::cell::Cell<usize>,
 }
 impl<'a> Extents<'a> {
     fn new(state: &'a EditingState) -> Self {
         Self {
             state,
-            lines: code_block::lines(state.source.text()),
-            code: code_block::blocks(&state.parse),
+            lines: &state.parse.semantic().index().lines,
+            code: code_block::cached(&state.parse),
+            #[cfg(test)]
+            code_comparisons: Default::default(),
         }
     }
     fn get(&self, item: &list::Item) -> Range<usize> {
@@ -34,10 +38,17 @@ impl<'a> Extents<'a> {
             .partition_point(|line| line.start <= item.range.start);
         let last = self.lines.partition_point(|line| line.start < end);
         for line in self.lines[first.min(last)..last].iter().rev() {
+            // Parser-owned code blocks are ordered and do not overlap. Borrow
+            // their snapshot directory instead of scanning every block per row.
+            let code = self.code.partition_point(|block| {
+                #[cfg(test)]
+                self.code_comparisons.set(self.code_comparisons.get() + 1);
+                block.range.end <= line.start
+            });
             if self
                 .code
-                .iter()
-                .any(|block| block.range.contains(&line.start))
+                .get(code)
+                .is_some_and(|b| b.range.contains(&line.start))
             {
                 break;
             }
@@ -73,14 +84,17 @@ impl RenderActionProvider for ListActions {
         ]
     }
     fn controls(&self, state: &EditingState) -> Result<Vec<RenderControl>, String> {
-        let items = list::items(&state.parse);
+        let items = list::cached_items(&state.parse);
+        if items.is_empty() {
+            return Ok(Vec::new());
+        }
         let context = Extents::new(state);
         let owners = items
             .iter()
             .map(|item| context.get(item))
             .collect::<Vec<_>>();
         let mut siblings = std::collections::BTreeMap::new();
-        for item in &items {
+        for item in items {
             let bounds = siblings
                 .entry(item.list)
                 .or_insert((item.marker.start, item.marker.start));
@@ -208,3 +222,7 @@ impl RenderActionProvider for ListActions {
         })
     }
 }
+
+#[cfg(test)]
+#[path = "list_extent_tests.rs"]
+mod extent_tests;

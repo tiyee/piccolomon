@@ -163,6 +163,14 @@ pub trait FeatureModule {
 /// Compatibility name for existing static feature implementations.
 pub use FeatureModule as BuiltinFeature;
 pub trait PreviewProvider: Send + Sync {
+    /// Opt in only for pure candidate extraction depending on source identity and
+    /// this generation, never on selection, visibility or composition. Opted-in
+    /// callbacks may be collected in batches independently of provider precedence.
+    /// Change generation when configuration or the returned renderer instance changes.
+    /// Renderer output generations are still checked live by the job host.
+    fn source_cache_generation(&self) -> Option<u64> {
+        None
+    }
     fn input(
         &self,
         state: &EditingState,
@@ -180,7 +188,7 @@ pub struct Registry {
     contributions: Vec<(&'static str, Contribution)>,
     commands: BTreeMap<&'static str, Arc<dyn CommandHandler>>,
     presentations: BTreeMap<&'static str, Arc<dyn PresentationProvider>>,
-    previews: BTreeMap<&'static str, Arc<dyn PreviewProvider>>,
+    previews: crate::preview::PreviewRegistry,
     block_ui: BTreeMap<&'static str, Arc<dyn BlockUiProvider>>,
 }
 impl Registry {
@@ -327,6 +335,12 @@ impl Registry {
             .flatten()
             .cloned()
             .collect();
+        let previews = crate::preview::PreviewRegistry::new(
+            contributions
+                .iter()
+                .filter_map(|(_, c)| previews.get(c.id).map(|provider| (c.id, provider.clone())))
+                .collect(),
+        );
         Ok(Self {
             render_actions,
             insert_templates,
@@ -391,34 +405,14 @@ impl Registry {
         self.preview_batch(state).inputs
     }
     pub fn preview_batch(&self, state: &EditingState) -> PreviewBatch {
-        let mut batch = PreviewBatch::default();
-        let mut failed = BTreeSet::new();
-        for block in ryne_syntax::SemanticQuery::new(&state.parse).code_blocks() {
-            for (_, c) in &self.contributions {
-                let Some(provider) = self.previews.get(c.id).filter(|_| !failed.contains(c.id))
-                else {
-                    continue;
-                };
-                match crate::catch_callback(c.id, "preview input", || provider.input(state, block))
-                {
-                    Ok(Some(mut input)) => {
-                        // Resource identity belongs to the registered contribution.
-                        input.feature = c.id;
-                        batch.inputs.push(input);
-                        break;
-                    }
-                    Ok(None) => (),
-                    Err(diagnostic) => {
-                        failed.insert(c.id);
-                        batch.diagnostics.push(diagnostic);
-                    }
-                }
-            }
-            if batch.inputs.len() == 32 {
-                break;
-            }
-        }
-        batch
+        self.previews.batch(state)
+    }
+    pub fn preview_batch_cached(
+        &self,
+        state: &EditingState,
+        cache: &mut crate::PreviewCache,
+    ) -> PreviewBatch {
+        self.previews.cached_batch(state, cache)
     }
     pub fn block_ui(&self, block: &ryne_syntax::block::Block, source_open: bool) -> AdornmentSpec {
         self.contributions

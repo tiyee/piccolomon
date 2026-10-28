@@ -148,6 +148,9 @@ impl FeatureEngine for MarkdownFeatures {
     fn preview_batch(&self, state: &EditingState) -> PreviewBatch {
         self.registry.preview_batch(state)
     }
+    fn preview_batch_cached(&self, state: &EditingState, cache: &mut PreviewCache) -> PreviewBatch {
+        self.registry.preview_batch_cached(state, cache)
+    }
     fn block_ui(&self, block: &ryne_syntax::block::Block, source_open: bool) -> AdornmentSpec {
         self.registry.block_ui(block, source_open)
     }

@@ -32,6 +32,7 @@ pub(super) struct PresentationCache {
     projection: Option<ProjectionEntry>,
     controls: Option<(ControlKey, Arc<Vec<RenderControl>>)>,
     contributors: RenderControlCache,
+    previews: PreviewCache,
 }
 fn same_diagrams(a: &[DiagramViewInput], b: &[DiagramViewInput]) -> bool {
     a.len() == b.len()
@@ -45,6 +46,17 @@ fn same_diagrams(a: &[DiagramViewInput], b: &[DiagramViewInput]) -> bool {
         })
 }
 impl EditorSession {
+    pub(super) fn cached_preview_inputs(&self) -> Vec<PreviewInput> {
+        if self.composition.is_some() {
+            return self.features.preview_inputs(&self.state);
+        }
+        self.features
+            .preview_batch_cached(
+                &self.state,
+                &mut self.presentation_cache.borrow_mut().previews,
+            )
+            .inputs
+    }
     /// Discard a projection rejected by a downstream checked consumer.
     pub fn invalidate_projection_cache(&self) {
         self.presentation_cache.borrow_mut().projection = None;

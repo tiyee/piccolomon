@@ -375,7 +375,7 @@ impl EditorSession {
         frozen: bool,
         folded: &[Range<usize>],
     ) -> (Vec<DiagramViewInput>, Option<jobs::JobRequest>) {
-        let inputs = self.features.preview_inputs(&self.state);
+        let inputs = self.cached_preview_inputs();
         self.jobs.refresh(&self.state, inputs, frozen, folded)
     }
     pub fn complete_job(&mut self, result: jobs::JobResult) {
@@ -390,8 +390,7 @@ impl EditorSession {
         self.features.insert_templates()
     }
     pub fn preview_at_caret(&self) -> Option<Range<usize>> {
-        self.features
-            .preview_inputs(&self.state)
+        self.cached_preview_inputs()
             .into_iter()
             .find(|input| input.block.range.contains(&self.head))
             .map(|input| input.block.range)
@@ -597,6 +596,8 @@ mod contract_tests;
 mod job_tests;
 #[cfg(test)]
 mod list_render_action_tests;
+#[cfg(test)]
+mod preview_cache_tests;
 #[cfg(test)]
 mod render_action_tests;
 
