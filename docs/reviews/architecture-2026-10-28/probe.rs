@@ -1,4 +1,4 @@
-//! Audit probes: known remaining defects and repaired registration/save boundaries.
+//! Audit probes: remaining defects and repaired registration/save/identity boundaries.
 use ryne_extensions::*;
 use ryne_session::{EditorSession, SessionServices};
 use std::sync::{
@@ -196,8 +196,11 @@ fn main() {
         1
     );
     fail.store(true, Ordering::SeqCst);
-    assert!(doc.cached_render_control_batch(&doc).is_err());
-    println!("identity_panic entire_control_batch_failed=true");
+    let batch = doc.cached_render_control_batch(&doc).unwrap();
+    assert_eq!(batch.controls.len(), 1);
+    assert_eq!(batch.controls[0].provider, "healthy");
+    assert!(batch.diagnostics.is_empty());
+    println!("identity_panic entire_control_batch_failed=false healthy_controls=1");
 
     for count in [100, 1000] {
         let calls = Arc::new(AtomicUsize::new(0));

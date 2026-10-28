@@ -4,6 +4,7 @@ mod assets;
 mod block_query_cache;
 mod interaction_state;
 use interaction_state::*;
+mod background;
 mod element;
 mod export;
 mod files;
@@ -18,6 +19,7 @@ mod layout_guard_tests;
 mod low_risk_smoke;
 mod math_fonts;
 mod menus;
+mod navigation_index;
 mod p1_smoke;
 mod paint;
 mod profile;
@@ -409,14 +411,7 @@ impl Editor {
                 caret_visible: true,
                 caret_blink_task: None,
             },
-            operations: FileOperationState {
-                file_operation_pending: false,
-                exporting: false,
-                checking_updates: false,
-                allow_close: false,
-                close_prompt: false,
-                close_after_save: false,
-            },
+            operations: FileOperationState::default(),
             viewport: ViewportState {
                 block_cache: Default::default(),
                 window_title: None,

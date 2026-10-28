@@ -88,7 +88,9 @@ impl Editor {
         if self.operations.blocks_document_replacement() {
             return;
         }
-        self.operations.file_operation_pending = true;
+        let Some(operation) = self.operations.file_operation_pending.begin() else {
+            return;
+        };
         let snapshot = self.document.source.id();
         let services = self.document.services();
         let title = match action {
@@ -170,14 +172,14 @@ impl Editor {
                     if !cancelled {
                         let document = cx
                             .background_executor()
-                            .spawn(async move {
-                                match path {
-                                    Some(path) => Document::open(&path, services),
-                                    None => Ok(Document::new("", services)),
-                                }
-                            })
+                            .spawn(async move { operation.open(path, services) })
                             .await;
                         let _ = this.update_in(cx, |this, window, cx| {
+                            let Some(document) =
+                                this.operations.file_operation_pending.complete(document)
+                            else {
+                                return;
+                            };
                             if !this.can_replace(snapshot) {
                                 this.status = Text::ChangedWhileOpening.into();
                                 cx.notify();
@@ -210,7 +212,7 @@ impl Editor {
                 }
             }
             let _ = this.update_in(cx, |this, _, cx| {
-                this.operations.file_operation_pending = false;
+                this.operations.file_operation_pending.finish(operation);
                 cx.notify();
             });
         })
@@ -290,7 +292,7 @@ impl Editor {
         if !self.commit_composition(cx) {
             return;
         }
-        if self.operations.exporting {
+        if self.operations.exporting.is_pending() {
             self.status = Text::OperationWait.into();
             cx.notify();
             return;
@@ -331,7 +333,9 @@ impl Editor {
         if !self.commit_composition(cx) {
             return false;
         }
-        if self.operations.exporting || self.operations.file_operation_pending {
+        if self.operations.exporting.is_pending()
+            || self.operations.file_operation_pending.is_pending()
+        {
             self.status = Text::OperationWait.into();
             cx.notify();
             return false;

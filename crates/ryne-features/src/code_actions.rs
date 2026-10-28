@@ -60,37 +60,7 @@ fn canonical(info: &str) -> &str {
 }
 /// Locate only the info token, preserving fence width, spacing and trailing metadata.
 fn language_range(state: &EditingState, block: &code_block::CodeBlock) -> Option<Range<usize>> {
-    if block
-        .rows
-        .first()
-        .is_some_and(|row| row.line.start == block.range.start)
-    {
-        return None; // Indented code can contain literal fence-looking text.
-    }
-    let normalized = ryne_syntax::parser::normalized(&state.parse);
-    let parse = normalized.unwrap_or(&state.parse);
-    let node = parse.nodes.iter().find(|n| {
-        matches!(n.kind, editable_markdown_parser::NodeKind::CodeBlock(_))
-            && block.range.contains(&n.envelope.start)
-    })?;
-    let text = state.source.text();
-    let start = node.envelope.start;
-    let line = &text[start..];
-    let marker = *line.as_bytes().first()?;
-    if !matches!(marker, b'`' | b'~') {
-        return None;
-    }
-    let width = line.bytes().take_while(|b| *b == marker).count();
-    if width < 3 {
-        return None;
-    }
-    let end = start + line.find(['\r', '\n']).unwrap_or(line.len());
-    let rest = &text[start + width..end];
-    let token = start + width + rest.len() - rest.trim_start_matches([' ', '\t']).len();
-    let len = text[token..end]
-        .find(char::is_whitespace)
-        .unwrap_or(end - token);
-    Some(token..token + len)
+    ryne_syntax::SemanticQuery::new(&state.parse).code_language_range(block)
 }
 impl RenderActionProvider for CodeActions {
     fn cache_dependencies(&self) -> Option<CacheDependencies> {

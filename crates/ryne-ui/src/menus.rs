@@ -194,19 +194,18 @@ impl Editor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.operations.checking_updates {
+        let Some(operation) = self.operations.checking_updates.begin() else {
             return;
-        }
-        self.operations.checking_updates = true;
+        };
         self.status = Text::CheckingUpdates.into();
         let checker = self.desktop.updates.clone();
         let task = cx
             .background_executor()
-            .spawn(async move { checker.check(env!("CARGO_PKG_VERSION")) });
+            .spawn(async move { operation.check_updates(checker, env!("CARGO_PKG_VERSION")) });
         cx.spawn_in(window, async move |this, cx| {
             let result = task.await;
-            let Ok((answer, url)) = this.update_in(cx, |this, window, cx| {
-                this.operations.checking_updates = false;
+            let Ok(Some((answer, url))) = this.update_in(cx, |this, window, cx| {
+                let result = this.operations.checking_updates.complete(result)?;
                 let (title, detail, url) = match result {
                     Ok(ryne_extensions::UpdateStatus::Current) => (Text::UpToDate, None, None),
                     Ok(ryne_extensions::UpdateStatus::NoRelease) => (Text::NoRelease, None, None),
@@ -237,7 +236,7 @@ impl Editor {
                     cx,
                 );
                 cx.notify();
-                (answer, url)
+                Some((answer, url))
             }) else {
                 return;
             };

@@ -8,17 +8,27 @@ use tree_sitter::{Language, ParseOptions, Parser};
 
 pub const MAX_DETECTION_BYTES: usize = 32 * 1024;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum DetectionOutcome {
+    Detected(&'static str),
+    Undetermined,
+    Deferred,
+}
+
 pub struct TreeSitterLanguageDetector;
 
 impl CodeLanguageDetector for TreeSitterLanguageDetector {
     fn detect(&self, code: &str) -> Option<&'static str> {
-        self.detect_before(code, Instant::now() + Duration::from_millis(50))
+        match self.detect_before(code, Instant::now() + Duration::from_millis(50)) {
+            DetectionOutcome::Detected(language) => Some(language),
+            DetectionOutcome::Undetermined | DetectionOutcome::Deferred => None,
+        }
     }
 }
 impl TreeSitterLanguageDetector {
-    pub(crate) fn detect_before(&self, code: &str, deadline: Instant) -> Option<&'static str> {
+    pub(crate) fn detect_before(&self, code: &str, deadline: Instant) -> DetectionOutcome {
         if code.trim().is_empty() || code.len() > MAX_DETECTION_BYTES {
-            return None;
+            return DetectionOutcome::Undetermined;
         }
         let mut parser = Parser::new();
         let mut found = Vec::new();
@@ -35,9 +45,11 @@ impl TreeSitterLanguageDetector {
             ("bash", tree_sitter_bash::LANGUAGE.into()),
         ] {
             if Instant::now() >= deadline {
-                return None;
+                return DetectionOutcome::Deferred;
             }
-            parser.set_language(&grammar).ok()?;
+            if parser.set_language(&grammar).is_err() {
+                return DetectionOutcome::Undetermined;
+            }
             let mut progress = |_: &tree_sitter::ParseState| {
                 if Instant::now() >= deadline {
                     ControlFlow::Break(())
@@ -45,11 +57,13 @@ impl TreeSitterLanguageDetector {
                     ControlFlow::Continue(())
                 }
             };
-            let tree = parser.parse_with_options(
+            let Some(tree) = parser.parse_with_options(
                 &mut |offset, _| &code.as_bytes()[offset..],
                 None,
                 Some(ParseOptions::new().progress_callback(&mut progress)),
-            )?;
+            ) else {
+                return DetectionOutcome::Deferred;
+            };
             let root = tree.root_node();
             if root.has_error() {
                 continue;
@@ -59,7 +73,7 @@ impl TreeSitterLanguageDetector {
             let mut stack = vec![root];
             while let Some(node) = stack.pop() {
                 if Instant::now() >= deadline {
-                    return None;
+                    return DetectionOutcome::Deferred;
                 }
                 let kind = node.kind();
                 jsx |= matches!(kind, "jsx_element" | "jsx_self_closing_element");
@@ -152,13 +166,28 @@ impl TreeSitterLanguageDetector {
         } else if found.contains(&"typescript") {
             found.retain(|name| *name != "javascript");
         }
-        (found.len() == 1).then(|| found[0])
+        if found.len() == 1 {
+            DetectionOutcome::Detected(found[0])
+        } else {
+            DetectionOutcome::Undetermined
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn expired_deadline_is_not_a_completed_negative_detection() {
+        assert_eq!(
+            TreeSitterLanguageDetector.detect_before("fn main() {}", Instant::now()),
+            DetectionOutcome::Deferred
+        );
+        assert_eq!(
+            TreeSitterLanguageDetector.detect_before("", Instant::now()),
+            DetectionOutcome::Undetermined
+        );
+    }
     #[test]
     fn distinctive_valid_code_uses_bundled_languages() {
         for (code, expected) in [

@@ -2,6 +2,10 @@ use crate::ParseSnapshot;
 use editable_markdown_parser::{NodeKind, TokenKind};
 use std::ops::Range;
 
+#[cfg(test)]
+#[path = "code_language_tests.rs"]
+mod language_tests;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct CodeRow {
     pub line: Range<usize>,
@@ -66,6 +70,44 @@ pub fn blocks(parse: &ParseSnapshot) -> Vec<CodeBlock> {
 pub fn cached(parse: &ParseSnapshot) -> &[CodeBlock] {
     let parse = parse.semantic();
     parse.codes.get_or_init(|| blocks_lf(parse))
+}
+
+/// The editable info token of a fenced block, in original source bytes.
+/// Query the snapshot-owned code directory instead of scanning the whole AST.
+pub fn language_range(parse: &ParseSnapshot, block: &CodeBlock) -> Option<Range<usize>> {
+    if block
+        .rows
+        .first()
+        .is_some_and(|row| row.line.start == block.range.start)
+    {
+        return None; // Indented code can contain literal fence-looking text.
+    }
+    let semantic = parse.semantic();
+    let candidates = semantic.index().codes.overlapping(block.range.clone());
+    #[cfg(any(test, feature = "query-metrics"))]
+    crate::query_metrics::record(|m| m.candidates += candidates.len());
+    let node = candidates
+        .into_iter()
+        .map(|id| &semantic.nodes[id])
+        .find(|node| block.range.contains(&node.envelope.start))?;
+    let text = parse.source().text();
+    let start = node.envelope.start;
+    let line = text.get(start..)?;
+    let marker = *line.as_bytes().first()?;
+    if !matches!(marker, b'`' | b'~') {
+        return None;
+    }
+    let width = line.bytes().take_while(|b| *b == marker).count();
+    if width < 3 {
+        return None;
+    }
+    let end = start + line.find(['\r', '\n']).unwrap_or(line.len());
+    let rest = &text[start + width..end];
+    let token = start + width + rest.len() - rest.trim_start_matches([' ', '\t']).len();
+    let len = text[token..end]
+        .find(char::is_whitespace)
+        .unwrap_or(end - token);
+    Some(token..token + len)
 }
 
 fn blocks_lf(parse: &ParseSnapshot) -> Vec<CodeBlock> {

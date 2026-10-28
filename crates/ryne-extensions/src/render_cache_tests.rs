@@ -102,6 +102,93 @@ fn signature(controls: &[RenderControl]) -> Vec<(&str, &str, bool)> {
         .map(|c| (c.provider, c.id.as_str(), c.actions[0].enabled))
         .collect()
 }
+
+struct IdentityCallbacks {
+    inner: Arc<Provider>,
+    unavailable: AtomicBool,
+    ids: AtomicUsize,
+    commands: AtomicUsize,
+}
+impl IdentityCallbacks {
+    fn new(id: &'static str) -> Arc<Self> {
+        Arc::new(Self {
+            inner: Provider::new(id, Some(Default::default())),
+            unavailable: AtomicBool::new(false),
+            ids: AtomicUsize::new(0),
+            commands: AtomicUsize::new(0),
+        })
+    }
+}
+impl RenderActionProvider for IdentityCallbacks {
+    fn id(&self) -> &'static str {
+        self.ids.fetch_add(1, SeqCst);
+        assert!(!self.unavailable.load(SeqCst), "identity unavailable");
+        self.inner.id
+    }
+    fn commands(&self) -> &'static [&'static str] {
+        self.commands.fetch_add(1, SeqCst);
+        assert!(!self.unavailable.load(SeqCst), "commands unavailable");
+        self.inner.commands()
+    }
+    fn cache_dependencies(&self) -> Option<CacheDependencies> {
+        self.inner.cache_dependencies()
+    }
+    fn controls(&self, state: &EditingState) -> Result<Vec<RenderControl>, String> {
+        self.inner.controls(state)
+    }
+    fn plan(
+        &self,
+        state: &EditingState,
+        request: &RenderActionRequest,
+    ) -> Result<CommandPlan, String> {
+        self.inner.plan(state, request)
+    }
+}
+
+#[test]
+fn registered_identity_is_never_requeried_by_cache_diagnostics_execution_or_extension() {
+    let healthy = IdentityCallbacks::new("stable");
+    let registry = RenderActionRegistry::new(vec![healthy.clone()]).unwrap();
+    healthy.unavailable.store(true, SeqCst);
+    let faulty = IdentityCallbacks::new("dynamic");
+    let registry = registry.with_provider(faulty.clone()).unwrap();
+    faulty.unavailable.store(true, SeqCst);
+    let state = EditingState::new(editable_markdown_parser::Source::new("body"));
+    let mut cache = RenderControlCache::default();
+    for failure in [0, 1, 2, 3, 0] {
+        faulty.inner.failure.store(failure, SeqCst);
+        faulty.inner.generation.fetch_add(1, SeqCst);
+        for _ in 0..2 {
+            let batch = registry.cached_control_batch(&state, &mut cache);
+            let fresh = registry.control_batch(&state);
+            for controls in [&*batch.controls, &fresh.controls] {
+                let control = controls.iter().find(|c| c.provider == "stable").unwrap();
+                assert!(registry
+                    .plan(
+                        &state,
+                        &RenderActionRequest {
+                            provider: "stable",
+                            target: control.target.clone(),
+                            command: "stable.run",
+                        }
+                    )
+                    .is_ok());
+            }
+            for diagnostic in batch.diagnostics.iter().chain(&fresh.diagnostics) {
+                assert_eq!(diagnostic.feature, "dynamic");
+            }
+        }
+    }
+    for provider in [&healthy, &faulty] {
+        assert_eq!(provider.ids.load(SeqCst), 1);
+        assert_eq!(provider.commands.load(SeqCst), 1);
+    }
+    // Invalid startup metadata is reported without damaging an existing registry.
+    let rejected = IdentityCallbacks::new("dynamic");
+    rejected.unavailable.store(true, SeqCst);
+    assert!(registry.with_provider(rejected).is_err());
+    assert_eq!(registry.control_batch(&state).controls.len(), 2);
+}
 #[test]
 fn undeclared_controls_recompute_only_their_own_contribution_and_empty_results_reuse() {
     let stable = Provider::new("stable", Some(Default::default()));

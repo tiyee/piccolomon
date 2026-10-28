@@ -18,10 +18,11 @@ pub(super) struct CaretController {
     pub caret_visible: bool,
     pub caret_blink_task: Option<Task<()>>,
 }
+#[derive(Default)]
 pub(super) struct FileOperationState {
-    pub file_operation_pending: bool,
-    pub exporting: bool,
-    pub checking_updates: bool,
+    pub file_operation_pending: crate::background::OperationSlot,
+    pub exporting: crate::background::OperationSlot,
+    pub checking_updates: crate::background::OperationSlot,
     pub allow_close: bool,
     pub close_prompt: bool,
     pub close_after_save: bool,
@@ -60,7 +61,7 @@ impl CaretController {
 }
 impl FileOperationState {
     pub fn blocks_document_replacement(&self) -> bool {
-        self.file_operation_pending || self.close_prompt || self.exporting
+        self.file_operation_pending.is_pending() || self.close_prompt || self.exporting.is_pending()
     }
 }
 impl ViewportState {

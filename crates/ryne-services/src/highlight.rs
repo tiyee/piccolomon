@@ -139,8 +139,15 @@ const MAX_CACHE_ENTRIES: usize = 64;
 const MAX_DETECTION_ENTRIES: usize = 4096;
 const DETECTION_BUDGET: Duration = Duration::from_millis(50);
 
+const MAX_FULL_DETECTION_TIMEOUTS: u8 = 2;
+#[derive(Clone, Copy)]
+enum DetectionState {
+    Complete(Option<Language>),
+    Retry(u8),
+    BudgetExhausted,
+}
 struct Detection {
-    language: Option<Language>,
+    state: DetectionState,
     used: bool,
 }
 
@@ -245,43 +252,9 @@ impl CodeHighlighter {
             }
         }
         let language = if automatic {
-            if let Some(cached) = self.detections.get_mut(&code) {
-                cached.used = true;
-                cached.language
-            } else {
-                if code.len() > self.max_detection_bytes {
-                    return Vec::new();
-                }
-                if self.detections.len() >= self.max_detection_entries
-                    || self.detection_bytes + code.len() > self.max_detection_bytes
-                {
-                    self.detection_overflow = true;
-                    return Vec::new();
-                }
-                if self.detection_attempts >= 8 || self.detection_remaining.is_zero() {
-                    self.deferred = true;
-                    return Vec::new();
-                }
-                self.detection_attempts += 1;
-                // Charge only detection time. Earlier highlighting or source
-                // mapping must not consume the whole budget and permanently
-                // starve a later automatic block on every pass.
-                let started = Instant::now();
-                let detected = crate::language::TreeSitterLanguageDetector
-                    .detect_before(&code, started + self.detection_remaining)
-                    .and_then(Language::from_info);
-                self.detection_remaining =
-                    self.detection_remaining.saturating_sub(started.elapsed());
-                self.detection_bytes += code.len();
-                self.detections.insert(
-                    code.clone(),
-                    Detection {
-                        language: detected,
-                        used: true,
-                    },
-                );
-                detected
-            }
+            self.detect_language(&code, |code, deadline| {
+                crate::language::TreeSitterLanguageDetector.detect_before(code, deadline)
+            })
         } else {
             explicit
         };
@@ -351,6 +324,80 @@ impl CodeHighlighter {
             }
         }
         mapped
+    }
+
+    fn detect_language(
+        &mut self,
+        code: &str,
+        detect: impl FnOnce(&str, Instant) -> crate::language::DetectionOutcome,
+    ) -> Option<Language> {
+        use crate::language::DetectionOutcome;
+        let (timeouts, retry) = if let Some(cached) = self.detections.get_mut(code) {
+            let already_used = cached.used;
+            cached.used = true;
+            match cached.state {
+                DetectionState::Complete(language) => return language,
+                DetectionState::BudgetExhausted => return None,
+                DetectionState::Retry(count) => {
+                    // Duplicate blocks sharing content get at most one attempt per pass.
+                    if already_used {
+                        self.deferred = true;
+                        return None;
+                    }
+                    (count, true)
+                }
+            }
+        } else {
+            if code.len() > self.max_detection_bytes {
+                return None;
+            }
+            if self.detections.len() >= self.max_detection_entries
+                || self.detection_bytes + code.len() > self.max_detection_bytes
+            {
+                self.detection_overflow = true;
+                return None;
+            }
+            (0, false)
+        };
+        // Retry with a fresh budget. A late block must not spend its finite
+        // retry allowance repeatedly on the preceding blocks' leftover time.
+        if self.detection_attempts >= 8
+            || self.detection_remaining.is_zero()
+            || (retry && self.detection_remaining < DETECTION_BUDGET)
+        {
+            self.deferred = true;
+            return None;
+        }
+        self.detection_attempts += 1;
+        let full_budget = self.detection_remaining == DETECTION_BUDGET;
+        let started = Instant::now();
+        let outcome = detect(code, started + self.detection_remaining);
+        self.detection_remaining = self.detection_remaining.saturating_sub(started.elapsed());
+        let state = match outcome {
+            DetectionOutcome::Detected(info) => DetectionState::Complete(Language::from_info(info)),
+            DetectionOutcome::Undetermined => DetectionState::Complete(None),
+            DetectionOutcome::Deferred => {
+                self.detection_remaining = Duration::ZERO;
+                let timeouts = timeouts + u8::from(full_budget);
+                if timeouts >= MAX_FULL_DETECTION_TIMEOUTS {
+                    DetectionState::BudgetExhausted
+                } else {
+                    self.deferred = true;
+                    DetectionState::Retry(timeouts)
+                }
+            }
+        };
+        if let Some(cached) = self.detections.get_mut(code) {
+            cached.state = state;
+        } else {
+            self.detection_bytes += code.len();
+            self.detections
+                .insert(code.to_owned(), Detection { state, used: true });
+        }
+        match state {
+            DetectionState::Complete(language) => language,
+            _ => None,
+        }
     }
 
     fn highlight(&mut self, language: Language, code: &str) -> Vec<Span> {
@@ -440,6 +487,106 @@ mod tests {
     use editable_markdown_parser::Source;
     use ryne_syntax::code_block;
     use ryne_syntax::ParseSnapshot;
+
+    #[test]
+    fn partial_budget_timeout_retries_real_detection_with_a_fresh_budget() {
+        let raw = "```\r\nfn main() { let s = \"中😀\"; }\r\n```\r\n";
+        let parse = ParseSnapshot::new(Source::new(raw));
+        let block = &code_block::cached(&parse)[0];
+        let mut h = CodeHighlighter::default();
+        h.begin_frame();
+        h.detection_remaining = Duration::from_nanos(1);
+        assert!(h.spans(raw, block).is_empty());
+        // Repeated identical blocks cannot consume retries within the same pass.
+        assert!(h.spans(raw, block).is_empty());
+        assert_eq!(h.detection_attempts, 1);
+        h.end_frame();
+        assert!(h.deferred);
+        assert!(matches!(
+            h.detections.values().next().unwrap().state,
+            DetectionState::Retry(0)
+        ));
+        h.begin_frame();
+        assert!(!h.spans(raw, block).is_empty());
+        h.end_frame();
+        assert!(!h.deferred);
+        assert_eq!(h.detection_attempts, 1);
+    }
+
+    #[test]
+    fn retries_use_full_budgets_and_persistent_timeouts_converge_without_starving_later_code() {
+        use crate::language::DetectionOutcome::{Deferred, Detected};
+        let mut h = CodeHighlighter::default();
+        h.begin_frame();
+        h.detection_remaining = Duration::from_nanos(1);
+        assert!(h.detect_language("slow", |_, _| Deferred).is_none());
+        h.end_frame();
+        for attempt in 1..=MAX_FULL_DETECTION_TIMEOUTS {
+            h.begin_frame();
+            assert!(h.detect_language("slow", |_, _| Deferred).is_none());
+            assert!(h
+                .detect_language("later", |_, _| panic!("spent budget"))
+                .is_none());
+            h.end_frame();
+            assert!(h.deferred); // later content still needs a pass
+            assert!(
+                matches!(h.detections["slow"].state, DetectionState::BudgetExhausted)
+                    == (attempt == MAX_FULL_DETECTION_TIMEOUTS)
+            );
+        }
+        h.begin_frame();
+        assert!(h
+            .detect_language("slow", |_, _| panic!("terminal content retried"))
+            .is_none());
+        assert!(h
+            .detect_language("later", |_, _| Detected("rust"))
+            .is_some());
+        h.end_frame();
+        assert!(!h.deferred);
+        assert_eq!(h.detection_attempts, 1);
+        // Removal/cancellation of content releases retry/terminal records and bytes.
+        h.begin_frame();
+        h.end_frame();
+        assert!(h.detections.is_empty());
+        assert_eq!(h.detection_bytes, 0);
+        h.begin_frame();
+        assert!(h.detect_language("slow", |_, _| Detected("rust")).is_some());
+        h.end_frame();
+        assert!(!h.deferred);
+    }
+
+    #[test]
+    fn reordered_and_changed_content_keeps_retry_allowance_and_negative_cache_distinct() {
+        use crate::language::DetectionOutcome::{Deferred, Detected, Undetermined};
+        let mut h = CodeHighlighter::default();
+        h.begin_frame();
+        h.detection_remaining = Duration::from_nanos(1);
+        h.detect_language("pending", |_, _| Deferred);
+        h.end_frame();
+        h.begin_frame();
+        h.detect_language("new earlier", |_, _| Undetermined);
+        h.detection_remaining = Duration::from_millis(49);
+        h.detect_language("pending", |_, _| panic!("must wait for a full budget"));
+        h.end_frame();
+        assert!(h.deferred);
+        assert!(matches!(
+            h.detections["pending"].state,
+            DetectionState::Retry(0)
+        ));
+        h.begin_frame();
+        // Completed ambiguity never needs another inference attempt.
+        h.detect_language("new earlier", |_, _| panic!("negative cache miss"));
+        assert!(h
+            .detect_language("pending", |_, _| Detected("python"))
+            .is_some());
+        h.end_frame();
+        assert!(!h.deferred);
+        h.begin_frame();
+        h.detect_language("changed body", |_, _| Detected("rust"));
+        h.end_frame();
+        assert_eq!(h.detections.len(), 1);
+        assert!(h.detections.contains_key("changed body"));
+    }
 
     #[test]
     fn first_batch_many_automatic_blocks_eventually_complete() {

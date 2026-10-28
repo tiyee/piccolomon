@@ -5,7 +5,7 @@ pub(super) fn sample() -> String {
     (0..180)
         .map(|i| format!("中😀 e\u{301} **word** $x_{{{i}}}^2$ tail "))
         .collect::<String>()
-        + "\n\nlast paragraph\n\n| a | b |\n| --- | --- |\n| first | second |\n\nafter table"
+        + "\n\nlast paragraph\n\n| a | b |\n| --- | --- |\n| first $\\frac{a}{b}$ wrapped 中文😀 words words words words words words words words words words words words words words<br>second line | second |\n| | tail |\n\nafter table\n\n| x | y |\n| --- | --- |\n| third | fourth |\n\nlast"
 }
 
 pub(super) fn verify(editor: &Editor, geometry: &Geometry, window: &Window) -> Result<(), String> {
@@ -15,7 +15,7 @@ pub(super) fn verify(editor: &Editor, geometry: &Geometry, window: &Window) -> R
         editor.document.history_len(true),
     );
     let display = &editor.viewport.display;
-    if display.formulas.len() != 180 {
+    if display.formulas.len() != 181 {
         return Err("low-risk smoke: missing formulas".into());
     }
     let end = display.text.find('\n').ok_or("missing paragraph end")?;
@@ -68,25 +68,19 @@ pub(super) fn verify(editor: &Editor, geometry: &Geometry, window: &Window) -> R
             }
             seen += actual.len();
         }
-        if seen != display.formulas.len() {
+        if seen != 180 {
             return Err("formula was omitted or assigned more than once".into());
         }
     }
 
-    // Compare ordinary-row navigation with the former linear lookup, including
-    // wrap-affinity ties, document edges and entry into the unchanged table path.
+    // Compare both ordinary and table navigation against the former full scan,
+    // including wraps, formula height, empty cells and entry/exit at both affinities.
     for row in geometry.rows.iter() {
-        if geometry.lines[row.line].cell.is_some() {
-            continue;
-        }
         for offset in [row.range.start, row.range.end] {
             for affinity in [Affinity::Upstream, Affinity::Downstream] {
                 let Some(current) = geometry.row_for(offset, affinity) else {
                     continue;
                 };
-                if geometry.lines[current.line].cell.is_some() {
-                    continue;
-                }
                 let index = geometry
                     .rows
                     .iter()
@@ -94,7 +88,36 @@ pub(super) fn verify(editor: &Editor, geometry: &Geometry, window: &Window) -> R
                     .ok_or("oracle could not find current row")?;
                 let x = geometry.position_with_affinity(offset, affinity).x;
                 for down in [false, true] {
-                    let next = if down {
+                    let next = if let Some(cell) = geometry.lines[current.line].cell {
+                        let mut same = geometry
+                            .rows
+                            .iter()
+                            .filter(|r| geometry.lines[r.line].cell == Some(cell));
+                        let next = if down {
+                            same.find(|r| r.top > current.top)
+                        } else {
+                            same.rfind(|r| r.top < current.top)
+                        };
+                        next.or_else(|| {
+                            let outside = geometry.rows.iter().filter(|r| {
+                                if down {
+                                    r.top >= cell.bottom()
+                                } else {
+                                    r.top + r.line_height <= cell.top()
+                                }
+                            });
+                            let compare = |a: &&VisualRow, b: &&VisualRow| {
+                                a.top
+                                    .partial_cmp(&b.top)
+                                    .unwrap_or(std::cmp::Ordering::Equal)
+                            };
+                            if down {
+                                outside.min_by(compare)
+                            } else {
+                                outside.max_by(compare)
+                            }
+                        })
+                    } else if down {
                         geometry.rows.get(index + 1)
                     } else {
                         index.checked_sub(1).and_then(|i| geometry.rows.get(i))
@@ -110,7 +133,7 @@ pub(super) fn verify(editor: &Editor, geometry: &Geometry, window: &Window) -> R
                         ))
                     });
                     if geometry.vertical_target(offset, affinity, x, down) != expected {
-                        return Err("ordinary vertical navigation differs from oracle".into());
+                        return Err("vertical navigation differs from oracle".into());
                     }
                 }
             }

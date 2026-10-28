@@ -1,0 +1,29 @@
+{
+  "cargo test --locked": {
+    "exit_code": 0,
+    "passed": 307
+  },
+  "stable clippy --locked --all-targets -- -D warnings": {
+    "exit_code": 0
+  },
+  "python3 docs/reviews/architecture-2026-10-28/run.py": {
+    "exit_code": 0
+  },
+  "python3 docs/reviews/architecture-2026-10-28/followup/run.py": {
+    "exit_code": 0
+  },
+  "python3 scripts/check-architecture.py": {
+    "exit_code": 0
+  },
+  "cargo fmt --check": {
+    "exit_code": 0
+  },
+  "git diff --check": {
+    "exit_code": 0
+  },
+  "cargo run --locked -- --smoke-test": {
+    "exit_code": 0,
+    "stages": "0-374",
+    "platform": "macOS"
+  }
+}

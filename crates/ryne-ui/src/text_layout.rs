@@ -129,6 +129,7 @@ impl LayoutKey {
 }
 pub(super) struct TextLayout {
     pub hit: crate::hit_index::HitIndex,
+    pub navigation: crate::navigation_index::NavigationIndex,
     pub index: crate::frame_index::FrameIndex,
     pub visibility: crate::visibility::Visibility,
     pub key: LayoutKey,
@@ -628,6 +629,13 @@ impl TextLayout {
                 }),
         );
         Ok(Self {
+            navigation: if table_cells.is_empty() {
+                Default::default()
+            } else {
+                crate::navigation_index::NavigationIndex::new(rows.iter().enumerate().map(
+                    |(id, row)| (id, row.top, row.top + row.line_height, lines[row.line].cell),
+                ))
+            },
             hit: crate::hit_index::HitIndex::new(
                 rows.iter()
                     .enumerate()
@@ -659,6 +667,7 @@ impl TextLayout {
             key,
             display: editor.viewport.display.clone(),
             hit: Default::default(),
+            navigation: Default::default(),
             index: Default::default(),
             visibility: Default::default(),
             lines: Default::default(),

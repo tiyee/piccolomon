@@ -22,6 +22,12 @@ impl<'a> SemanticQuery<'a> {
     pub fn code_blocks(&self) -> &'a [code_block::CodeBlock] {
         code_block::cached(self.parse)
     }
+    pub fn code_language_range(
+        &self,
+        block: &code_block::CodeBlock,
+    ) -> Option<std::ops::Range<usize>> {
+        code_block::language_range(self.parse, block)
+    }
     pub fn tables(&self) -> &'a [table::Table] {
         table::cached(self.parse)
     }

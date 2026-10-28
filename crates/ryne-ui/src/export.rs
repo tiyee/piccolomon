@@ -17,8 +17,8 @@ impl Editor {
         self.export_pdf_with(&action.id, window, cx);
     }
     fn export_pdf_with(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
-        if self.operations.exporting
-            || self.operations.file_operation_pending
+        if self.operations.exporting.is_pending()
+            || self.operations.file_operation_pending.is_pending()
             || self.operations.close_prompt
         {
             return;
@@ -39,7 +39,9 @@ impl Editor {
             cx.notify();
             return;
         };
-        self.operations.exporting = true;
+        let Some(operation) = self.operations.exporting.begin() else {
+            return;
+        };
         let source_path = self.document.files.path.clone();
         let directory = source_path
             .as_ref()
@@ -100,7 +102,7 @@ impl Editor {
                     };
                     if !confirmed {
                         let _ = this.update_in(cx, |this, _, cx| {
-                            this.operations.exporting = false;
+                            this.operations.exporting.finish(operation);
                             cx.notify();
                         });
                         return;
@@ -118,13 +120,12 @@ impl Editor {
                     });
                     let result = cx
                         .background_executor()
-                        .spawn(async move {
-                            let display = snapshot.render()?;
-                            let bytes = exporter.export(&display)?;
-                            artifacts.write(&path, &bytes).map_err(|e| e.to_string())
-                        })
+                        .spawn(async move { operation.export(snapshot, exporter, artifacts, path) })
                         .await;
                     let _ = this.update_in(cx, |this, _, cx| {
+                        let Some(result) = this.operations.exporting.complete(result) else {
+                            return;
+                        };
                         this.status = match result {
                             Ok(()) => Text::Exported.into(),
                             Err(error) => this.locale.language.error(Text::ExportFailed, error),
@@ -134,7 +135,7 @@ impl Editor {
                 }
             }
             let _ = this.update_in(cx, |this, _, cx| {
-                this.operations.exporting = false;
+                this.operations.exporting.finish(operation);
                 cx.notify();
             });
         })

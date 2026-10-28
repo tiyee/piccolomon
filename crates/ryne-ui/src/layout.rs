@@ -705,38 +705,12 @@ impl Geometry {
             return (offset, affinity);
         };
         let row = &self.rows[index];
-        if let Some(cell) = self.lines[row.line].cell {
-            let mut same = self
-                .rows
-                .iter()
-                .filter(|candidate| self.lines[candidate.line].cell == Some(cell));
-            let target = if down {
-                same.find(|candidate| candidate.top > row.top)
-            } else {
-                same.rfind(|candidate| candidate.top < row.top)
-            };
-            let target = target.or_else(|| {
-                let outside = self.rows.iter().filter(|candidate| {
-                    if down {
-                        candidate.top >= cell.bottom()
-                    } else {
-                        candidate.top + candidate.line_height <= cell.top()
-                    }
-                });
-                if down {
-                    outside.min_by(|a, b| {
-                        a.top
-                            .partial_cmp(&b.top)
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                    })
-                } else {
-                    outside.max_by(|a, b| {
-                        a.top
-                            .partial_cmp(&b.top)
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                    })
-                }
-            });
+        if self.lines[row.line].cell.is_some() {
+            let target = self
+                .text_layout
+                .navigation
+                .target(index, down)
+                .and_then(|i| self.rows.get(i));
             return target.map_or((offset, affinity), |target| {
                 self.hit_caret(point(
                     x,

@@ -2065,7 +2065,7 @@ impl Editor {
                             editor.new_document(&New, window, cx);
                         }
                         205 => {
-                            check!(!editor.operations.file_operation_pending);
+                            check!(!editor.operations.file_operation_pending.is_pending());
                             check_eq!(editor.document.source.text(), "");
                             check!(!editor.document.dirty());
                             check!(editor.document.files.path.is_none());
@@ -2075,7 +2075,7 @@ impl Editor {
                             editor.open_recent(&OpenRecent { path }, window, cx);
                         }
                         206 => {
-                            check!(!editor.operations.file_operation_pending);
+                            check!(!editor.operations.file_operation_pending.is_pending());
                             check_eq!(editor.document.source.text(), "# 原始\r\n\r\n```text\r\n**literal**\r\n```\r\n");
                             let path = editor.document.files.path.clone().ok_or("missing opened recent path")?;
                             check_eq!(editor.recent.paths.first(), Some(&std::fs::canonicalize(&path).map_err(|e| e.to_string())?));
@@ -2083,7 +2083,7 @@ impl Editor {
                             editor.reload(&Reload, window, cx);
                         }
                         207 => {
-                            check!(!editor.operations.file_operation_pending);
+                            check!(!editor.operations.file_operation_pending.is_pending());
                             check_eq!(editor.document.source.text(), "# Reloaded 中文\r\n\r\n- item\r\n");
                             check!(!editor.document.dirty());
                             check_eq!(editor.document.history_len(false), 0);
@@ -2092,7 +2092,7 @@ impl Editor {
                             editor.replace_text_in_range(None, "new edit", window, cx);
                         }
                         208 => {
-                            check!(!editor.operations.file_operation_pending);
+                            check!(!editor.operations.file_operation_pending.is_pending());
                             check!(editor.document.source.text().contains("new edit"));
                             check!(editor.document.dirty());
                             let current = editor.document.source.id();
@@ -2913,7 +2913,7 @@ impl Editor {
                         }
                         372 => {
                             crate::low_risk_smoke::verify(editor,&geometry,window)?;
-                            println!("Low-risk layout checks passed: 180 formulas in one Unicode paragraph at four widths; ordered formula placement/metrics; ordinary vertical navigation matches linear oracle at wrap affinities and table boundaries; source/history unchanged");
+                            println!("Low-risk layout checks passed: 180 formulas in one Unicode paragraph at four widths; ordered formula placement/metrics; ordinary/table vertical navigation matches linear oracle with wrapped and empty cells, formula heights, and table boundaries; source/history unchanged");
                             if low_risk_only {cx.quit();return Ok(());}
                         }
                         _ => {

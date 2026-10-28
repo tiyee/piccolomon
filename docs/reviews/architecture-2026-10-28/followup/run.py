@@ -6,7 +6,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[4]
 build = subprocess.run(
-    ["cargo", "build", "--locked", "-p", "ryne-services", "--message-format=json"],
+    ["cargo", "build", "--locked", "-p", "ryne-services", "--features", "ryne-syntax/query-metrics", "--message-format=json"],
     cwd=ROOT, check=True, capture_output=True, text=True,
 )
 libraries = {}
@@ -25,11 +25,6 @@ highlight = highlight.replace("    #[cfg(test)]\n", "")
 probe = Path(__file__).with_name("highlight_probe.rs").read_text()
 actions = (ROOT / "crates/ryne-features/src/code_actions.rs").read_text()
 helper = actions[actions.index("fn language_range("):actions.index("impl RenderActionProvider for CodeActions")]
-helper = helper.replace(
-    "parse.nodes.iter().find(|n| {",
-    "parse.nodes.iter().inspect(|_| { AUDIT_VISITS.fetch_add(1, std::sync::atomic::Ordering::Relaxed); }).find(|n| {",
-)
-assert "AUDIT_VISITS.fetch_add" in helper
 control_probe = Path(__file__).with_name("control_probe.rs").read_text()
 language = ROOT / "crates/ryne-services/src/language.rs"
 with tempfile.TemporaryDirectory(prefix="ryne-followup-audit-") as directory:
@@ -38,7 +33,6 @@ with tempfile.TemporaryDirectory(prefix="ryne-followup-audit-") as directory:
     (temporary / "code_probe.rs").write_text(
         "use ryne_extensions::EditingState;\nuse ryne_syntax::code_block;\n"
         "use std::ops::Range;\n"
-        "static AUDIT_VISITS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);\n"
         + helper + "\n" + control_probe
     )
     (temporary / "main.rs").write_text(

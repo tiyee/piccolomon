@@ -88,7 +88,9 @@ pub trait RenderActionProvider: Send + Sync {
     fn cache_dependencies(&self) -> Option<crate::CacheDependencies> {
         None
     }
+    /// Read once at registration; the registry owns this stable identity thereafter.
     fn id(&self) -> &'static str;
+    /// Read once at registration and validated before the registry is changed.
     fn commands(&self) -> &'static [&'static str];
     fn controls(&self, state: &EditingState) -> Result<Vec<RenderControl>, String>;
     fn plan(
@@ -146,36 +148,56 @@ impl RenderControlCache {
         controls
     }
 }
+#[derive(Clone)]
+struct RegisteredProvider {
+    id: &'static str,
+    instance: Arc<dyn RenderActionProvider>,
+}
 #[derive(Default, Clone)]
 pub struct RenderActionRegistry {
-    providers: Vec<Arc<dyn RenderActionProvider>>,
+    providers: Vec<RegisteredProvider>,
     commands: BTreeMap<&'static str, &'static str>,
 }
 impl RenderActionRegistry {
     pub fn new(providers: Vec<Arc<dyn RenderActionProvider>>) -> Result<Self, String> {
-        let mut commands = BTreeMap::new();
-        let mut ids = BTreeSet::new();
-        for provider in &providers {
-            if !ids.insert(provider.id()) {
-                return Err("duplicate render provider".into());
-            }
-            for &command in provider.commands() {
-                if !command.starts_with(&format!("{}.", provider.id()))
-                    || commands.insert(command, provider.id()).is_some()
-                {
-                    return Err("invalid or duplicate render command".into());
-                }
+        let mut registry = Self::default();
+        for provider in providers {
+            registry.register(provider)?;
+        }
+        Ok(registry)
+    }
+    fn register(&mut self, provider: Arc<dyn RenderActionProvider>) -> Result<(), String> {
+        // Identity and the command directory are startup metadata. Never call
+        // them again during generation, diagnostics, cache lookup or execution.
+        let (id, declared) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            (provider.id(), provider.commands().to_vec())
+        }))
+        .map_err(|_| "render provider registration panicked".to_string())?;
+        if self.providers.iter().any(|p| p.id == id) {
+            return Err("duplicate render provider".into());
+        }
+        let mut unique = BTreeSet::new();
+        for &command in &declared {
+            if !command.starts_with(&format!("{id}."))
+                || !unique.insert(command)
+                || self.commands.contains_key(command)
+            {
+                return Err("invalid or duplicate render command".into());
             }
         }
-        Ok(Self {
-            providers,
-            commands,
-        })
+        for command in declared {
+            self.commands.insert(command, id);
+        }
+        self.providers.push(RegisteredProvider {
+            id,
+            instance: provider,
+        });
+        Ok(())
     }
     pub fn with_provider(&self, provider: Arc<dyn RenderActionProvider>) -> Result<Self, String> {
-        let mut providers = self.providers.clone();
-        providers.push(provider);
-        Self::new(providers)
+        let mut registry = self.clone();
+        registry.register(provider)?;
+        Ok(registry)
     }
     pub fn controls(&self, state: &EditingState) -> Result<Vec<RenderControl>, String> {
         Ok(self.control_batch(state).controls)
@@ -188,10 +210,10 @@ impl RenderActionRegistry {
             return batch;
         }
         for provider in &self.providers {
-            match self.provider_controls(provider.as_ref(), state) {
+            match self.provider_controls(provider, state) {
                 Ok(controls) => batch.controls.extend(controls),
                 Err(message) => batch.diagnostics.push(Diagnostic {
-                    feature: provider.id().into(),
+                    feature: provider.id.into(),
                     message,
                 }),
             }
@@ -217,22 +239,23 @@ impl RenderActionRegistry {
         let current = self
             .providers
             .iter()
-            .map(|p| (p.id(), p))
+            .map(|p| (p.id, p))
             .collect::<BTreeMap<_, _>>();
         cache.entries.retain(|id, entry| {
             current
                 .get(id)
-                .is_some_and(|p| Arc::ptr_eq(p, &entry.provider))
+                .is_some_and(|p| Arc::ptr_eq(&p.instance, &entry.provider))
         });
         let mut diagnostics = Vec::new();
         let mut parts = Vec::new();
         if !state.source_mode {
             for provider in &self.providers {
                 let mut key = || match crate::catch_callback(
-                    provider.id(),
+                    provider.id,
                     "control cache dependencies",
                     || {
                         provider
+                            .instance
                             .cache_dependencies()
                             .map(|deps| crate::PresentationKey::for_state(state, deps))
                     },
@@ -245,23 +268,23 @@ impl RenderActionRegistry {
                 };
                 let before = key();
                 if let Some(before) = &before
-                    && let Some(entry) = cache.entries.get(provider.id())
+                    && let Some(entry) = cache.entries.get(provider.id)
                     && entry.key == *before
                 {
                     parts.push(entry.controls.clone());
                     continue;
                 }
-                cache.entries.remove(provider.id());
-                match self.provider_controls(provider.as_ref(), state) {
+                cache.entries.remove(provider.id);
+                match self.provider_controls(provider, state) {
                     Ok(controls) => {
                         let controls = Arc::new(controls);
                         if let Some(before) = before
                             && key().as_ref() == Some(&before)
                         {
                             cache.entries.insert(
-                                provider.id(),
+                                provider.id,
                                 ControlEntry {
-                                    provider: provider.clone(),
+                                    provider: provider.instance.clone(),
                                     key: before,
                                     controls: controls.clone(),
                                 },
@@ -270,7 +293,7 @@ impl RenderActionRegistry {
                         parts.push(controls);
                     }
                     Err(message) => diagnostics.push(Diagnostic {
-                        feature: provider.id().into(),
+                        feature: provider.id.into(),
                         message,
                     }),
                 }
@@ -285,18 +308,18 @@ impl RenderActionRegistry {
     }
     fn provider_controls(
         &self,
-        provider: &dyn RenderActionProvider,
+        provider: &RegisteredProvider,
         state: &EditingState,
     ) -> Result<Vec<RenderControl>, String> {
         if state.source_mode {
             return Ok(Vec::new());
         }
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let mut controls = provider.controls(state)?;
+            let mut controls = provider.instance.controls(state)?;
             let mut ids = BTreeSet::new();
             for control in &controls {
                 control.target.validate(state)?;
-                if control.provider != provider.id()
+                if control.provider != provider.id
                     || !ids.insert(control.id.clone())
                     || control.actions.is_empty()
                     || (matches!(control.placement, RenderControlPlacement::Marker { .. })
@@ -309,7 +332,7 @@ impl RenderActionRegistry {
                     || control
                         .actions
                         .iter()
-                        .any(|a| self.commands.get(a.command) != Some(&provider.id()))
+                        .any(|a| self.commands.get(a.command) != Some(&provider.id))
                 {
                     return Err("invalid render control".into());
                 }
@@ -336,24 +359,20 @@ impl RenderActionRegistry {
         let provider = self
             .providers
             .iter()
-            .find(|p| p.id() == request.provider)
+            .find(|p| p.id == request.provider)
             .ok_or("missing render provider")?;
         // Re-evaluate only the requested provider; an unrelated failure cannot
         // prevent a valid command. Never trust a cached enabled flag.
-        if !self
-            .provider_controls(provider.as_ref(), state)?
-            .iter()
-            .any(|c| {
-                c.target == request.target
-                    && c.actions
-                        .iter()
-                        .any(|a| a.command == request.command && a.enabled)
-            })
-        {
+        if !self.provider_controls(provider, state)?.iter().any(|c| {
+            c.target == request.target
+                && c.actions
+                    .iter()
+                    .any(|a| a.command == request.command && a.enabled)
+        }) {
             return Err("render action unavailable".into());
         }
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            provider.plan(state, request)
+            provider.instance.plan(state, request)
         }))
         .unwrap_or_else(|_| Err("render action provider panicked".into()))
     }

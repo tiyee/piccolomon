@@ -14,13 +14,13 @@ pub fn audit() {
     let first = highlighter.spans(raw, &blocks[0]);
     highlighter.end_frame();
     assert!(first.is_empty());
-    assert!(!highlighter.has_pending_work());
+    assert!(highlighter.has_pending_work());
     let attempts = highlighter.detection_attempts;
     highlighter.begin_frame();
     let second = highlighter.spans(raw, &blocks[0]);
     highlighter.end_frame();
-    assert!(second.is_empty());
-    assert_eq!(highlighter.detection_attempts, 0);
+    assert!(!second.is_empty());
+    assert_eq!(highlighter.detection_attempts, 1);
     assert!(!highlighter.has_pending_work());
     let mut fresh = CodeHighlighter::default();
     fresh.begin_frame();
@@ -28,7 +28,7 @@ pub fn audit() {
     fresh.end_frame();
     assert!(!successful.is_empty());
     println!(
-        "detection_timeout first_attempts={attempts} pending=false next_frame_attempts=0 next_frame_spans={} fresh_spans={}",
+        "detection_timeout first_attempts={attempts} pending=true next_frame_attempts=1 next_frame_spans={} fresh_spans={}",
         second.len(),
         successful.len()
     );
