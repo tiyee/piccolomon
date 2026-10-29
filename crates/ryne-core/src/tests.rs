@@ -86,3 +86,25 @@ fn dirty_preserves_exact_bytes_through_retyping_old_receipts_and_history() {
         assert!(core.dirty());
     }
 }
+
+#[test]
+fn history_accounting_observes_large_inverse_edits_without_changing_history() {
+    let raw = "x".repeat(1024 * 1024);
+    let mut core = DocumentCore::new(&raw);
+    assert_eq!(core.history_memory(|_: &usize| 0), HistoryMemory::default());
+    let prepared = PreparedEdit::prepare(core.source(), vec![edit(0..raw.len(), "short")]).unwrap();
+    core.publish(prepared, 7).unwrap();
+    let source = core.source().id();
+    let usage = core.history_memory(|_| 0);
+    assert_eq!((usage.undo_entries, usage.redo_entries), (1, 0));
+    assert!(usage.reserved_bytes >= raw.len());
+    assert_eq!(core.source().id(), source);
+    assert!(core.dirty());
+    let (prepared, checkpoint) = core.prepare_history(false).unwrap().unwrap();
+    assert_eq!(checkpoint, 7);
+    core.publish_history(prepared, false, 8).unwrap();
+    let usage = core.history_memory(|_| 0);
+    assert_eq!((usage.undo_entries, usage.redo_entries), (0, 1));
+    assert_eq!(core.source().text(), raw);
+    assert!(!core.dirty());
+}

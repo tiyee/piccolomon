@@ -23,6 +23,7 @@ impl EditorElement {
                 .map(|g| &g.text_layout)
                 .filter(|l| l.key == key)
             {
+                profile::layout(true);
                 Ok(layout.clone())
             } else {
                 text_layout::TextLayout::build(editor, key, window).map(std::sync::Arc::new)

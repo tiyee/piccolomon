@@ -409,3 +409,91 @@ fn stale_semantics_cannot_bypass_validation_via_a_cached_control() {
     registry.cached_control_batch(&state, &mut cache);
     assert_eq!(provider.calls.load(SeqCst), 2);
 }
+
+struct TargetProvider {
+    base: Arc<Provider>,
+    full_calls: AtomicUsize,
+    plans: AtomicUsize,
+    failure: AtomicUsize,
+}
+impl RenderActionProvider for TargetProvider {
+    fn id(&self) -> &'static str {
+        "stable"
+    }
+    fn commands(&self) -> &'static [&'static str] {
+        &["stable.run"]
+    }
+    fn controls(&self, state: &EditingState) -> Result<Vec<RenderControl>, String> {
+        self.full_calls.fetch_add(1, SeqCst);
+        self.base.controls(state)
+    }
+    fn controls_for_target(
+        &self,
+        state: &EditingState,
+        _: &RenderTarget,
+    ) -> Result<Option<Vec<RenderControl>>, String> {
+        match self.failure.load(SeqCst) {
+            1 => panic!("target query failure"),
+            2 => return Err("target query error".into()),
+            _ => (),
+        }
+        let mut controls = self.base.controls(state)?;
+        if self.failure.load(SeqCst) == 3 {
+            controls[0].trailing_space = f32::NAN;
+        }
+        Ok(Some(controls))
+    }
+    fn plan(&self, _: &EditingState, _: &RenderActionRequest) -> Result<CommandPlan, String> {
+        self.plans.fetch_add(1, SeqCst);
+        Ok(CommandPlan::Consume)
+    }
+}
+#[test]
+fn targeted_execution_revalidates_without_full_batch_and_isolates_failures() {
+    let provider = Arc::new(TargetProvider {
+        base: Provider::new("stable", None),
+        full_calls: AtomicUsize::new(0),
+        plans: AtomicUsize::new(0),
+        failure: AtomicUsize::new(0),
+    });
+    let registry = RenderActionRegistry::new(vec![provider.clone()]).unwrap();
+    let mut state = EditingState::new(editable_markdown_parser::Source::new("text"));
+    let target = provider.base.controls(&state).unwrap()[0].target.clone();
+    let request = RenderActionRequest {
+        provider: "stable",
+        target,
+        command: "stable.run",
+    };
+    registry.plan(&state, &request).unwrap();
+    assert_eq!(provider.full_calls.load(SeqCst), 0);
+    provider.base.enabled.store(false, SeqCst);
+    assert!(registry.plan(&state, &request).is_err());
+    provider.base.enabled.store(true, SeqCst);
+    for mode in 1..=3 {
+        provider.failure.store(mode, SeqCst);
+        assert!(registry.plan(&state, &request).is_err());
+    }
+    provider.failure.store(0, SeqCst);
+    state.source_mode = true;
+    assert!(registry.plan(&state, &request).is_err());
+    state.source_mode = false;
+    state.block_source = Some(editable_markdown_parser::Session::new(&state.source, 0..4).unwrap());
+    assert!(registry.plan(&state, &request).is_err());
+    let other = EditingState::new(editable_markdown_parser::Source::new("text"));
+    assert!(registry.plan(&other, &request).is_err());
+    assert_eq!(provider.plans.load(SeqCst), 1);
+    assert_eq!(provider.full_calls.load(SeqCst), 0);
+    // Default None remains a full-batch compatibility path and checks live enabled.
+    let legacy = Provider::new("stable", None);
+    let registry = RenderActionRegistry::new(vec![legacy.clone()]).unwrap();
+    registry
+        .plan(
+            &other,
+            &RenderActionRequest {
+                target: legacy.controls(&other).unwrap()[0].target.clone(),
+                ..request
+            },
+        )
+        .unwrap();
+    assert_eq!(legacy.calls.load(SeqCst), 2);
+}

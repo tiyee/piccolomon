@@ -127,6 +127,12 @@ impl EditorSession {
     pub fn history_len(&self, redo: bool) -> usize {
         self.core.history_len(redo)
     }
+    /// Diagnostic query only; no history policy or document state changes.
+    pub fn history_memory(&self) -> ryne_core::HistoryMemory {
+        self.core.history_memory(|checkpoint| {
+            checkpoint.closers.capacity() * std::mem::size_of::<Range<usize>>()
+        })
+    }
     pub fn add_validator(&mut self, v: Arc<dyn Validator>) {
         self.validators.push(v)
     }

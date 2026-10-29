@@ -48,6 +48,165 @@ fn action(
         }),
     }
 }
+impl TableActions {
+    fn build_controls(
+        &self,
+        state: &EditingState,
+        target: Option<&RenderTarget>,
+    ) -> Result<Vec<RenderControl>, String> {
+        let tables = match target {
+            None => table::cached(&state.parse),
+            Some(t) => {
+                if t.role != "table.cell" || t.part.len() != 2 {
+                    return Ok(Vec::new());
+                }
+                table::containing(&state.parse, t.owner.start)
+                    .map(std::slice::from_ref)
+                    .unwrap_or(&[])
+            }
+        };
+        Ok(tables
+            .iter()
+            .filter(|table| {
+                target.is_none_or(|t| {
+                    t.role == "table.cell" && t.owner == table.range && t.part.len() == 2
+                })
+            })
+            .flat_map(|table| {
+                let owner = table.range.clone();
+                let columns = table.align.len();
+                let rows = table.rows.len();
+                let align = &table.align;
+                target
+                    .map_or(0..rows, |t| t.part[0]..t.part[0].saturating_add(1))
+                    .filter_map(move |r| table.rows.get(r).map(|row| (r, row)))
+                    .flat_map(move |(r, row)| {
+                        let owner = owner.clone();
+                        target
+                            .map_or(0..row.cells.len(), |t| {
+                                t.part[1]..t.part[1].saturating_add(1)
+                            })
+                            .filter_map(move |c| row.cells.get(c).map(|cell| (c, cell)))
+                            .map(move |(c, cell)| {
+                                let mut actions = vec![
+                                    action("table.align-left", "Left", true, 0, None),
+                                    action("table.align-center", "Center", true, 0, None),
+                                    action("table.align-right", "Right", true, 0, None),
+                                    action(
+                                        "table.insert-below",
+                                        "Insert row below",
+                                        true,
+                                        1,
+                                        Some(("down", "⌃⌘↓")),
+                                    ),
+                                    action(
+                                        "table.insert-above",
+                                        "Insert row above",
+                                        r > 0,
+                                        1,
+                                        Some(("up", "⌃⌘↑")),
+                                    ),
+                                    action(
+                                        "table.insert-right",
+                                        "Insert column after",
+                                        true,
+                                        1,
+                                        Some(("right", "⌃⌘→")),
+                                    ),
+                                    action(
+                                        "table.insert-left",
+                                        "Insert column before",
+                                        true,
+                                        1,
+                                        Some(("left", "⌃⌘←")),
+                                    ),
+                                    action(
+                                        "table.move-row-up",
+                                        "Move row up",
+                                        r > 1,
+                                        2,
+                                        Some(("up", "⌥⌘↑")),
+                                    ),
+                                    action(
+                                        "table.move-row-down",
+                                        "Move row down",
+                                        r > 0 && r + 1 < rows,
+                                        2,
+                                        Some(("down", "⌥⌘↓")),
+                                    ),
+                                    action(
+                                        "table.move-column-left",
+                                        "Move column left",
+                                        c > 0,
+                                        2,
+                                        Some(("left", "⌥⌘←")),
+                                    ),
+                                    action(
+                                        "table.move-column-right",
+                                        "Move column right",
+                                        c + 1 < columns,
+                                        2,
+                                        Some(("right", "⌥⌘→")),
+                                    ),
+                                    action(
+                                        "table.delete-row",
+                                        "Delete row",
+                                        r > 0,
+                                        3,
+                                        Some(("backspace", "⌃⌘⌫")),
+                                    ),
+                                    action(
+                                        "table.delete-column",
+                                        "Delete column",
+                                        columns > 1,
+                                        3,
+                                        Some(("backspace", "⌃⇧⌘⌫")),
+                                    ),
+                                ];
+                                for (index, a) in actions.iter_mut().enumerate() {
+                                    if index < 3 {
+                                        a.submenu = Some(RenderSubmenu {
+                                            label: "table.alignment",
+                                            fallback: "Alignment",
+                                        });
+                                        a.checked = match index {
+                                            0 => !matches!(
+                                                align[c],
+                                                Alignment::Center | Alignment::Right
+                                            ),
+                                            1 => align[c] == Alignment::Center,
+                                            _ => align[c] == Alignment::Right,
+                                        };
+                                    } else {
+                                        a.icon = Some(if a.group == 1 {
+                                            "table_add"
+                                        } else if a.group == 3 {
+                                            "delete"
+                                        } else {
+                                            "arrow_move"
+                                        });
+                                    }
+                                }
+                                RenderControl {
+                                    provider: "table",
+                                    id: format!("{}:{r}:{c}", owner.start),
+                                    target: RenderTarget {
+                                        document: state.source.id(),
+                                        role: "table.cell",
+                                        owner: owner.clone(),
+                                        part: vec![r, c],
+                                    },
+                                    focus: cell.content.clone(),
+                                    placement: RenderControlPlacement::Trailing,
+                                    trailing_space: 24.,
+                                    actions,
+                                }
+                            })
+                    })
+            })
+            .collect())
+    }
+}
 impl RenderActionProvider for TableActions {
     fn cache_dependencies(&self) -> Option<CacheDependencies> {
         Some(CacheDependencies::default())
@@ -59,138 +218,14 @@ impl RenderActionProvider for TableActions {
         COMMANDS
     }
     fn controls(&self, state: &EditingState) -> Result<Vec<RenderControl>, String> {
-        Ok(table::tables(&state.parse)
-            .into_iter()
-            .flat_map(|table| {
-                let owner = table.range;
-                let columns = table.align.len();
-                let rows = table.rows.len();
-                let align = table.align;
-                table
-                    .rows
-                    .into_iter()
-                    .enumerate()
-                    .flat_map(move |(r, row)| {
-                        let owner = owner.clone();
-                        let align = align.clone();
-                        row.cells.into_iter().enumerate().map(move |(c, cell)| {
-                            let mut actions = vec![
-                                action("table.align-left", "Left", true, 0, None),
-                                action("table.align-center", "Center", true, 0, None),
-                                action("table.align-right", "Right", true, 0, None),
-                                action(
-                                    "table.insert-below",
-                                    "Insert row below",
-                                    true,
-                                    1,
-                                    Some(("down", "⌃⌘↓")),
-                                ),
-                                action(
-                                    "table.insert-above",
-                                    "Insert row above",
-                                    r > 0,
-                                    1,
-                                    Some(("up", "⌃⌘↑")),
-                                ),
-                                action(
-                                    "table.insert-right",
-                                    "Insert column after",
-                                    true,
-                                    1,
-                                    Some(("right", "⌃⌘→")),
-                                ),
-                                action(
-                                    "table.insert-left",
-                                    "Insert column before",
-                                    true,
-                                    1,
-                                    Some(("left", "⌃⌘←")),
-                                ),
-                                action(
-                                    "table.move-row-up",
-                                    "Move row up",
-                                    r > 1,
-                                    2,
-                                    Some(("up", "⌥⌘↑")),
-                                ),
-                                action(
-                                    "table.move-row-down",
-                                    "Move row down",
-                                    r > 0 && r + 1 < rows,
-                                    2,
-                                    Some(("down", "⌥⌘↓")),
-                                ),
-                                action(
-                                    "table.move-column-left",
-                                    "Move column left",
-                                    c > 0,
-                                    2,
-                                    Some(("left", "⌥⌘←")),
-                                ),
-                                action(
-                                    "table.move-column-right",
-                                    "Move column right",
-                                    c + 1 < columns,
-                                    2,
-                                    Some(("right", "⌥⌘→")),
-                                ),
-                                action(
-                                    "table.delete-row",
-                                    "Delete row",
-                                    r > 0,
-                                    3,
-                                    Some(("backspace", "⌃⌘⌫")),
-                                ),
-                                action(
-                                    "table.delete-column",
-                                    "Delete column",
-                                    columns > 1,
-                                    3,
-                                    Some(("backspace", "⌃⇧⌘⌫")),
-                                ),
-                            ];
-                            for (index, a) in actions.iter_mut().enumerate() {
-                                if index < 3 {
-                                    a.submenu = Some(RenderSubmenu {
-                                        label: "table.alignment",
-                                        fallback: "Alignment",
-                                    });
-                                    a.checked = match index {
-                                        0 => !matches!(
-                                            align[c],
-                                            Alignment::Center | Alignment::Right
-                                        ),
-                                        1 => align[c] == Alignment::Center,
-                                        _ => align[c] == Alignment::Right,
-                                    };
-                                } else {
-                                    a.icon = Some(if a.group == 1 {
-                                        "table_add"
-                                    } else if a.group == 3 {
-                                        "delete"
-                                    } else {
-                                        "arrow_move"
-                                    });
-                                }
-                            }
-                            RenderControl {
-                                provider: "table",
-                                id: format!("{}:{r}:{c}", owner.start),
-                                target: RenderTarget {
-                                    document: state.source.id(),
-                                    role: "table.cell",
-                                    owner: owner.clone(),
-                                    part: vec![r, c],
-                                },
-                                focus: cell.content,
-                                placement: RenderControlPlacement::Trailing,
-                                trailing_space: 24.,
-                                actions,
-                            }
-                        })
-                    })
-            })
-            .collect())
+        self.build_controls(state, None)
+    }
+    fn controls_for_target(
+        &self,
+        state: &EditingState,
+        target: &RenderTarget,
+    ) -> Result<Option<Vec<RenderControl>>, String> {
+        self.build_controls(state, Some(target)).map(Some)
     }
     fn plan(
         &self,

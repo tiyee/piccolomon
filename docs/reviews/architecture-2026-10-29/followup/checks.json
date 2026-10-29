@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-29",
+  "timezone": "Asia/Shanghai",
+  "baseline": "6b12d1206b9fbd7d7c0eb11a592f719a1a5dc515",
+  "production_code_changed": false,
+  "commands": [
+    {
+      "command": "python3 scripts/check-architecture.py",
+      "exit_code": 0,
+      "packages": 9
+    },
+    {
+      "command": "cargo test --locked",
+      "exit_code": 0,
+      "passed": 319,
+      "failed": 0
+    },
+    {
+      "command": "cargo fmt --check",
+      "exit_code": 0
+    },
+    {
+      "command": "/usr/local/opt/rust/bin/cargo-clippy clippy --locked --all-targets -- -D warnings",
+      "exit_code": 0
+    },
+    {
+      "command": "cargo run --locked -- --smoke-test",
+      "exit_code": 0,
+      "platform": "macOS",
+      "final_stage": 374
+    },
+    {
+      "command": "python3 docs/reviews/architecture-2026-10-28/run.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 docs/reviews/architecture-2026-10-28/followup/run.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 docs/reviews/architecture-2026-10-29/run.py",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 docs/reviews/architecture-2026-10-29/followup/run.py",
+      "exit_code": 0
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0
+    }
+  ],
+  "not_measured": [
+    "release GUI latency p50/p95/p99",
+    "peak RSS",
+    "Windows desktop",
+    "manual IME candidate windows",
+    "custom-provider GUI layout build counts"
+  ]
+}

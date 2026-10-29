@@ -82,6 +82,13 @@ struct History<C> {
     transaction: Transaction,
     checkpoint: C,
 }
+/// Owned history allocations, excluding allocator metadata and shared source snapshots.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct HistoryMemory {
+    pub undo_entries: usize,
+    pub redo_entries: usize,
+    pub reserved_bytes: usize,
+}
 pub struct DocumentCore<C> {
     source: Source,
     saved: Source,
@@ -114,6 +121,31 @@ impl<C: Clone> DocumentCore<C> {
             self.redo.len()
         } else {
             self.undo.len()
+        }
+    }
+    /// On-demand accounting. The owner supplies checkpoint heap allocations.
+    pub fn history_memory(&self, checkpoint_heap: impl Fn(&C) -> usize) -> HistoryMemory {
+        let reserved_bytes = (self.undo.capacity() + self.redo.capacity())
+            * std::mem::size_of::<History<C>>()
+            + self
+                .undo
+                .iter()
+                .chain(&self.redo)
+                .map(|entry| {
+                    entry.transaction.edits.capacity() * std::mem::size_of::<Edit>()
+                        + entry
+                            .transaction
+                            .edits
+                            .iter()
+                            .map(|edit| edit.replacement.capacity())
+                            .sum::<usize>()
+                        + checkpoint_heap(&entry.checkpoint)
+                })
+                .sum::<usize>();
+        HistoryMemory {
+            undo_entries: self.undo.len(),
+            redo_entries: self.redo.len(),
+            reserved_bytes,
         }
     }
     pub fn publish(&mut self, edit: PreparedEdit, checkpoint: C) -> Result<(), Error> {

@@ -93,6 +93,16 @@ pub trait RenderActionProvider: Send + Sync {
     /// Read once at registration and validated before the registry is changed.
     fn commands(&self) -> &'static [&'static str];
     fn controls(&self, state: &EditingState) -> Result<Vec<RenderControl>, String>;
+    /// Return current controls for this target, or None to use full-batch validation.
+    /// The host validates every returned control and rechecks the requested action.
+    fn controls_for_target(
+        &self,
+        _: &EditingState,
+        _: &RenderTarget,
+    ) -> Result<Option<Vec<RenderControl>>, String> {
+        Ok(None)
+    }
+
     fn plan(
         &self,
         state: &EditingState,
@@ -311,11 +321,25 @@ impl RenderActionRegistry {
         provider: &RegisteredProvider,
         state: &EditingState,
     ) -> Result<Vec<RenderControl>, String> {
+        self.provider_controls_for_target(provider, state, None)
+    }
+    fn provider_controls_for_target(
+        &self,
+        provider: &RegisteredProvider,
+        state: &EditingState,
+        target: Option<&RenderTarget>,
+    ) -> Result<Vec<RenderControl>, String> {
         if state.source_mode {
             return Ok(Vec::new());
         }
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            let mut controls = provider.instance.controls(state)?;
+            let mut controls = match target {
+                Some(target) => match provider.instance.controls_for_target(state, target)? {
+                    Some(controls) => controls,
+                    None => provider.instance.controls(state)?,
+                },
+                None => provider.instance.controls(state)?,
+            };
             let mut ids = BTreeSet::new();
             for control in &controls {
                 control.target.validate(state)?;
@@ -363,12 +387,16 @@ impl RenderActionRegistry {
             .ok_or("missing render provider")?;
         // Re-evaluate only the requested provider; an unrelated failure cannot
         // prevent a valid command. Never trust a cached enabled flag.
-        if !self.provider_controls(provider, state)?.iter().any(|c| {
-            c.target == request.target
-                && c.actions
-                    .iter()
-                    .any(|a| a.command == request.command && a.enabled)
-        }) {
+        if !self
+            .provider_controls_for_target(provider, state, Some(&request.target))?
+            .iter()
+            .any(|c| {
+                c.target == request.target
+                    && c.actions
+                        .iter()
+                        .any(|a| a.command == request.command && a.enabled)
+            })
+        {
             return Err("render action unavailable".into());
         }
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {

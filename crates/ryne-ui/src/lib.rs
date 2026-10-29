@@ -556,6 +556,7 @@ impl Editor {
         self.viewport.diagram_images =
             crate::assets::diagram_images(&self.viewport.display, &self.viewport.geometry);
         self.schedule_highlight_refresh(cx);
+        profile::memory(self);
         cx.notify();
     }
     fn schedule_highlight_refresh(&mut self, cx: &mut Context<Self>) {

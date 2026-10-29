@@ -287,6 +287,13 @@
   渲染器代次/实例继续参与资源身份，不因候选复用而绕过校验。实现与验证见
   `docs/40_List_Extents_And_Preview_Cache.md`；未处理 R1/R5/R7 或大文件 P3–P5。
 
+- 已完成第一批目标级动作验证与诊断计数：`RenderActionProvider` 可选查询当前 target，
+  默认保留全量验证；内置表格只生成目标单元格控件，列表只生成目标条目/任务控件，
+  仍共用完整宿主校验和实时 enabled 检查。列表查找及同级关系仍线性扫描。
+  `RYNE_PROFILE=1` 增加进程布局构建/命中计数与历史、当前发布控件的拥有分配账目，
+  默认不扫描或计数；不是总内存/RSS，未涵盖共享快照、其他缓存及 UI 副本。
+  说明见 `docs/41_Target_Action_Validation_And_Metrics.md`；未处理 N2/R1/R5/R7 或 P3–P5。
+
 ## 代码与资料
 
 - 根 `Cargo.toml` 定义 9 个私有 workspace 包，均带 `ryne-` 前缀、`publish = false`；

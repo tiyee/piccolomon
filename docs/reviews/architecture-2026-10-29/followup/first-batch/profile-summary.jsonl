@@ -1,0 +1,8 @@
+{"metric": "layout_build_attempt", "count": 253}
+{"metric": "layout_cache_hit", "count": 736}
+{"metric": "owned_memory_sample", "document": "DocumentId(130)", "revision": 0, "source_bytes": 6996, "undo_entries": 0, "redo_entries": 0, "history_reserved_bytes": 0, "published_controls": 10, "published_actions": 130, "published_controls_reserved_bytes": 20800}
+{"metric": "owned_memory_peaks", "history_reserved_bytes": 2251, "published_controls_reserved_bytes": 1069485, "published_controls": 560, "published_actions": 6640}
+{"metric": "layout_frame", "samples": 985, "p50_ms": 0.6222, "p95_ms": 8.8333, "p99_ms": 91.6321}
+{"metric": "paint", "samples": 985, "p50_ms": 0.4688, "p95_ms": 3.4833, "p99_ms": 9.1885}
+{"metric": "refresh", "samples": 565, "p50_ms": 0.8876, "p95_ms": 14.2324, "p99_ms": 55.3953}
+{"metric": "text_layout_build", "samples": 253, "p50_ms": 1.0056, "p95_ms": 27.8748, "p99_ms": 200.4142}

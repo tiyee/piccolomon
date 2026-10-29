@@ -152,6 +152,7 @@ impl TextLayout {
         window: &mut Window,
     ) -> Result<Self, String> {
         let _profile = profile::Scope::new("text_layout_build");
+        profile::layout(false);
         let display = &editor.viewport.display;
         display.validate_layout()?;
         let page = key.page;

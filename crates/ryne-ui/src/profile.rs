@@ -6,8 +6,7 @@ pub(super) struct Scope {
 }
 impl Scope {
     pub(super) fn new(label: &'static str) -> Self {
-        static ENABLED: OnceLock<bool> = OnceLock::new();
-        let enabled = *ENABLED.get_or_init(|| std::env::var_os("RYNE_PROFILE").is_some());
+        let enabled = enabled();
         Self {
             start: enabled.then(Instant::now),
             label,
@@ -24,4 +23,61 @@ impl Drop for Scope {
             );
         }
     }
+}
+
+fn enabled() -> bool {
+    static ENABLED: OnceLock<bool> = OnceLock::new();
+    *ENABLED.get_or_init(|| std::env::var_os("RYNE_PROFILE").is_some())
+}
+/// Counters are per process; IDs distinguish successive documents in a window.
+pub(super) fn layout(reused: bool) {
+    if !enabled() {
+        return;
+    }
+    use std::sync::atomic::{AtomicU64, Ordering::Relaxed};
+    static BUILDS: AtomicU64 = AtomicU64::new(0);
+    static HITS: AtomicU64 = AtomicU64::new(0);
+    let counter = if reused { &HITS } else { &BUILDS };
+    let count = counter.fetch_add(1, Relaxed) + 1;
+    let metric = if reused {
+        "layout_cache_hit"
+    } else {
+        "layout_build_attempt"
+    };
+    eprintln!("RYNE_PROFILE {{\"metric\":\"{metric}\",\"count\":{count}}}");
+}
+/// Owned history and current published control batch only, not total process memory.
+pub(super) fn memory(editor: &super::Editor) {
+    if !enabled() {
+        return;
+    }
+    use ryne_extensions::RenderControlPlacement;
+    let controls = &editor.viewport.render_controls;
+    let history = editor.document.history_memory();
+    let mut actions = 0;
+    let bytes = controls.capacity() * std::mem::size_of::<ryne_extensions::RenderControl>()
+        + controls
+            .iter()
+            .map(|c| {
+                actions += c.actions.len();
+                c.id.capacity()
+                    + c.target.part.capacity() * std::mem::size_of::<usize>()
+                    + c.actions.capacity() * std::mem::size_of::<ryne_extensions::RenderAction>()
+                    + match &c.placement {
+                        RenderControlPlacement::Header { label } => label.capacity(),
+                        _ => 0,
+                    }
+            })
+            .sum::<usize>();
+    eprintln!(
+        "RYNE_PROFILE {}",
+        serde_json::json!({
+            "metric": "owned_memory_sample", "document": format!("{:?}", editor.document.source.id().document_id),
+            "revision": editor.document.source.revision(), "source_bytes": editor.document.source.text().len(),
+            "undo_entries": history.undo_entries, "redo_entries": history.redo_entries,
+            "history_reserved_bytes": history.reserved_bytes,
+            "published_controls": controls.len(), "published_actions": actions,
+            "published_controls_reserved_bytes": bytes,
+        })
+    );
 }

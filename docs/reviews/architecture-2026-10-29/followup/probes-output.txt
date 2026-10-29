@@ -1,0 +1,4 @@
+empty_controls new_batch_identity=10/10 projection_identity_preserved=true
+declared_preview cold_calls=1000 calls_for_ten_moves=0
+table_action_validation table_rows=801 controls=2403
+symlink_save success=true clean=true link_preserved=false target_updated=false

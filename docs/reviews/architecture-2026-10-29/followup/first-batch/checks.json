@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-29",
+  "base": "6b12d12",
+  "tests_passed": 323,
+  "tests_exit_code": 0,
+  "clippy_exit_code": 0,
+  "architecture_exit_code": 0,
+  "fmt_exit_code": 0,
+  "diff_check_exit_code": 0,
+  "macos_profile_smoke_exit_code": 0,
+  "final_smoke_stage": 374,
+  "layout_counters": {
+    "layout_build_attempt": 253,
+    "layout_cache_hit": 736
+  },
+  "memory_scope": "owned history and published control batch only; excludes RSS/shared snapshots/other caches/UI copies",
+  "not_validated": [
+    "Windows desktop",
+    "release latency",
+    "total process memory"
+  ]
+}

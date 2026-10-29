@@ -64,44 +64,44 @@ impl<'a> Extents<'a> {
 pub(crate) fn extent(state: &EditingState, item: &list::Item) -> Range<usize> {
     Extents::new(state).get(item)
 }
-impl RenderActionProvider for ListActions {
-    fn cache_dependencies(&self) -> Option<CacheDependencies> {
-        Some(CacheDependencies::default())
-    }
-    fn id(&self) -> &'static str {
-        "list"
-    }
-    fn commands(&self) -> &'static [&'static str] {
-        &[
-            "list.insert-after",
-            "list.insert-before",
-            "list.move-up",
-            "list.move-down",
-            "list.indent",
-            "list.outdent",
-            "list.delete",
-            "list.toggle-task",
-        ]
-    }
-    fn controls(&self, state: &EditingState) -> Result<Vec<RenderControl>, String> {
+impl ListActions {
+    fn build_controls(
+        &self,
+        state: &EditingState,
+        target: Option<&RenderTarget>,
+    ) -> Result<Vec<RenderControl>, String> {
         let items = list::cached_items(&state.parse);
         if items.is_empty() {
             return Ok(Vec::new());
         }
+        let selected = match target {
+            None => items,
+            Some(t) => items
+                .iter()
+                .find(|item| t.role == "list.item" && t.part.as_slice() == [item.marker.start])
+                .map(std::slice::from_ref)
+                .unwrap_or(&[]),
+        };
+        if selected.is_empty() {
+            return Ok(Vec::new());
+        }
         let context = Extents::new(state);
-        let owners = items
+        let owners = selected
             .iter()
             .map(|item| context.get(item))
             .collect::<Vec<_>>();
         let mut siblings = std::collections::BTreeMap::new();
-        for item in items {
+        for item in items
+            .iter()
+            .filter(|item| target.is_none() || item.list == selected[0].list)
+        {
             let bounds = siblings
                 .entry(item.list)
                 .or_insert((item.marker.start, item.marker.start));
             bounds.0 = bounds.0.min(item.marker.start);
             bounds.1 = bounds.1.max(item.marker.start);
         }
-        let mut controls = items
+        let mut controls = selected
             .iter()
             .zip(&owners)
             .map(|(item, owner)| {
@@ -162,7 +162,7 @@ impl RenderActionProvider for ListActions {
                 }
             })
             .collect::<Vec<_>>();
-        for (item, owner) in items.iter().zip(&owners) {
+        for (item, owner) in selected.iter().zip(&owners) {
             let Some(task) = &item.task else {
                 continue;
             };
@@ -199,6 +199,36 @@ impl RenderActionProvider for ListActions {
             });
         }
         Ok(controls)
+    }
+}
+impl RenderActionProvider for ListActions {
+    fn cache_dependencies(&self) -> Option<CacheDependencies> {
+        Some(CacheDependencies::default())
+    }
+    fn id(&self) -> &'static str {
+        "list"
+    }
+    fn commands(&self) -> &'static [&'static str] {
+        &[
+            "list.insert-after",
+            "list.insert-before",
+            "list.move-up",
+            "list.move-down",
+            "list.indent",
+            "list.outdent",
+            "list.delete",
+            "list.toggle-task",
+        ]
+    }
+    fn controls(&self, state: &EditingState) -> Result<Vec<RenderControl>, String> {
+        self.build_controls(state, None)
+    }
+    fn controls_for_target(
+        &self,
+        state: &EditingState,
+        target: &RenderTarget,
+    ) -> Result<Option<Vec<RenderControl>>, String> {
+        self.build_controls(state, Some(target)).map(Some)
     }
     fn plan(
         &self,

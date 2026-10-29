@@ -158,3 +158,6 @@ impl FeatureEngine for MarkdownFeatures {
         self.registry.insert_templates()
     }
 }
+
+#[cfg(test)]
+mod target_action_tests;
