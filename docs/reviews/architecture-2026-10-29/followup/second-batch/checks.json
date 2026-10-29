@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-29",
+  "base": "01cb5a21a3977d1ffe0c1c2b6d29885da8f9261d",
+  "tests_passed": 329,
+  "tests_exit_code": 0,
+  "architecture_exit_code": 0,
+  "fmt_exit_code": 0,
+  "clippy_exit_code": 0,
+  "diff_check_exit_code": 0,
+  "macos_smoke_exit_code": 0,
+  "final_stage": 374,
+  "probe_exit_codes": {
+    "boundary": 0,
+    "prior": 0,
+    "followup": 0
+  },
+  "limitations": [
+    "canonical path identity, not inode/content conflict detection",
+    "path checks are not a hostile-filesystem race-free sandbox",
+    "Unix symbolic-link tests; no Windows desktop validation"
+  ]
+}

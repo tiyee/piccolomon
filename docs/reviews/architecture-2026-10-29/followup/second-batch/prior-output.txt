@@ -1,0 +1,6 @@
+list_extent indexed=true items=100 code_blocks=100 code_checks=1600
+list_extent indexed=true items=200 code_blocks=200 code_checks=3600
+list_extent indexed=true items=400 code_blocks=400 code_checks=8000
+list_extent indexed=true items=800 code_blocks=800 code_checks=17600
+empty_extension unchanged_controls_reuse=false export_rejected=true
+atomic_save symlink_preserved=true target_updated=true alias_contains_edit=true

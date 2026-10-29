@@ -950,8 +950,10 @@ impl Editor {
     fn undo(&mut self, _: &Undo, _: &mut Window, cx: &mut Context<Self>) {
         self.caret_state.preferred_x = None;
         self.caret_state.caret_affinity = Affinity::Downstream;
-        if !self.document.cancel_composition() {
-            self.document.undo(false);
+        if !self.document.cancel_composition()
+            && let Err(error) = self.document.try_undo(false)
+        {
+            self.status = self.locale.language.error(Text::InputFailed, error);
         }
         self.viewport.ensure_caret = true;
         self.refresh(cx);
@@ -960,7 +962,9 @@ impl Editor {
         if !self.commit_composition(cx) {
             return;
         }
-        self.document.undo(true);
+        if let Err(error) = self.document.try_undo(true) {
+            self.status = self.locale.language.error(Text::InputFailed, error);
+        }
         self.caret_state.preferred_x = None;
         self.caret_state.caret_affinity = Affinity::Downstream;
         self.viewport.ensure_caret = true;

@@ -135,11 +135,11 @@ fn main() {
             .file_type()
             .is_symlink();
         assert!(completion.accepted && completion.error.is_none() && completion.clean);
-        assert!(!is_link);
-        assert_eq!(std::fs::read_to_string(&target).unwrap(), "original\r\n");
+        assert!(is_link);
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "edited\r\n");
         assert_eq!(std::fs::read_to_string(&link).unwrap(), "edited\r\n");
         println!(
-            "symlink_save success=true clean=true link_preserved={is_link} target_updated=false"
+            "symlink_save success=true clean=true link_preserved={is_link} target_updated=true"
         );
     }
 }

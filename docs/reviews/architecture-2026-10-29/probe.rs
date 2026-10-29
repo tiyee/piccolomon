@@ -58,11 +58,9 @@ fn main() {
             .unwrap()
             .file_type()
             .is_symlink();
-        assert!(!is_link);
-        assert_eq!(std::fs::read_to_string(&target).unwrap(), "original");
+        assert!(is_link);
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "edited");
         assert_eq!(std::fs::read_to_string(&alias).unwrap(), "edited");
-        println!(
-            "atomic_save symlink_preserved=false target_updated=false alias_contains_edit=true"
-        );
+        println!("atomic_save symlink_preserved=true target_updated=true alias_contains_edit=true");
     }
 }

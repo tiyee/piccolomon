@@ -11,7 +11,42 @@ impl FileStore for AtomicFileStore {
     fn read(&self, path: &Path) -> std::io::Result<String> {
         std::fs::read_to_string(path)
     }
+    fn resolve_path(&self, path: &Path) -> std::io::Result<std::path::PathBuf> {
+        // Only a missing leaf may be created. A dangling symlink is an error.
+        match std::fs::symlink_metadata(path) {
+            Ok(_) => std::fs::canonicalize(path),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                let parent = path
+                    .parent()
+                    .filter(|p| !p.as_os_str().is_empty())
+                    .unwrap_or(Path::new("."));
+                let name = path
+                    .file_name()
+                    .ok_or_else(|| std::io::Error::other("missing file name"))?;
+                Ok(std::fs::canonicalize(parent)?.join(name))
+            }
+            Err(error) => Err(error),
+        }
+    }
     fn write(&self, path: &Path, source: &Source) -> std::io::Result<()> {
+        self.write_atomic(path, None, source)
+    }
+    fn write_bound(&self, path: &Path, target: &Path, source: &Source) -> std::io::Result<()> {
+        self.write_atomic(path, Some(target), source)
+    }
+}
+impl AtomicFileStore {
+    fn write_atomic(
+        &self,
+        display_path: &Path,
+        expected: Option<&Path>,
+        source: &Source,
+    ) -> std::io::Result<()> {
+        let target = self.resolve_path(display_path)?;
+        if expected.is_some_and(|expected| expected != target) {
+            return Err(std::io::Error::other("file target changed"));
+        }
+        let path = target.as_path();
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let parent = path
             .parent()
@@ -34,8 +69,14 @@ impl FileStore for AtomicFileStore {
                 file.set_permissions(metadata.permissions())?;
             }
             file.sync_all()?;
-            std::fs::rename(&temp, path)
+            if self.resolve_path(display_path)? != target {
+                return Err(std::io::Error::other("file target changed during save"));
+            }
+            // Close before rename/cleanup, including on Windows.
+            Ok(())
         })();
+        drop(file);
+        let result = result.and_then(|()| std::fs::rename(&temp, path));
         if result.is_err() {
             let _ = std::fs::remove_file(&temp);
         }

@@ -166,12 +166,20 @@ fn main() {
     reject.store(true, Ordering::SeqCst);
     assert!(doc.insert_text(0..0, "blocked").is_err());
     let before = calls.load(Ordering::SeqCst);
-    doc.undo(false);
-    assert_eq!(doc.source.text(), "base");
-    doc.undo(true);
+    assert!(doc.try_undo(false).is_err());
     assert_eq!(doc.source.text(), "base edited");
+    reject.store(false, Ordering::SeqCst);
+    assert!(doc.try_undo(false).unwrap());
+    assert_eq!(doc.source.text(), "base");
+    reject.store(true, Ordering::SeqCst);
+    assert!(doc.try_undo(true).is_err());
+    assert_eq!(doc.source.text(), "base");
+    reject.store(false, Ordering::SeqCst);
+    assert!(doc.try_undo(true).unwrap());
+    assert_eq!(doc.source.text(), "base edited");
+    assert_eq!(calls.load(Ordering::SeqCst) - before, 4);
     println!(
-        "history validator_calls_for_undo_and_redo={}",
+        "history rejected_undo_and_redo=true validator_calls_for_four_attempts={}",
         calls.load(Ordering::SeqCst) - before
     );
 

@@ -387,11 +387,37 @@ pub fn validate_diagram(
     }
 }
 pub trait FileStore: Send + Sync {
+    /// Stable path identity used for ordinary saves. Virtual stores retain their namespace.
+    fn resolve_path(&self, path: &Path) -> std::io::Result<std::path::PathBuf> {
+        Ok(path.into())
+    }
+    /// Write to the bound target while checking the user-facing path still resolves to it.
+    fn write_bound(&self, path: &Path, target: &Path, source: &Source) -> std::io::Result<()> {
+        if self.resolve_path(path)? != target {
+            return Err(std::io::Error::other("file target changed"));
+        }
+        self.write(target, source)
+    }
     fn read(&self, path: &Path) -> std::io::Result<String>;
     fn write(&self, path: &Path, source: &Source) -> std::io::Result<()>;
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HistoryDirection {
+    Undo,
+    Redo,
+}
 pub trait Validator: Send + Sync {
     fn validate(&self, before: &EditingState, plan: &CommandPlan) -> Result<(), String>;
+    /// History is constrained by default. Input-only policies may explicitly
+    /// override this hook; structural candidate checks cannot be opted out of.
+    fn validate_history(
+        &self,
+        before: &EditingState,
+        plan: &CommandPlan,
+        _: HistoryDirection,
+    ) -> Result<(), String> {
+        self.validate(before, plan)
+    }
 }
 pub trait Observer: Send + Sync {
     fn id(&self) -> &'static str {

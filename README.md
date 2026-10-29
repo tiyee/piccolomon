@@ -319,6 +319,9 @@ settings, commands and signing behavior.
   bytes through a temporary file and rename, preserving existing line endings.
   Writes run in a serial background queue. Edits made during a save remain unsaved;
   an earlier save receipt cannot close a window with newer changes.
+  Saving through a symbolic link preserves the link and atomically replaces its target.
+  If the link points elsewhere or becomes dangling, the save fails; reopen the file or
+  use Save As to select a new destination.
 - IME preedit is temporary; committing produces one source transaction.
 
 | Shortcut | Action |

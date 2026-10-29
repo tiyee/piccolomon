@@ -116,9 +116,14 @@ impl EditorSession {
         Self::open(path, self.services.clone())
     }
     pub fn open(path: &Path, services: SessionServices) -> std::io::Result<Self> {
-        let text = services.files.read(path)?;
+        let target = services.files.resolve_path(path)?;
+        let text = services.files.read(&target)?;
+        if services.files.resolve_path(path)? != target {
+            return Err(std::io::Error::other("file target changed during open"));
+        }
         let mut doc = Self::new(&text, services);
         doc.files.path = Some(path.into());
+        doc.files.binding = Some((path.into(), target));
         Ok(doc)
     }
     pub fn dirty(&self) -> bool {
@@ -206,55 +211,7 @@ impl EditorSession {
         {
             return Err("confirm or cancel composition before editing".into());
         }
-        let (base, state) = match &plan {
-            CommandPlan::Edit {
-                prepared, state, ..
-            } => (prepared.base(), Some(state)),
-            CommandPlan::Select { base, state, .. } | CommandPlan::View { base, state, .. } => {
-                (*base, Some(state))
-            }
-            CommandPlan::Consume => (self.core.source().id(), None),
-        };
-        self.core
-            .source()
-            .check(base)
-            .map_err(|e| format!("{e:?}"))?;
-        if let Some(state) = state {
-            let candidate = match &plan {
-                CommandPlan::Edit { prepared, .. } => &prepared.applied().source,
-                _ => self.core.source(),
-            };
-            if state.source.id() != candidate.id()
-                || state.parse.source().id() != candidate.id()
-                || [state.anchor, state.head]
-                    .into_iter()
-                    .any(|p| p > candidate.text().len() || !candidate.text().is_char_boundary(p))
-                || state
-                    .closers
-                    .iter()
-                    .any(|r| r.is_empty() || candidate.text().get(r.clone()).is_none())
-                || [&state.reveal, &state.heading_reveal, &state.block_source]
-                    .into_iter()
-                    .flatten()
-                    .any(|session| session.visible(candidate).is_err())
-            {
-                return Err("invalid candidate state".into());
-            }
-        }
-        let failures = self
-            .validators
-            .iter()
-            .filter_map(|v| {
-                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    v.validate(&self.state, &plan)
-                }))
-                .unwrap_or_else(|_| Err("validator failed".into()))
-                .err()
-            })
-            .collect::<Vec<_>>();
-        if !failures.is_empty() {
-            return Err(failures.join("; "));
-        }
+        self.validate_plan(&plan, None)?;
         let (handled, kind) = match plan {
             CommandPlan::Edit {
                 prepared,
@@ -287,6 +244,63 @@ impl EditorSession {
         }
         self.notify(kind, "command");
         Ok(handled)
+    }
+    fn validate_plan(
+        &self,
+        plan: &CommandPlan,
+        history: Option<HistoryDirection>,
+    ) -> Result<(), String> {
+        let (base, state) = match plan {
+            CommandPlan::Edit {
+                prepared, state, ..
+            } => (prepared.base(), Some(state)),
+            CommandPlan::Select { base, state, .. } | CommandPlan::View { base, state, .. } => {
+                (*base, Some(state))
+            }
+            CommandPlan::Consume => (self.core.source().id(), None),
+        };
+        self.core
+            .source()
+            .check(base)
+            .map_err(|e| format!("{e:?}"))?;
+        if let Some(state) = state {
+            let candidate = match plan {
+                CommandPlan::Edit { prepared, .. } => &prepared.applied().source,
+                _ => self.core.source(),
+            };
+            if state.source.id() != candidate.id()
+                || state.parse.source().id() != candidate.id()
+                || [state.anchor, state.head]
+                    .into_iter()
+                    .any(|p| p > candidate.text().len() || !candidate.text().is_char_boundary(p))
+                || state
+                    .closers
+                    .iter()
+                    .any(|r| r.is_empty() || candidate.text().get(r.clone()).is_none())
+                || [&state.reveal, &state.heading_reveal, &state.block_source]
+                    .into_iter()
+                    .flatten()
+                    .any(|session| session.visible(candidate).is_err())
+            {
+                return Err("invalid candidate state".into());
+            }
+        }
+        let failures = self
+            .validators
+            .iter()
+            .filter_map(|v| {
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match history {
+                    Some(direction) => v.validate_history(&self.state, plan, direction),
+                    None => v.validate(&self.state, plan),
+                }))
+                .unwrap_or_else(|_| Err("validator failed".into()))
+                .err()
+            })
+            .collect::<Vec<_>>();
+        if !failures.is_empty() {
+            return Err(failures.join("; "));
+        }
+        Ok(())
     }
     pub fn render_controls(&self) -> Result<Vec<RenderControl>, String> {
         if self.composition.is_some() {
@@ -454,12 +468,25 @@ impl EditorSession {
     pub fn append_block(&mut self, template: InsertBlock) -> Result<(), String> {
         self.dispatch(EditIntent::Append { template }).map(|_| ())
     }
+    /// Compatibility entry point; failures remain observable through diagnostics.
     pub fn undo(&mut self, redo: bool) {
-        if self.composition.is_some() {
-            return;
+        if let Err(message) = self.try_undo(redo) {
+            self.diagnostics.record(Diagnostic {
+                feature: "history".into(),
+                message,
+            });
         }
-        let Ok(Some((prepared, checkpoint))) = self.core.prepare_history(redo) else {
-            return;
+    }
+    pub fn try_undo(&mut self, redo: bool) -> Result<bool, String> {
+        if self.composition.is_some() {
+            return Err("confirm or cancel composition before restoring history".into());
+        }
+        let Some((prepared, checkpoint)) = self
+            .core
+            .prepare_history(redo)
+            .map_err(|e| format!("{e:?}"))?
+        else {
+            return Ok(false);
         };
         let mut state = self.state.clone();
         state.block_source = state
@@ -502,27 +529,47 @@ impl EditorSession {
                     state = next
                 }
                 Ok(Ok(CommandPlan::Consume)) => {}
-                _ => return,
+                _ => return Err("history visibility planning failed".into()),
             }
         }
-        if self
-            .core
+        let direction = if redo {
+            HistoryDirection::Redo
+        } else {
+            HistoryDirection::Undo
+        };
+        let plan = CommandPlan::Edit {
+            prepared,
+            state,
+            handled: true,
+        };
+        self.validate_plan(&plan, Some(direction))?;
+        let CommandPlan::Edit {
+            prepared, state, ..
+        } = plan
+        else {
+            return Err("invalid history plan".into());
+        };
+        self.core
             .publish_history(prepared, redo, Checkpoint::from(&self.state))
-            .is_err()
-        {
-            return;
-        }
+            .map_err(|e| format!("{e:?}"))?;
         self.state = state;
         self.notify(
             EventKind::DocumentChanged,
             if redo { "redo" } else { "undo" },
         );
+        Ok(true)
     }
     pub fn queue_save(&mut self, path: std::path::PathBuf) -> Option<SaveRequest> {
         self.files.next += 1;
         let request = SaveRequest {
             id: self.files.next,
             snapshot: self.core.source().clone(),
+            target: self
+                .files
+                .binding
+                .as_ref()
+                .filter(|(display, _)| *display == path)
+                .map(|(_, target)| target.clone()),
             path,
             store: self.services.files.clone(),
         };
@@ -548,8 +595,9 @@ impl EditorSession {
         }
         self.files.active = None;
         let error = match receipt.result {
-            Ok(()) => {
+            Ok(target) => {
                 self.finish_save(&receipt.path, &receipt.snapshot);
+                self.files.binding = Some((receipt.path.clone(), target));
                 None
             }
             Err(e) => {
@@ -572,8 +620,18 @@ impl EditorSession {
             return Err(std::io::Error::other("save already in progress"));
         }
         let snapshot = self.core.source().clone();
-        self.services.files.write(path, &snapshot)?;
+        let expected = self
+            .files
+            .binding
+            .as_ref()
+            .filter(|(display, _)| display == path)
+            .map(|(_, target)| target.as_path());
+        let target = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            files::write_snapshot(self.services.files.as_ref(), path, expected, &snapshot)
+        }))
+        .unwrap_or_else(|_| Err(std::io::Error::other("file write callback panicked")))?;
         self.finish_save(path, &snapshot);
+        self.files.binding = Some((path.into(), target));
         Ok(())
     }
     pub fn save_snapshot(&self) -> (Source, Arc<dyn FileStore>) {
@@ -582,6 +640,14 @@ impl EditorSession {
     pub fn finish_save(&mut self, path: &Path, snapshot: &Source) -> bool {
         if self.core.mark_saved(snapshot).is_err() {
             return false;
+        }
+        if self
+            .files
+            .binding
+            .as_ref()
+            .is_some_and(|(display, _)| display != path)
+        {
+            self.files.binding = None;
         }
         self.files.path = Some(path.into());
         self.notify(EventKind::SaveCompleted, "file");
@@ -625,3 +691,8 @@ mod third_batch_tests;
 
 #[cfg(test)]
 mod p1_tests;
+
+#[cfg(test)]
+mod file_binding_tests;
+#[cfg(test)]
+mod history_policy_tests;
