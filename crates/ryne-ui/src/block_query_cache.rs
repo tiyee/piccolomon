@@ -1,5 +1,5 @@
 //! One focus result and one menu availability result; both bind the full snapshot.
-use editable_markdown_parser::SnapshotId;
+use ryne_parser::SnapshotId;
 use ryne_syntax::{
     block::{self, Block},
     ParseSnapshot,
@@ -57,7 +57,7 @@ impl BlockQueryCache {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use editable_markdown_parser::Source;
+    use ryne_parser::Source;
     #[test]
     fn direction_changes_with_the_same_head_use_the_actual_selected_character() {
         let cache = BlockQueryCache::default();
@@ -87,7 +87,7 @@ mod tests {
             .source()
             .apply(
                 parse.source().id(),
-                vec![editable_markdown_parser::Edit {
+                vec![ryne_parser::Edit {
                     range: 0..2,
                     replacement: String::new(),
                 }],

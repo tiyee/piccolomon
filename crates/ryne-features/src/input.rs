@@ -1,5 +1,5 @@
 //! Input completion proposes edits; the parser still decides their meaning.
-use editable_markdown_parser::{Edit, NodeKind, TokenKind};
+use ryne_parser::{Edit, NodeKind, TokenKind};
 use ryne_syntax::ParseSnapshot;
 use std::ops::Range;
 

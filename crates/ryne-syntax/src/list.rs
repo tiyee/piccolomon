@@ -1,6 +1,6 @@
 use crate::code_block;
 use crate::ParseSnapshot;
-use editable_markdown_parser::{NodeKind, TokenKind};
+use ryne_parser::{NodeKind, TokenKind};
 use std::ops::Range;
 
 #[derive(Clone, Debug, PartialEq)]

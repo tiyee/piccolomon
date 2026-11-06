@@ -39,7 +39,7 @@ pub fn audit() {
     for count in [100usize, 200, 400, 800] {
         let raw = "- item\\n  continuation\\n\\n".repeat(count)
             + &"```rust\\nlet x = 1;\\n```\\n\\n".repeat(count);
-        let state = EditingState::new(editable_markdown_parser::Source::new(&raw));
+        let state = EditingState::new(ryne_parser::Source::new(&raw));
         let context = Extents::new(&state);
         let items = list::items(&state.parse);
         assert_eq!(items.len(), count);
@@ -64,7 +64,7 @@ with tempfile.TemporaryDirectory(prefix="ryne-review-20261029-") as directory:
     command = ["rustc", "--edition=2024", "-Awarnings", str(temporary / "main.rs"),
                "-L", f"dependency={libraries['ryne_extensions'].parent}", "-o", str(binary)]
     for name in ["ryne_session", "ryne_features", "ryne_services", "ryne_extensions",
-                 "ryne_syntax", "editable_markdown_parser"]:
+                 "ryne_syntax", "ryne_parser"]:
         command.extend(["--extern", f"{name}={libraries[name]}"])
     subprocess.run(command, cwd=ROOT, check=True)
     subprocess.run([str(binary), str(temporary)], cwd=ROOT, check=True)

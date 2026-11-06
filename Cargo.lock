@@ -1585,16 +1585,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
-name = "editable_markdown_parser"
-version = "0.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1634fb0ff198039636edbef977c6cb78de9d47d6560690d28e2d49b4884f4fab"
-dependencies = [
- "pulldown-cmark",
- "unicode-segmentation",
-]
-
-[[package]]
 name = "either"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5391,15 +5381,15 @@ dependencies = [
 name = "ryne-core"
 version = "0.2.6"
 dependencies = [
- "editable_markdown_parser",
+ "ryne-parser",
 ]
 
 [[package]]
 name = "ryne-extensions"
 version = "0.2.6"
 dependencies = [
- "editable_markdown_parser",
  "ryne-core",
+ "ryne-parser",
  "ryne-projection",
  "ryne-syntax",
 ]
@@ -5408,9 +5398,9 @@ dependencies = [
 name = "ryne-features"
 version = "0.2.6"
 dependencies = [
- "editable_markdown_parser",
  "ryne-core",
  "ryne-extensions",
+ "ryne-parser",
  "ryne-projection",
  "ryne-services",
  "ryne-syntax",
@@ -5418,11 +5408,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ryne-parser"
+version = "0.2.6"
+dependencies = [
+ "pulldown-cmark",
+ "serde",
+ "serde_json",
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "ryne-projection"
 version = "0.2.6"
 dependencies = [
- "editable_markdown_parser",
  "ryne-core",
+ "ryne-parser",
  "ryne-syntax",
  "unicode-segmentation",
 ]
@@ -5432,7 +5432,6 @@ name = "ryne-services"
 version = "0.2.6"
 dependencies = [
  "base64 0.22.1",
- "editable_markdown_parser",
  "formulary",
  "krilla",
  "krilla-svg",
@@ -5441,6 +5440,7 @@ dependencies = [
  "pdf-writer 0.12.1",
  "resvg 0.45.1",
  "ryne-extensions",
+ "ryne-parser",
  "ryne-projection",
  "ryne-syntax",
  "semver",
@@ -5464,10 +5464,10 @@ dependencies = [
 name = "ryne-session"
 version = "0.2.6"
 dependencies = [
- "editable_markdown_parser",
  "ryne-core",
  "ryne-extensions",
  "ryne-features",
+ "ryne-parser",
  "ryne-projection",
  "ryne-services",
  "ryne-syntax",
@@ -5477,7 +5477,7 @@ dependencies = [
 name = "ryne-syntax"
 version = "0.2.6"
 dependencies = [
- "editable_markdown_parser",
+ "ryne-parser",
 ]
 
 [[package]]
@@ -5485,13 +5485,13 @@ name = "ryne-ui"
 version = "0.2.6"
 dependencies = [
  "async-channel 2.5.0",
- "editable_markdown_parser",
  "gpui",
  "image",
  "resvg 0.45.1",
  "ryne-core",
  "ryne-extensions",
  "ryne-features",
+ "ryne-parser",
  "ryne-projection",
  "ryne-services",
  "ryne-session",

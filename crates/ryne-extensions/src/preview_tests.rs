@@ -1,6 +1,6 @@
 use super::*;
 use crate::{CancelControl, DiagramRenderer};
-use editable_markdown_parser::{Session, Source};
+use ryne_parser::{Session, Source};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 
 struct Renderer;
@@ -197,7 +197,7 @@ fn source_generation_and_provider_identity_invalidate_only_affected_entries() {
             .source
             .apply(
                 state.source.id(),
-                vec![editable_markdown_parser::Edit {
+                vec![ryne_parser::Edit {
                     range: 0..0,
                     replacement: "prefix\n\n".into(),
                 }],

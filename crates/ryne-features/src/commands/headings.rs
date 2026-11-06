@@ -68,7 +68,7 @@ impl Planner<'_> {
                     self.state.head..self.state.head.saturating_add(1),
                 )
                 .any(|token| {
-                    token.kind == editable_markdown_parser::TokenKind::ContainerPrefix
+                    token.kind == ryne_parser::TokenKind::ContainerPrefix
                         && self.state.parse.nodes[token.owner].kind == NodeKind::BlockQuote
                         && token.range.contains(&self.state.head)
                 })

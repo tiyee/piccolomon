@@ -1,5 +1,5 @@
 use super::*;
-use editable_markdown_parser::Source;
+use ryne_parser::Source;
 
 fn compare(provider: &dyn RenderActionProvider, raw: &str, max: usize) {
     let state = EditingState::new(Source::new(raw));

@@ -104,7 +104,7 @@ pub(crate) fn diagram_images(
 }
 #[cfg(test)]
 mod tests {
-    use editable_markdown_parser::Source;
+    use ryne_parser::Source;
     use ryne_syntax::ParseSnapshot;
     struct NoFormulas;
     impl ryne_extensions::FormulaRenderer for NoFormulas {

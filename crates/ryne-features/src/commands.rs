@@ -15,11 +15,11 @@ mod table_actions;
 #[path = "commands/table.rs"]
 mod table_rules;
 use crate::presentation;
-use editable_markdown_parser::{Affinity, Edit, Error, NodeKind, Session, Source};
 use ryne_core::PreparedEdit;
 use ryne_extensions::{
     CommandDisplayCache, EditingState, FormulaRenderer, InsertBlock, PresentationKey,
 };
+use ryne_parser::{Affinity, Edit, Error, NodeKind, Session, Source};
 use ryne_projection::IndexedDisplay;
 use ryne_syntax::ParseSnapshot;
 use ryne_syntax::{block, code_block, list, table};

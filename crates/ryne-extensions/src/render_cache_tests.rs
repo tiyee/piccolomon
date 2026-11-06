@@ -153,7 +153,7 @@ fn registered_identity_is_never_requeried_by_cache_diagnostics_execution_or_exte
     let faulty = IdentityCallbacks::new("dynamic");
     let registry = registry.with_provider(faulty.clone()).unwrap();
     faulty.unavailable.store(true, SeqCst);
-    let state = EditingState::new(editable_markdown_parser::Source::new("body"));
+    let state = EditingState::new(ryne_parser::Source::new("body"));
     let mut cache = RenderControlCache::default();
     for failure in [0, 1, 2, 3, 0] {
         faulty.inner.failure.store(failure, SeqCst);
@@ -195,7 +195,7 @@ fn undeclared_controls_recompute_only_their_own_contribution_and_empty_results_r
     let dynamic = Provider::new("dynamic", None);
     let registry = RenderActionRegistry::new(vec![stable.clone(), dynamic.clone()]).unwrap();
     let mut cache = RenderControlCache::default();
-    let mut state = EditingState::new(editable_markdown_parser::Source::new("中😀 tail"));
+    let mut state = EditingState::new(ryne_parser::Source::new("中😀 tail"));
     for i in 0..10 {
         state.head = [0, 3, 7, 8][i % 4];
         registry.cached_control_batch(&state, &mut cache);
@@ -227,7 +227,7 @@ fn declared_inputs_and_provider_identity_match_uncached_controls() {
         );
         let registry = RenderActionRegistry::new(vec![provider.clone()]).unwrap();
         let mut cache = RenderControlCache::default();
-        let mut s = EditingState::new(editable_markdown_parser::Source::new(&raw));
+        let mut s = EditingState::new(ryne_parser::Source::new(&raw));
         let mut previous = None;
         for step in 0..10 {
             match step {
@@ -236,10 +236,7 @@ fn declared_inputs_and_provider_identity_match_uncached_controls() {
                     s.anchor = 3;
                     s.head = 0;
                 }
-                3 => {
-                    s.reveal =
-                        Some(editable_markdown_parser::Session::new(&s.source, 0..3).unwrap())
-                }
+                3 => s.reveal = Some(ryne_parser::Session::new(&s.source, 0..3).unwrap()),
                 4 => s.heading_reveal = s.reveal.clone(),
                 5 => s.closers = std::iter::once(3..7).collect(),
                 6 => provider.generation.store(1, SeqCst),
@@ -267,7 +264,7 @@ fn declared_inputs_and_provider_identity_match_uncached_controls() {
         let registry = RenderActionRegistry::new(vec![replacement.clone()]).unwrap();
         registry.cached_control_batch(&s, &mut cache);
         assert_eq!(replacement.calls.load(SeqCst), 1);
-        s = EditingState::new(editable_markdown_parser::Source::new(&raw));
+        s = EditingState::new(ryne_parser::Source::new(&raw));
         registry.cached_control_batch(&s, &mut cache);
         assert_eq!(replacement.calls.load(SeqCst), 2);
     }
@@ -277,7 +274,7 @@ fn faults_and_changing_generations_never_poison_healthy_contributors() {
     let stable = Provider::new("stable", Some(Default::default()));
     let dynamic = Provider::new("dynamic", Some(Default::default()));
     let registry = RenderActionRegistry::new(vec![stable.clone(), dynamic.clone()]).unwrap();
-    let state = EditingState::new(editable_markdown_parser::Source::new("literal"));
+    let state = EditingState::new(ryne_parser::Source::new("literal"));
     let mut cache = RenderControlCache::default();
     for failure in [1, 2, 3, 4] {
         dynamic.failure.store(failure, SeqCst);
@@ -372,7 +369,7 @@ fn primary_provider_is_conservative_and_can_declare_selection_and_input_dependen
         formulas: &Formula,
         planning: Default::default(),
     };
-    let mut state = EditingState::new(editable_markdown_parser::Source::new("abc"));
+    let mut state = EditingState::new(ryne_parser::Source::new("abc"));
     assert!(Registry::build(&[&Primary(false)])
         .unwrap()
         .presentation_key(&state, &services)
@@ -397,10 +394,10 @@ fn stale_semantics_cannot_bypass_validation_via_a_cached_control() {
     let provider = Provider::new("stable", Some(Default::default()));
     let registry = RenderActionRegistry::new(vec![provider.clone()]).unwrap();
     let mut cache = RenderControlCache::default();
-    let mut state = EditingState::new(editable_markdown_parser::Source::new("same"));
+    let mut state = EditingState::new(ryne_parser::Source::new("same"));
     let original = state.parse.clone();
     registry.cached_control_batch(&state, &mut cache);
-    state.parse = EditingState::new(editable_markdown_parser::Source::new("same")).parse;
+    state.parse = EditingState::new(ryne_parser::Source::new("same")).parse;
     let invalid = registry.cached_control_batch(&state, &mut cache);
     assert!(invalid.controls.is_empty());
     assert_eq!(invalid.diagnostics.len(), 1);
@@ -457,7 +454,7 @@ fn targeted_execution_revalidates_without_full_batch_and_isolates_failures() {
         failure: AtomicUsize::new(0),
     });
     let registry = RenderActionRegistry::new(vec![provider.clone()]).unwrap();
-    let mut state = EditingState::new(editable_markdown_parser::Source::new("text"));
+    let mut state = EditingState::new(ryne_parser::Source::new("text"));
     let target = provider.base.controls(&state).unwrap()[0].target.clone();
     let request = RenderActionRequest {
         provider: "stable",
@@ -477,9 +474,9 @@ fn targeted_execution_revalidates_without_full_batch_and_isolates_failures() {
     state.source_mode = true;
     assert!(registry.plan(&state, &request).is_err());
     state.source_mode = false;
-    state.block_source = Some(editable_markdown_parser::Session::new(&state.source, 0..4).unwrap());
+    state.block_source = Some(ryne_parser::Session::new(&state.source, 0..4).unwrap());
     assert!(registry.plan(&state, &request).is_err());
-    let other = EditingState::new(editable_markdown_parser::Source::new("text"));
+    let other = EditingState::new(ryne_parser::Source::new("text"));
     assert!(registry.plan(&other, &request).is_err());
     assert_eq!(provider.plans.load(SeqCst), 1);
     assert_eq!(provider.full_calls.load(SeqCst), 0);

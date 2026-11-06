@@ -23,11 +23,7 @@ impl FileStore for Files {
         self.0.result().map_err(std::io::Error::other)?;
         Ok("loaded\r\n中😀".into())
     }
-    fn write(
-        &self,
-        _: &std::path::Path,
-        _: &editable_markdown_parser::Source,
-    ) -> std::io::Result<()> {
+    fn write(&self, _: &std::path::Path, _: &ryne_parser::Source) -> std::io::Result<()> {
         Ok(())
     }
 }

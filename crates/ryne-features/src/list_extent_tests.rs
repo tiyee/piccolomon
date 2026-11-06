@@ -1,5 +1,5 @@
 use super::*;
-use editable_markdown_parser::Source;
+use ryne_parser::Source;
 
 // Previous implementation remains an independent oracle for blank-line ownership.
 fn scan(state: &EditingState, item: &list::Item) -> Range<usize> {

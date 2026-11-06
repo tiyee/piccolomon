@@ -1,6 +1,6 @@
 //! Typed, read-only feature and service contracts for static built-ins.
-use editable_markdown_parser::{Error, Session, Source};
 use ryne_core::{DocumentKey, PreparedEdit, SourceRange};
+use ryne_parser::{Error, Session, Source};
 use ryne_projection::{Class, DiagramOutcome, DiagramViewInput, Display, Formula};
 use ryne_syntax::code_block::CodeBlock;
 use ryne_syntax::ParseSnapshot;

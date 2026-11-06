@@ -183,7 +183,7 @@ fn main() {
     for bytes in [64 * 1024, 256 * 1024, 1024 * 1024] {
         let raw = "plain paragraph words\n\n".repeat(bytes / 23 + 1);
         let parse =
-            ryne_syntax::ParseSnapshot::with_math(editable_markdown_parser::Source::new(&raw));
+            ryne_syntax::ParseSnapshot::with_math(ryne_parser::Source::new(&raw));
         let caret = raw.len() - 3;
         std::hint::black_box(ryne_syntax::block::at(&parse, caret));
         let mut samples = Vec::new();

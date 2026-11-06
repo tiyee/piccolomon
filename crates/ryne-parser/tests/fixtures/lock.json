@@ -1,0 +1,11 @@
+{
+  "dialect": "gfm-0.29",
+  "url": "https://github.github.com/gfm/",
+  "retrieved": "2026-10-11",
+  "html_sha256": "b153d814fdfc8624bb6da7449162c1cd707a637f7d1c1b636eb44b9cf63fa220",
+  "fixtures_sha256": "f016b1da30b30ff7d4dd39b037f2ff787c3b3ac5a8fa3c30c16359f0d271ccd0",
+  "examples": 677,
+  "extraction": "HTMLParser scoped to example div; independently checked against bounded code extraction",
+  "license": "CC-BY-SA-4.0",
+  "auxiliary_cmark_commit": "587a12bb54d95ac37241377e6ddc93ea0e45439b"
+}

@@ -1,7 +1,7 @@
 //! Explicit source formatting: lossless ranges -> patches -> semantic validation.
 //! Never serialize the AST or touch literal code, HTML, references or soft breaks.
 use super::*;
-use editable_markdown_parser::TokenKind;
+use ryne_parser::TokenKind;
 use unicode_segmentation::UnicodeSegmentation;
 
 const MAX_BYTES: usize = 1024 * 1024;
@@ -198,10 +198,9 @@ fn format_tables(parse: &ParseSnapshot, text: &str, edits: &mut Vec<Edit>) {
                     .max()
                     .unwrap_or(0)
                     .max(match table.align[column] {
-                        editable_markdown_parser::Alignment::Center => 5,
-                        editable_markdown_parser::Alignment::Left
-                        | editable_markdown_parser::Alignment::Right => 4,
-                        editable_markdown_parser::Alignment::None => 3,
+                        ryne_parser::Alignment::Center => 5,
+                        ryne_parser::Alignment::Left | ryne_parser::Alignment::Right => 4,
+                        ryne_parser::Alignment::None => 3,
                     })
             })
             .collect::<Vec<_>>();
@@ -279,7 +278,7 @@ fn format_tables(parse: &ParseSnapshot, text: &str, edits: &mut Vec<Edit>) {
             .iter()
             .zip(&widths)
             .map(|(align, width)| {
-                use editable_markdown_parser::Alignment;
+                use ryne_parser::Alignment;
                 match align {
                     Alignment::None => "-".repeat(*width),
                     Alignment::Left => format!(":{}", "-".repeat((*width - 1).max(3))),

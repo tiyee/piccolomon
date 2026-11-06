@@ -384,13 +384,13 @@ fn indexed_platform_ranges_match_overlay_and_do_not_publish_preedit() {
                 let expected = overlay
                     .get(..at)
                     .map(|s| s.encode_utf16().count())
-                    .ok_or(editable_markdown_parser::Error::InvalidRange);
+                    .ok_or(ryne_parser::Error::InvalidRange);
                 assert_eq!(doc.editable_byte_to_utf16(at), expected);
             }
             for at in 0..=overlay.encode_utf16().count() + 1 {
                 assert_eq!(
                     doc.editable_utf16_to_byte(at),
-                    editable_markdown_parser::utf16_to_utf8(&overlay, at)
+                    ryne_parser::utf16_to_utf8(&overlay, at)
                 );
             }
             assert!(doc.editable_utf16_to_byte(usize::MAX).is_err());

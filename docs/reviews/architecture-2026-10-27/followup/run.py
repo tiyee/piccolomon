@@ -27,7 +27,7 @@ with tempfile.TemporaryDirectory(prefix="ryne-followup-review-") as temporary:
     command = ["rustc", "--edition=2024", str(Path(__file__).with_name("probe.rs")),
                "-L", f"dependency={deps}", "-o", str(binary)]
     for name in ["ryne_session", "ryne_features", "ryne_services", "ryne_extensions",
-                 "ryne_syntax", "ryne_projection", "editable_markdown_parser"]:
+                 "ryne_syntax", "ryne_projection", "ryne_parser"]:
         command.extend(["--extern", f"{name}={libraries[name]}"])
     subprocess.run(command, cwd=root, check=True)
     subprocess.run([str(binary)], cwd=root, check=True)

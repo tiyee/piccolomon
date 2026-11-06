@@ -1,5 +1,5 @@
 use super::*;
-use editable_markdown_parser::Source;
+use ryne_parser::Source;
 
 // Previous full scan kept as an independent behavioral oracle.
 fn scan(parse: &ParseSnapshot, block: &CodeBlock) -> Option<Range<usize>> {

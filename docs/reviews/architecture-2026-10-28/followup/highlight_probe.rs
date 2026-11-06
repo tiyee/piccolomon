@@ -1,6 +1,6 @@
 // Appended to an isolated copy of highlight.rs; private state is instrumented here.
 pub fn audit() {
-    use editable_markdown_parser::Source;
+    use ryne_parser::Source;
     use ryne_extensions::SyntaxHighlighter;
     use ryne_syntax::ParseSnapshot;
 

@@ -1,5 +1,5 @@
 use super::regression_tests::new_document;
-use editable_markdown_parser::Affinity;
+use ryne_parser::Affinity;
 
 #[test]
 fn enter_keeps_an_empty_new_row_in_the_same_quote_and_one_undo_step() {

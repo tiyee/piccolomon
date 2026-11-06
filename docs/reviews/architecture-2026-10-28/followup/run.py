@@ -45,7 +45,7 @@ with tempfile.TemporaryDirectory(prefix="ryne-followup-audit-") as directory:
     command = ["rustc", "--edition=2024", "-Awarnings", str(temporary / "main.rs"),
                "-L", f"dependency={deps}", "-o", str(binary)]
     for name in ["ryne_extensions", "ryne_syntax", "ryne_projection",
-                 "editable_markdown_parser", "tree_sitter", "tree_sitter_highlight",
+                 "ryne_parser", "tree_sitter", "tree_sitter_highlight",
                  "tree_sitter_rust", "tree_sitter_python", "tree_sitter_javascript",
                  "tree_sitter_typescript", "tree_sitter_json", "tree_sitter_bash"]:
         command.extend(["--extern", f"{name}={libraries[name]}"])

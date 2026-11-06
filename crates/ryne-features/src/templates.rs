@@ -1,5 +1,5 @@
-use editable_markdown_parser::NodeKind;
 use ryne_extensions::{InsertBlock, TemplateLabels};
+use ryne_parser::NodeKind;
 use std::ops::Range;
 pub const ITEMS: &[(&str, InsertBlock)] = &[
     ("¶  段落", InsertBlock::Paragraph),

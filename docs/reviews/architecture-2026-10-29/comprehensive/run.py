@@ -41,7 +41,7 @@ pub static AUDIT_VISITS: std::sync::atomic::AtomicUsize = std::sync::atomic::Ato
     command = ["rustc", "--edition=2024", "--crate-name=ryne_features", "--crate-type=rlib",
                str(temp / "features/lib.rs"), "-L", f"dependency={deps}", "-o", str(instrumented)]
     for name in ["ryne_core", "ryne_syntax", "ryne_projection", "ryne_extensions",
-                 "editable_markdown_parser", "unicode_segmentation"]:
+                 "ryne_parser", "unicode_segmentation"]:
         command.extend(["--extern", f"{name}={libraries[name]}"])
     subprocess.run(command, cwd=ROOT, check=True)
     libraries["ryne_features"] = instrumented
@@ -49,7 +49,7 @@ pub static AUDIT_VISITS: std::sync::atomic::AtomicUsize = std::sync::atomic::Ato
     command = ["rustc", "--edition=2024", str(HERE / "probe.rs"),
                "-L", f"dependency={deps}", "-o", str(binary)]
     for name in ["ryne_session", "ryne_features", "ryne_services", "ryne_extensions", "ryne_projection",
-                 "ryne_syntax", "editable_markdown_parser"]:
+                 "ryne_syntax", "ryne_parser"]:
         command.extend(["--extern", f"{name}={libraries[name]}"])
     subprocess.run(command, cwd=ROOT, check=True)
     subprocess.run([str(binary)], cwd=ROOT, check=True)

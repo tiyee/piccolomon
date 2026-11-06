@@ -23,7 +23,6 @@ base64 = "=0.22.1"
 gpui = { version = "=0.2.2", features = ["runtime_shaders"] }
 async-channel = "=2.5.0"
 url = "=2.5.8"
-editable_markdown_parser = "=0.0.5"
 unicode-segmentation = "=1.13.3"
 tree-sitter-highlight = "=0.27.1"
 tree-sitter = "=0.27.1"
@@ -41,6 +40,7 @@ resvg = "=0.45.1"
 image = { version = "=0.25.10", default-features = false }
 
 
+ryne-parser = { path = "crates/ryne-parser" }
 ryne-core = { path = "crates/ryne-core" }
 ryne-syntax = { path = "crates/ryne-syntax" }
 ryne-projection = { path = "crates/ryne-projection" }

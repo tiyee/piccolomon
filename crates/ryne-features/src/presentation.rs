@@ -11,10 +11,10 @@ mod quote;
 #[path = "presentation/table.rs"]
 mod table_component;
 use crate::math;
-#[cfg(test)]
-use editable_markdown_parser::{Affinity, Source};
-use editable_markdown_parser::{NodeKind, TokenKind};
 use ryne_extensions::SyntaxHighlighter;
+#[cfg(test)]
+use ryne_parser::{Affinity, Source};
+use ryne_parser::{NodeKind, TokenKind};
 use ryne_projection::*;
 #[cfg(test)]
 use ryne_services::mermaid;
@@ -827,7 +827,7 @@ mod typography_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use editable_markdown_parser::Source;
+    use ryne_parser::Source;
 
     #[test]
     fn nested_inline_reveal_keeps_quote_presentation_and_source_unchanged() {
@@ -1190,7 +1190,7 @@ mod tests {
 #[cfg(test)]
 mod math_tests {
     use super::*;
-    use editable_markdown_parser::Source;
+    use ryne_parser::Source;
 
     #[test]
     fn short_math_is_atomic_even_when_source_and_object_have_equal_byte_length() {
@@ -1300,7 +1300,7 @@ mod math_tests {
 #[cfg(test)]
 mod diagram_tests {
     use super::*;
-    use editable_markdown_parser::Source;
+    use ryne_parser::Source;
 
     #[test]
     fn diagrams_are_atomic_and_keep_adjacent_blocks_and_line_endings() {

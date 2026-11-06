@@ -515,7 +515,7 @@ fn interval_composition_matches_byte_oracle_for_structure_reveal_and_source_mode
     for newline in ["\n", "\r\n", "\r"] {
         for case in cases {
             let raw = case.replace('\n', newline);
-            let parse = ParseSnapshot::with_math(editable_markdown_parser::Source::new(&raw));
+            let parse = ParseSnapshot::with_math(ryne_parser::Source::new(&raw));
             let legacy = LegacyPresentationBuilder {
                 renderer: &renderer,
             };

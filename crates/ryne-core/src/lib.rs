@@ -1,6 +1,6 @@
 //! Source ownership and atomic history. This crate knows no syntax, projection or GUI.
-pub use editable_markdown_parser::{Affinity, SnapshotId as DocumentKey};
-use editable_markdown_parser::{Applied, Edit, Error, Source, Transaction};
+pub use ryne_parser::{Affinity, SnapshotId as DocumentKey};
+use ryne_parser::{Applied, Edit, Error, Source, Transaction};
 use std::ops::Range;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -25,7 +25,7 @@ impl SourceRange {
     pub fn validate(&self, source: &Source) -> Result<Range<usize>, Error> {
         source.check(self.document)?;
         let bytes = self.bytes.start.0..self.bytes.end.0;
-        editable_markdown_parser::Session::new(source, bytes.clone())?;
+        ryne_parser::Session::new(source, bytes.clone())?;
         Ok(bytes)
     }
 }
@@ -45,7 +45,7 @@ impl SourceEdit {
     }
 }
 pub fn utf16_to_source(text: &str, offset: Utf16Offset) -> Result<SourceByte, Error> {
-    editable_markdown_parser::utf16_to_utf8(text, offset.0).map(SourceByte)
+    ryne_parser::utf16_to_utf8(text, offset.0).map(SourceByte)
 }
 
 pub struct PreparedEdit {

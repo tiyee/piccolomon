@@ -1,5 +1,5 @@
 use crate::ParseSnapshot;
-use editable_markdown_parser::NodeKind;
+use ryne_parser::NodeKind;
 use std::ops::Range;
 
 #[derive(Clone, Debug)]
@@ -41,7 +41,7 @@ fn build(parse: &ParseSnapshot) -> Vec<SourceFormula> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use editable_markdown_parser::Source;
+    use ryne_parser::Source;
     #[test]
     fn consumes_parser_nodes_and_excludes_images() {
         let text = "中文 $x_1$ ` $code$ ` ![$alt$](image.png)\n```\n$code$\n```\n";

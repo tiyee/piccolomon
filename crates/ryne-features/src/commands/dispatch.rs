@@ -102,7 +102,7 @@ impl CommandHandler for BuiltinCommand {
             renderer: services.formulas,
             mapping: Some(&services.planning),
         };
-        let result: Result<bool, editable_markdown_parser::Error> = match (self, intent) {
+        let result: Result<bool, ryne_parser::Error> = match (self, intent) {
             (Self::Format, EditIntent::FormatSource) => {
                 p.format_source()?;
                 Ok(true)

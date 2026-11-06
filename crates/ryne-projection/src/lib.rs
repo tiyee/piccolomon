@@ -1,5 +1,5 @@
 //! Platform-independent display model and source mapping.
-use editable_markdown_parser::Affinity;
+use ryne_parser::Affinity;
 use ryne_syntax::{code_block::CodeBlock, list, table};
 use std::{ops::Range, sync::Arc};
 use unicode_segmentation::UnicodeSegmentation;

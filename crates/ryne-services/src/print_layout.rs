@@ -331,8 +331,8 @@ impl Layout<'_> {
                     if let Some(line) = cell.get(n) {
                         let used: f32 = line.iter().map(|p| p.width).sum();
                         let offset = match table.source.align[column] {
-                            editable_markdown_parser::Alignment::Center => (width - used) / 2.,
-                            editable_markdown_parser::Alignment::Right => width - used - 8.,
+                            ryne_parser::Alignment::Center => (width - used) / 2.,
+                            ryne_parser::Alignment::Right => width - used - 8.,
                             _ => 8.,
                         };
                         self.y = top + 4.;
@@ -590,7 +590,7 @@ mod tests {
     }
     #[test]
     fn folded_task_states_survive_print_including_empty_items() {
-        use editable_markdown_parser::Source;
+        use ryne_parser::Source;
         use ryne_syntax::ParseSnapshot;
         for (marker, status) in [("[ ]", "[ ]"), ("[x]", "[x]"), ("[X]", "[x]")] {
             for body in ["body", ""] {

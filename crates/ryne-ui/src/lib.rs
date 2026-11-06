@@ -34,7 +34,6 @@ mod visibility;
 mod welcome;
 #[cfg(test)]
 mod window_controls_tests;
-use editable_markdown_parser::{Affinity, SnapshotId};
 use element::*;
 use gpui::{prelude::*, *};
 use i18n::{Language, Localization, Preference, Status, Text};
@@ -43,6 +42,7 @@ use menus::{OpenRecent, SelectLanguage, SelectMathFont};
 use render_controls::*;
 pub use ryne_extensions::{DesktopServices, ExportDescriptor, ExportRegistry};
 use ryne_extensions::{FormulaRenderer, MathFont, SyntaxHighlighter};
+use ryne_parser::{Affinity, SnapshotId};
 use ryne_projection::{self as presentation, Display};
 use ryne_session::{EditorSession as Document, SessionServices};
 use std::{ops::Range, path::PathBuf};
@@ -94,7 +94,7 @@ actions!(
     ]
 );
 
-fn utf16_to_utf8(text: &str, units: usize) -> Result<usize, editable_markdown_parser::Error> {
+fn utf16_to_utf8(text: &str, units: usize) -> Result<usize, ryne_parser::Error> {
     ryne_core::utf16_to_source(text, ryne_core::Utf16Offset(units)).map(|byte| byte.0)
 }
 const LINE_HEIGHT: f32 = theme::BODY.1;

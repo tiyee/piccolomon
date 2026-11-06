@@ -1,6 +1,6 @@
 //! Original-byte storage, using exclusive same-directory temporary files.
-use editable_markdown_parser::Source;
 use ryne_extensions::FileStore;
+use ryne_parser::Source;
 use std::{
     path::Path,
     sync::atomic::{AtomicU64, Ordering},

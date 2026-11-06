@@ -1,13 +1,13 @@
 //! Disposable, snapshot-owned indexes. Parser ownership and document identity stay unchanged.
 use crate::{code_block, list, table};
-use editable_markdown_parser::{Dialect, NodeKind, Source, SyntaxToken};
+use ryne_parser::{Dialect, NodeKind, Source, SyntaxToken};
 use std::{
     ops::{Deref, Range},
     sync::OnceLock,
 };
 
 pub struct ParseSnapshot {
-    inner: editable_markdown_parser::ParseSnapshot,
+    inner: ryne_parser::ParseSnapshot,
     normalized: OnceLock<Option<Box<Self>>>,
     pub(crate) codes: OnceLock<Vec<code_block::CodeBlock>>,
     pub(crate) items: OnceLock<Vec<list::Item>>,
@@ -21,7 +21,7 @@ pub struct ParseSnapshot {
     block_directory: OnceLock<crate::block::BlockDirectory>,
 }
 impl Deref for ParseSnapshot {
-    type Target = editable_markdown_parser::ParseSnapshot;
+    type Target = ryne_parser::ParseSnapshot;
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
@@ -35,11 +35,7 @@ impl ParseSnapshot {
     }
     pub fn with_dialect_and_math(source: Source, dialect: Dialect, math_enabled: bool) -> Self {
         Self {
-            inner: editable_markdown_parser::ParseSnapshot::with_dialect_and_math(
-                source,
-                dialect,
-                math_enabled,
-            ),
+            inner: ryne_parser::ParseSnapshot::with_dialect_and_math(source, dialect, math_enabled),
             normalized: OnceLock::new(),
             codes: OnceLock::new(),
             items: OnceLock::new(),
@@ -205,7 +201,7 @@ impl SemanticIndex {
             .tokens
             .iter()
             .enumerate()
-            .filter(|(_, t)| t.kind == editable_markdown_parser::TokenKind::ContainerPrefix)
+            .filter(|(_, t)| t.kind == ryne_parser::TokenKind::ContainerPrefix)
             .map(|(i, _)| i)
             .collect();
         index

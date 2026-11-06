@@ -151,7 +151,7 @@ impl FileStore for PanicStore {
     fn write(
         &self,
         _: &std::path::Path,
-        _: &editable_markdown_parser::Source,
+        _: &ryne_parser::Source,
     ) -> std::io::Result<()> {
         panic!("injected file port panic")
     }

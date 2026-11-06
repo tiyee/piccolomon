@@ -316,8 +316,8 @@ impl TextLayout {
                             size(cell_width, px(0.)),
                         );
                         let align = match table.source.align[column] {
-                            editable_markdown_parser::Alignment::Center => TextAlign::Center,
-                            editable_markdown_parser::Alignment::Right => TextAlign::Right,
+                            ryne_parser::Alignment::Center => TextAlign::Center,
+                            ryne_parser::Alignment::Right => TextAlign::Right,
                             _ => TextAlign::Left,
                         };
                         let mut segment_start = cell.start;

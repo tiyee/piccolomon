@@ -1,6 +1,6 @@
 use super::regression_tests::new_document;
 use super::*;
-use editable_markdown_parser::Affinity;
+use ryne_parser::Affinity;
 fn request(doc: &EditorSession, needle: &str, command: &'static str) -> RenderActionRequest {
     let at = doc.source.text().find(needle).unwrap();
     let c = doc
@@ -289,7 +289,7 @@ fn empty_insert_before_first_item_cannot_turn_prior_paragraph_into_setext_headin
             .parse
             .nodes
             .iter()
-            .any(|n| matches!(n.kind, editable_markdown_parser::NodeKind::Heading(_))));
+            .any(|n| matches!(n.kind, ryne_parser::NodeKind::Heading(_))));
         doc.undo(false);
         assert_eq!(doc.source.text(), raw);
     }

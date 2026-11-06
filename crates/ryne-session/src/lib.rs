@@ -1,7 +1,7 @@
 //! The only publisher of document content, session state and post-commit facts.
-use editable_markdown_parser::Source;
 use ryne_core::DocumentCore;
 use ryne_extensions::*;
+use ryne_parser::Source;
 use ryne_projection::{DiagramViewInput, Display};
 use ryne_syntax::ParseSnapshot;
 use std::{
@@ -109,7 +109,7 @@ impl EditorSession {
     }
     pub fn set_block_source(&mut self, range: Option<Range<usize>>) {
         self.state.block_source =
-            range.and_then(|r| editable_markdown_parser::Session::new(&self.state.source, r).ok());
+            range.and_then(|r| ryne_parser::Session::new(&self.state.source, r).ok());
     }
     pub fn services(&self) -> SessionServices {
         self.services.clone()

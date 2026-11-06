@@ -12,14 +12,15 @@ metadata = json.loads(subprocess.check_output([
 ], cwd=root))
 allowed = {
     "ryne-app": {"ryne-ui", "ryne-session", "ryne-features", "ryne-services"},
-    "ryne-core": set(),
-    "ryne-syntax": {"ryne-core"},
-    "ryne-projection": {"ryne-core", "ryne-syntax"},
-    "ryne-extensions": {"ryne-core", "ryne-syntax", "ryne-projection"},
-    "ryne-features": {"ryne-core", "ryne-syntax", "ryne-projection", "ryne-extensions"},
-    "ryne-services": {"ryne-extensions", "ryne-syntax", "ryne-projection"},
-    "ryne-session": {"ryne-core", "ryne-syntax", "ryne-projection", "ryne-extensions"},
-    "ryne-ui": {"ryne-session", "ryne-core", "ryne-syntax", "ryne-projection", "ryne-extensions"},
+    "ryne-parser": set(),
+    "ryne-core": {"ryne-parser"},
+    "ryne-syntax": {"ryne-parser", "ryne-core"},
+    "ryne-projection": {"ryne-parser", "ryne-core", "ryne-syntax"},
+    "ryne-extensions": {"ryne-parser", "ryne-core", "ryne-syntax", "ryne-projection"},
+    "ryne-features": {"ryne-parser", "ryne-core", "ryne-syntax", "ryne-projection", "ryne-extensions"},
+    "ryne-services": {"ryne-parser", "ryne-extensions", "ryne-syntax", "ryne-projection"},
+    "ryne-session": {"ryne-parser", "ryne-core", "ryne-syntax", "ryne-projection", "ryne-extensions"},
+    "ryne-ui": {"ryne-parser", "ryne-session", "ryne-core", "ryne-syntax", "ryne-projection", "ryne-extensions"},
 }
 packages = {p["name"]: p for p in metadata["packages"]}
 errors = []

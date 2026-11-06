@@ -1,7 +1,7 @@
 use super::regression_tests::{new_document, services};
 use super::*;
-use editable_markdown_parser::Edit;
 use ryne_core::PreparedEdit;
+use ryne_parser::Edit;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Mutex,
@@ -163,8 +163,7 @@ fn invalid_multi_edit_and_selection_plans_never_partially_update() {
         })
         .is_err());
     let mut stale_reveal = doc.state.clone();
-    stale_reveal.reveal =
-        Some(editable_markdown_parser::Session::new(&Source::new("a"), 0..1).unwrap());
+    stale_reveal.reveal = Some(ryne_parser::Session::new(&Source::new("a"), 0..1).unwrap());
     assert!(doc
         .publish_plan(CommandPlan::View {
             base: before,

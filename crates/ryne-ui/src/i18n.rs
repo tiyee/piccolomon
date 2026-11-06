@@ -1806,8 +1806,8 @@ mod tests {
     }
     #[test]
     fn block_menu_types_and_source_states_use_every_language() {
-        use editable_markdown_parser::Source;
         use ryne_extensions::BlockCommand;
+        use ryne_parser::Source;
         use ryne_syntax::ParseSnapshot;
         // Use actual AST metadata so new block icons cannot silently fall back
         // to the Chinese semantic name in another interface language.

@@ -2,7 +2,7 @@
 use super::*;
 #[derive(Default)]
 pub(super) struct State {
-    source: Option<editable_markdown_parser::Source>,
+    source: Option<ryne_parser::Source>,
     composition: Option<ryne_session::Composition>,
     layout: Option<std::sync::Arc<text_layout::TextLayout>>,
     display: Option<std::sync::Arc<ryne_projection::IndexedDisplay>>,

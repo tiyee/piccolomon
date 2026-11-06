@@ -160,7 +160,7 @@ impl RenderActionProvider for CodeActions {
         };
         planner
             .apply_edits(
-                vec![editable_markdown_parser::Edit {
+                vec![ryne_parser::Edit {
                     range,
                     replacement: info.into(),
                 }],

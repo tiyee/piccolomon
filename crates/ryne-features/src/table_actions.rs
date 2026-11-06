@@ -1,6 +1,6 @@
 use crate::commands::Planner;
-use editable_markdown_parser::Alignment;
 use ryne_extensions::*;
+use ryne_parser::Alignment;
 use ryne_syntax::table;
 use std::sync::Arc;
 

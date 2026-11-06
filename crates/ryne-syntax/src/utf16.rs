@@ -1,4 +1,4 @@
-use editable_markdown_parser::{Error, Source};
+use ryne_parser::{Error, Source};
 pub struct Utf16Index {
     source: Source,
     checkpoints: Vec<(usize, usize)>,
@@ -35,8 +35,7 @@ impl Utf16Index {
             .partition_point(|&(_, u)| u <= at)
             .saturating_sub(1);
         let (byte, units) = self.checkpoints[i];
-        editable_markdown_parser::utf16_to_utf8(&self.source.text()[byte..], at - units)
-            .map(|p| byte + p)
+        ryne_parser::utf16_to_utf8(&self.source.text()[byte..], at - units).map(|p| byte + p)
     }
 }
 
@@ -61,7 +60,7 @@ mod tests {
             for at in (0..=units + 1).filter(|p| *p < 32 || p % 127 == 0 || *p >= units) {
                 assert_eq!(
                     index.utf16_to_byte(at),
-                    editable_markdown_parser::utf16_to_utf8(&text, at)
+                    ryne_parser::utf16_to_utf8(&text, at)
                 );
             }
         }

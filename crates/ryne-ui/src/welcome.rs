@@ -1,6 +1,6 @@
 //! Provenance for the untouched, unsaved built-in guide, independent of its text.
 use crate::i18n::Language;
-use editable_markdown_parser::SnapshotId;
+use ryne_parser::SnapshotId;
 use ryne_session::EditorSession;
 
 pub(super) struct DefaultDocument {
@@ -41,8 +41,8 @@ impl DefaultDocument {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use editable_markdown_parser::{Alignment, NodeKind, Source};
     use ryne_extensions::FileStore;
+    use ryne_parser::{Alignment, NodeKind, Source};
     use ryne_session::{basic::SourceEditing, SessionServices};
     use ryne_syntax::ParseSnapshot;
     use std::{path::Path, sync::Arc};

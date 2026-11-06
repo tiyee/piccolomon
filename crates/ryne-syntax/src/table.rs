@@ -1,6 +1,6 @@
 use crate::list;
 use crate::ParseSnapshot;
-use editable_markdown_parser::{Alignment, NodeKind, TokenKind};
+use ryne_parser::{Alignment, NodeKind, TokenKind};
 use std::ops::Range;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -114,7 +114,7 @@ pub fn cell_containing(parse: &ParseSnapshot, position: usize) -> Option<&Cell> 
 #[cfg(test)]
 mod containment_tests {
     use super::*;
-    use editable_markdown_parser::Source;
+    use ryne_parser::Source;
     #[test]
     fn indexed_membership_matches_linear_tables_and_cells_in_containers() {
         for newline in ["\n", "\r\n", "\r"] {
@@ -319,7 +319,7 @@ pub fn cell_input(text: &str, preceding: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use editable_markdown_parser::Source;
+    use ryne_parser::Source;
     #[test]
     fn tables_preserve_cells_alignments_container_prefixes_and_newlines() {
         for newline in ["\n", "\r\n", "\r"] {
@@ -375,7 +375,7 @@ mod cell_query_tests {
         for newline in ["\n", "\r\n", "\r"] {
             let raw = "| a | b | c |\n| --- | --- | --- |\n| | 中😀 | |\n| next | x | y |\n"
                 .replace('\n', newline);
-            let parse = ParseSnapshot::with_math(editable_markdown_parser::Source::new(&raw));
+            let parse = ParseSnapshot::with_math(ryne_parser::Source::new(&raw));
             let t = &cached(&parse)[0];
             for position in 0..=raw.len() + 2 {
                 let expected = t

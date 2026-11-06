@@ -1,0 +1,242 @@
+[
+  {
+    "example": 61,
+    "section": "4.3Setext headings",
+    "actual": "<h2>`Foo</h2>\n<p>`</p>\n<h2>&lt;a title=\"a lot</h2>\n<p>of dashes\"/&gt;</p>\n"
+  },
+  {
+    "example": 144,
+    "section": "4.6HTML blocks",
+    "actual": "<ul>\n<li><div>\n</li>\n<li>foo</li>\n</ul>\n"
+  },
+  {
+    "example": 178,
+    "section": "4.7Link reference definitions",
+    "actual": "<p>[foo]: /url \"title\" ok</p>\n"
+  },
+  {
+    "example": 179,
+    "section": "4.7Link reference definitions",
+    "actual": "<p>\"title\" ok</p>\n"
+  },
+  {
+    "example": 180,
+    "section": "4.7Link reference definitions",
+    "actual": "<pre><code>[foo]: /url \"title\"\n</code></pre>\n<p>[foo]</p>\n"
+  },
+  {
+    "example": 198,
+    "section": "4.10Tables (extension)",
+    "actual": "<table><thead><tr><th>foo</th><th>bar</th></tr></thead><tbody>\n<tr><td>baz</td><td>bim</td></tr>\n</tbody></table>\n"
+  },
+  {
+    "example": 199,
+    "section": "4.10Tables (extension)",
+    "actual": "<table><thead><tr><th style=\"text-align: center\">abc</th><th style=\"text-align: right\">defghi</th></tr></thead><tbody>\n<tr><td style=\"text-align: center\">bar</td><td style=\"text-align: right\">baz</td></tr>\n</tbody></table>\n"
+  },
+  {
+    "example": 200,
+    "section": "4.10Tables (extension)",
+    "actual": "<table><thead><tr><th>f|oo</th></tr></thead><tbody>\n<tr><td>b <code>|</code> az</td></tr>\n<tr><td>b <strong>|</strong> im</td></tr>\n</tbody></table>\n"
+  },
+  {
+    "example": 201,
+    "section": "4.10Tables (extension)",
+    "actual": "<table><thead><tr><th>abc</th><th>def</th></tr></thead><tbody>\n<tr><td>bar</td><td>baz</td></tr>\n</tbody></table>\n<blockquote>\n<p>bar</p>\n</blockquote>\n"
+  },
+  {
+    "example": 202,
+    "section": "4.10Tables (extension)",
+    "actual": "<table><thead><tr><th>abc</th><th>def</th></tr></thead><tbody>\n<tr><td>bar</td><td>baz</td></tr>\n<tr><td>bar</td><td></td></tr>\n</tbody></table>\n<p>bar</p>\n"
+  },
+  {
+    "example": 204,
+    "section": "4.10Tables (extension)",
+    "actual": "<table><thead><tr><th>abc</th><th>def</th></tr></thead><tbody>\n<tr><td>bar</td><td></td></tr>\n<tr><td>bar</td><td>baz</td></tr>\n</tbody></table>\n"
+  },
+  {
+    "example": 205,
+    "section": "4.10Tables (extension)",
+    "actual": "<table><thead><tr><th>abc</th><th>def</th></tr></thead><tbody>\n</tbody></table>\n"
+  },
+  {
+    "example": 279,
+    "section": "5.3Task list items (extension)",
+    "actual": "<ul>\n<li><input disabled=\"\" type=\"checkbox\"/>\nfoo</li>\n<li><input disabled=\"\" type=\"checkbox\" checked=\"\"/>\nbar</li>\n</ul>\n"
+  },
+  {
+    "example": 280,
+    "section": "5.3Task list items (extension)",
+    "actual": "<ul>\n<li><input disabled=\"\" type=\"checkbox\" checked=\"\"/>\nfoo\n<ul>\n<li><input disabled=\"\" type=\"checkbox\"/>\nbar</li>\n<li><input disabled=\"\" type=\"checkbox\" checked=\"\"/>\nbaz</li>\n</ul>\n</li>\n<li><input disabled=\"\" type=\"checkbox\"/>\nbim</li>\n</ul>\n"
+  },
+  {
+    "example": 308,
+    "section": "6.1Backslash escapes",
+    "actual": "<p>!\"#$%&amp;'()*+,-./:;&lt;=&gt;?@[\\]^_`{|}~</p>\n"
+  },
+  {
+    "example": 310,
+    "section": "6.1Backslash escapes",
+    "actual": "<p>*not emphasized*\n&lt;br/&gt; not a tag\n[not a link](/foo)\n`not code`\n1. not a list\n* not a list\n# not a heading\n[foo]: /url \"not a reference\"\n&amp;ouml; not a character entity</p>\n"
+  },
+  {
+    "example": 323,
+    "section": "6.2Entity and numeric character references",
+    "actual": "<p>\" ആ ಫ</p>\n"
+  },
+  {
+    "example": 337,
+    "section": "6.2Entity and numeric character references",
+    "actual": "<p>[a](url \"tit\")</p>\n"
+  },
+  {
+    "example": 353,
+    "section": "6.3Code spans",
+    "actual": "<p><code>&lt;a href=\"</code>\"&gt;`</p>\n"
+  },
+  {
+    "example": 362,
+    "section": "6.4Emphasis and strong emphasis",
+    "actual": "<p>a*\"foo\"*</p>\n"
+  },
+  {
+    "example": 368,
+    "section": "6.4Emphasis and strong emphasis",
+    "actual": "<p>a_\"foo\"_</p>\n"
+  },
+  {
+    "example": 372,
+    "section": "6.4Emphasis and strong emphasis",
+    "actual": "<p>aa_\"bb\"_cc</p>\n"
+  },
+  {
+    "example": 389,
+    "section": "6.4Emphasis and strong emphasis",
+    "actual": "<p>a**\"foo\"**</p>\n"
+  },
+  {
+    "example": 394,
+    "section": "6.4Emphasis and strong emphasis",
+    "actual": "<p>a__\"foo\"__</p>\n"
+  },
+  {
+    "example": 404,
+    "section": "6.4Emphasis and strong emphasis",
+    "actual": "<p><strong>foo \"<em>bar</em>\" foo</strong></p>\n"
+  },
+  {
+    "example": 517,
+    "section": "6.6Links",
+    "actual": "<p>[link](/url \"title \"and\" title\")</p>\n"
+  },
+  {
+    "example": 599,
+    "section": "6.7Images",
+    "actual": "<p>![[foo]]</p>\n<p>[[foo]]: /url \"title\"</p>\n"
+  },
+  {
+    "example": 622,
+    "section": "6.9Autolinks (extension)",
+    "actual": "<p>www.commonmark.org</p>\n"
+  },
+  {
+    "example": 623,
+    "section": "6.9Autolinks (extension)",
+    "actual": "<p>Visit www.commonmark.org/help for more information.</p>\n"
+  },
+  {
+    "example": 624,
+    "section": "6.9Autolinks (extension)",
+    "actual": "<p>Visit www.commonmark.org.</p>\n<p>Visit www.commonmark.org/a.b.</p>\n"
+  },
+  {
+    "example": 625,
+    "section": "6.9Autolinks (extension)",
+    "actual": "<p>www.google.com/search?q=Markup+(business)</p>\n<p>www.google.com/search?q=Markup+(business)))</p>\n<p>(www.google.com/search?q=Markup+(business))</p>\n<p>(www.google.com/search?q=Markup+(business)</p>\n"
+  },
+  {
+    "example": 626,
+    "section": "6.9Autolinks (extension)",
+    "actual": "<p>www.google.com/search?q=(business))+ok</p>\n"
+  },
+  {
+    "example": 627,
+    "section": "6.9Autolinks (extension)",
+    "actual": "<p>www.google.com/search?q=commonmark&amp;hl=en</p>\n<p>www.google.com/search?q=commonmark&amp;hl;</p>\n"
+  },
+  {
+    "example": 628,
+    "section": "6.9Autolinks (extension)",
+    "actual": "<p>www.commonmark.org/he&lt;lp</p>\n"
+  },
+  {
+    "example": 629,
+    "section": "6.9Autolinks (extension)",
+    "actual": "<p>http://commonmark.org</p>\n<p>(Visit https://encrypted.google.com/search?q=Markup+(business))</p>\n"
+  },
+  {
+    "example": 630,
+    "section": "6.9Autolinks (extension)",
+    "actual": "<p>foo@bar.baz</p>\n"
+  },
+  {
+    "example": 631,
+    "section": "6.9Autolinks (extension)",
+    "actual": "<p>hello@mail+xyz.example isn't valid, but hello+xyz@mail.example is.</p>\n"
+  },
+  {
+    "example": 632,
+    "section": "6.9Autolinks (extension)",
+    "actual": "<p>a.b-c_d@a.b</p>\n<p>a.b-c_d@a.b.</p>\n<p>a.b-c_d@a.b-</p>\n<p>a.b-c_d@a.b_</p>\n"
+  },
+  {
+    "example": 633,
+    "section": "6.9Autolinks (extension)",
+    "actual": "<p>mailto:foo@bar.baz</p>\n<p>mailto:a.b-c_d@a.b</p>\n<p>mailto:a.b-c_d@a.b.</p>\n<p>mailto:a.b-c_d@a.b/</p>\n<p>mailto:a.b-c_d@a.b-</p>\n<p>mailto:a.b-c_d@a.b_</p>\n<p>xmpp:foo@bar.baz</p>\n<p>xmpp:foo@bar.baz.</p>\n"
+  },
+  {
+    "example": 634,
+    "section": "6.9Autolinks (extension)",
+    "actual": "<p>xmpp:foo@bar.baz/txt</p>\n<p>xmpp:foo@bar.baz/txt@bin</p>\n<p>xmpp:foo@bar.baz/txt@bin.com</p>\n"
+  },
+  {
+    "example": 635,
+    "section": "6.9Autolinks (extension)",
+    "actual": "<p>xmpp:foo@bar.baz/txt/bin</p>\n"
+  },
+  {
+    "example": 642,
+    "section": "6.10Raw HTML",
+    "actual": "<p>&lt;a h*#ref=\"hi\"&gt;</p>\n"
+  },
+  {
+    "example": 643,
+    "section": "6.10Raw HTML",
+    "actual": "<p>&lt;a href=\"hi'&gt; &lt;a href=hi'&gt;</p>\n"
+  },
+  {
+    "example": 647,
+    "section": "6.10Raw HTML",
+    "actual": "<p>&lt;/a href=\"foo\"&gt;</p>\n"
+  },
+  {
+    "example": 649,
+    "section": "6.10Raw HTML",
+    "actual": "<p>foo <!-- not a comment -- two hyphens --></p>\n"
+  },
+  {
+    "example": 650,
+    "section": "6.10Raw HTML",
+    "actual": "<p>foo <!--> foo --&gt;</p>\n<p>foo <!-- foo---></p>\n"
+  },
+  {
+    "example": 656,
+    "section": "6.10Raw HTML",
+    "actual": "<p>&lt;a href=\"\"\"&gt;</p>\n"
+  },
+  {
+    "example": 657,
+    "section": "6.11Disallowed Raw HTML (extension)",
+    "actual": "<p><strong> <title> <style> <em></p>\n<blockquote>\n  <xmp> is disallowed.  <XMP> is also disallowed.\n</blockquote>\n"
+  }
+]

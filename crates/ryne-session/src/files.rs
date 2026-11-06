@@ -1,6 +1,6 @@
 //! Serial save requests bind the exact snapshot written by the file service.
-use editable_markdown_parser::Source;
 use ryne_extensions::FileStore;
+use ryne_parser::Source;
 use std::{path::PathBuf, sync::Arc};
 #[derive(Default)]
 pub struct FileSession {

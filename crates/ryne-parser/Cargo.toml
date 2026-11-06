@@ -1,0 +1,15 @@
+[package]
+name = "ryne-parser"
+version.workspace = true
+edition = "2021"
+publish.workspace = true
+license.workspace = true
+description = "Source-preserving Markdown parsing and editing primitives for Ryne"
+
+[dependencies]
+pulldown-cmark = { version = "=0.13.5", default-features = false, features = ["html"] }
+unicode-segmentation.workspace = true
+
+[dev-dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json.workspace = true

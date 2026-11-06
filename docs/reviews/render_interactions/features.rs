@@ -1,7 +1,7 @@
 use crate::protocol::*;
-use editable_markdown_parser::{Affinity, Edit};
 use ryne_core::PreparedEdit;
 use ryne_extensions::{CommandPlan, EditingState, FileStore, FormulaRenderer};
+use ryne_parser::{Affinity, Edit};
 use ryne_projection::Formula;
 use ryne_session::{EditorSession, SessionServices};
 use ryne_syntax::ParseSnapshot;
@@ -19,7 +19,7 @@ impl FileStore for NoFiles {
     fn read(&self, _: &Path) -> std::io::Result<String> {
         Err(std::io::Error::other("not used"))
     }
-    fn write(&self, _: &Path, _: &editable_markdown_parser::Source) -> std::io::Result<()> {
+    fn write(&self, _: &Path, _: &ryne_parser::Source) -> std::io::Result<()> {
         Err(std::io::Error::other("not used"))
     }
 }

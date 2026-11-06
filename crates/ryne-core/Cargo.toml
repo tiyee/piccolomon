@@ -6,4 +6,4 @@ publish.workspace = true
 license.workspace = true
 
 [dependencies]
-editable_markdown_parser.workspace = true
+ryne-parser.workspace = true

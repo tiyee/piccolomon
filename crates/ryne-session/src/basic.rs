@@ -1,7 +1,7 @@
 //! Basic source editing remains usable with no Markdown feature registrations.
-use editable_markdown_parser::{Edit, Error};
 use ryne_core::PreparedEdit;
 use ryne_extensions::*;
+use ryne_parser::{Edit, Error};
 use ryne_projection::*;
 use ryne_syntax::ParseSnapshot;
 use std::ops::Range;

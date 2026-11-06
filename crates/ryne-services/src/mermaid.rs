@@ -245,7 +245,7 @@ impl ryne_extensions::DiagramRenderer for MermanRenderer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use editable_markdown_parser::Source;
+    use ryne_parser::Source;
     use ryne_syntax::ParseSnapshot;
     #[test]
     fn extracts_only_closed_mermaid_fences_and_preserves_container_bytes() {

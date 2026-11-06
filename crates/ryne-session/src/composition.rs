@@ -1,6 +1,6 @@
 //! Temporary input and its source mapping belong to the session, never to GUI geometry.
 use super::*;
-use editable_markdown_parser::Session;
+use ryne_parser::Session;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Composition {
@@ -26,10 +26,7 @@ impl EditorSession {
             std::borrow::Cow::Owned(self.editable_text())
         }
     }
-    pub fn editable_utf16_to_byte(
-        &self,
-        units: usize,
-    ) -> Result<usize, editable_markdown_parser::Error> {
+    pub fn editable_utf16_to_byte(&self, units: usize) -> Result<usize, ryne_parser::Error> {
         let index = self.parse.utf16();
         let Some(c) = &self.composition else {
             return index.utf16_to_byte(units);
@@ -40,8 +37,7 @@ impl EditorSession {
         }
         let added = c.text.encode_utf16().count();
         if units - prefix <= added {
-            return editable_markdown_parser::utf16_to_utf8(&c.text, units - prefix)
-                .map(|p| c.range.start + p);
+            return ryne_parser::utf16_to_utf8(&c.text, units - prefix).map(|p| c.range.start + p);
         }
         let removed = index.byte_to_utf16(c.range.end)? - prefix;
         index
@@ -49,14 +45,11 @@ impl EditorSession {
                 units
                     .checked_sub(added)
                     .and_then(|u| u.checked_add(removed))
-                    .ok_or(editable_markdown_parser::Error::InvalidRange)?,
+                    .ok_or(ryne_parser::Error::InvalidRange)?,
             )
             .map(|p| p - c.range.len() + c.text.len())
     }
-    pub fn editable_byte_to_utf16(
-        &self,
-        position: usize,
-    ) -> Result<usize, editable_markdown_parser::Error> {
+    pub fn editable_byte_to_utf16(&self, position: usize) -> Result<usize, ryne_parser::Error> {
         let index = self.parse.utf16();
         let Some(c) = &self.composition else {
             return index.byte_to_utf16(position);
@@ -70,12 +63,12 @@ impl EditorSession {
                 .text
                 .get(..position - c.range.start)
                 .map(|s| prefix + s.encode_utf16().count())
-                .ok_or(editable_markdown_parser::Error::InvalidRange);
+                .ok_or(ryne_parser::Error::InvalidRange);
         }
         let at = position
             .checked_sub(c.text.len())
             .and_then(|p| p.checked_add(c.range.len()))
-            .ok_or(editable_markdown_parser::Error::InvalidRange)?;
+            .ok_or(ryne_parser::Error::InvalidRange)?;
         let removed = index.byte_to_utf16(c.range.end)? - prefix;
         Ok(index.byte_to_utf16(at)? - removed + c.text.encode_utf16().count())
     }

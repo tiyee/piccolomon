@@ -139,7 +139,7 @@ fn recovering_from_a_duplicate_still_publishes_the_original_command() {
         }
     }
     let registry = Registry::build(&[&Recover]).unwrap();
-    let state = EditingState::new(editable_markdown_parser::Source::new("unchanged"));
+    let state = EditingState::new(ryne_parser::Source::new("unchanged"));
     let services = FeatureServices {
         formulas: &NoMath,
         planning: Default::default(),

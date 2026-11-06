@@ -1,7 +1,7 @@
 //! Quote line context comes from parser-owned container prefixes.
 use crate::ParseSnapshot;
 use crate::{list, parser};
-use editable_markdown_parser::{NodeKind, TokenKind};
+use ryne_parser::{NodeKind, TokenKind};
 use std::ops::Range;
 
 pub struct Row {
@@ -24,7 +24,7 @@ pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Row> {
                 && caret <= line.start + text[(*line).clone()].trim_end_matches(['\r', '\n']).len()
         })?;
     let end = line.start + text[line.clone()].trim_end_matches(['\r', '\n']).len();
-    let quote_token = |token: &&editable_markdown_parser::SyntaxToken| {
+    let quote_token = |token: &&ryne_parser::SyntaxToken| {
         token.kind == TokenKind::ContainerPrefix
             && parse.nodes[token.owner].kind == NodeKind::BlockQuote
     };

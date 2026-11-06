@@ -484,7 +484,7 @@ impl ryne_extensions::SyntaxHighlighter for CodeHighlighter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use editable_markdown_parser::Source;
+    use ryne_parser::Source;
     use ryne_syntax::code_block;
     use ryne_syntax::ParseSnapshot;
 

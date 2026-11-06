@@ -1,7 +1,7 @@
 //! Block controls refer to the same semantic AST and source as the editor.
 use crate::ParseSnapshot;
 use crate::{code_block, list, table};
-use editable_markdown_parser::NodeKind;
+use ryne_parser::NodeKind;
 use std::ops::Range;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -336,7 +336,7 @@ mod oracle;
 #[cfg(test)]
 mod indexed_tests {
     use super::*;
-    use editable_markdown_parser::Source;
+    use ryne_parser::Source;
     #[test]
     fn warm_queries_do_not_rebuild_snapshot_indexes_and_snapshots_release() {
         for unit in [
@@ -442,7 +442,7 @@ mod indexed_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use editable_markdown_parser::Source;
+    use ryne_parser::Source;
 
     fn block(text: &str, needle: &str) -> Block {
         at(

@@ -1,7 +1,7 @@
 //! Read-only semantic facade. Keeps backend parsing and container lookup here.
 use crate::ParseSnapshot;
 use crate::{block, code_block, list, table};
-use editable_markdown_parser::SnapshotId;
+use ryne_parser::SnapshotId;
 
 pub struct SemanticQuery<'a> {
     parse: &'a ParseSnapshot,
@@ -56,7 +56,7 @@ impl<'a> SemanticQuery<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use editable_markdown_parser::Source;
+    use ryne_parser::Source;
     #[test]
     fn queries_preserve_container_bytes_and_reject_foreign_ranges() {
         for newline in ["\n", "\r\n", "\r"] {

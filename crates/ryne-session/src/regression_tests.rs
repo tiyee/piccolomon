@@ -1,6 +1,6 @@
 use super::*;
-use editable_markdown_parser::{Affinity, NodeKind};
 use ryne_features::templates::{MarkdownTemplate, ITEMS};
+use ryne_parser::{Affinity, NodeKind};
 use ryne_services::highlight::{Class, CodeHighlighter};
 use ryne_syntax::{code_block, list, table};
 pub(super) fn services() -> SessionServices {
@@ -1597,8 +1597,8 @@ mod highlighting {
             assert_eq!(highlighted.text, plain.text);
             for (position, _) in highlighted.text.char_indices() {
                 for affinity in [
-                    editable_markdown_parser::Affinity::Upstream,
-                    editable_markdown_parser::Affinity::Downstream,
+                    ryne_parser::Affinity::Upstream,
+                    ryne_parser::Affinity::Downstream,
                 ] {
                     assert_eq!(
                         highlighted.source_at(position, affinity),

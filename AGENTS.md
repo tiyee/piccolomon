@@ -3,7 +3,7 @@
 ## 产品目标与需求解释
 
 - 本项目交付原生桌面 GUI，不发布 crate。当前采用 Rust、GPUI 和
-  `editable_markdown_parser`，最小工作流是单窗口、单文件打开、编辑和保存。
+  仓库内的 `ryne-parser`，最小工作流是单窗口、单文件打开、编辑和保存。
 - 核心功能是 Markdown 就地编辑与标记显隐。非核心功能可以后续迭代，但不能
   用普通文本输入代替已明确要求的 Markdown 结构呈现。
 - 用户所说的“多行”指**有序列表、无序列表、引用、代码块等跨行 Markdown
@@ -164,7 +164,7 @@
   最初因解析包 0.0.4 精确锁定 unicode-segmentation 1.12.0 而采用 0.7.0。
   图表资源键绑定注册贡献与渲染器实例；导出只使用可冻结的功能和图表服务，
   附加功能尚无快照协议时明确拒绝导出，交互与导出共享图表资源校验。
-  当前解析包已升级至 0.0.5，统一锁定 unicode-segmentation 1.13.3（Unicode 17），
+  解析器在并入工作区前已升级至 0.0.5，统一锁定 unicode-segmentation 1.13.3（Unicode 17），
   并联动 pulldown-cmark 0.13.5；原 Unicode 依赖冲突已解除。
   Merman 已迁移至 0.9.2 的类型化操作请求与托管语义 JSON，资源及图像缓存仍由宿主管理。
 - 已将单行 `$LaTeX$` 公式切换为 math-core 0.5.5 → Formulary 0.3.0，嵌入 Lete Sans Math 0.63（默认）和 STIX Two Math；Ryne 菜单下“数学字体”即时切换并持久化。
@@ -270,7 +270,7 @@
   旧 enabled；未知提供者不能在未声明依赖时强行按源码缓存；识别超时重试必须有收敛策略。
   扩展能力后续包括按贡献冻结导出依赖、可执行的范围装饰组合、收敛 SemanticQuery、按目标
   验证动作及可观测的历史预算；当前 additional 模块仍整体阻止导出，Decoration 仍无外部组合协议。
-  保留九包分层；先消除上述重复工作并建立真实窗口阶段计时、布局构建计数、命中率及峰值内存基准，
+  保留现有分层；先消除上述重复工作并建立真实窗口阶段计时、布局构建计数、命中率及峰值内存基准，
   再推进大文件 P3–P5，不据此先行更换解析器、引入 rope 或重写架构。
 
 - 已按低副作用排序完成上述五项修复：R4 语言标记范围经 SemanticQuery 使用快照的代码节点索引，
@@ -309,8 +309,10 @@
 
 ## 代码与资料
 
-- 根 `Cargo.toml` 定义 9 个私有 workspace 包，均带 `ryne-` 前缀、`publish = false`；
+- 根 `Cargo.toml` 定义 10 个私有 workspace 包，均带 `ryne-` 前缀、`publish = false`；
   应用包为 `ryne-app`，可执行文件仍为 `ryne`。在当前分支开发，不恢复已删除的 C++。
+- `crates/ryne-parser`：从 `editable_markdown_parser` v0.0.5（`e5997e2`）复制的解析与编辑原语，
+  包含原库测试、GFM 固定样例及许可。后续在本仓库维护，其他包通过 workspace 路径依赖使用。
 - `crates/ryne-core`：唯一已提交源码、带文档身份的范围、候选事务、历史与保存基线。
 - `crates/ryne-syntax`：解析适配和裸 CR 语义视图，以及 `block/list/table/code_block/math`
   的只读 AST 范围、完整容器前缀与语义提取，不依赖 GPUI。
@@ -395,9 +397,9 @@
 - `docs/11_GPUI_Typora_Hybrid_View_Spec.md` 提供块级呈现与结构编辑的详细规格；
   用户后续明确指令优先，尤其保留标题仅点击显示标记、悬停不展开的要求。
 - `docs/12_Editable_Markdown_Parser_0.0.3_Review.md` 记录解析包评估；完整架构
-  文档不等于当前功能已经实现。不要仅为 GUI 开发而修改或发布解析包。
+  文档不等于当前功能已经实现。GUI 交互由编辑器各层负责，解析与源码编辑原语在本仓库维护。
 - 保持现有依赖锁定：GPUI `0.2.2`（启用 `runtime_shaders`）、
-  `editable_markdown_parser` 已发布版 `0.0.5`（启用可选公式 API）、
+  `ryne-parser` 使用 `pulldown-cmark =0.13.5`（编辑器启用可选公式 API）、
   `unicode-segmentation =1.13.3`（与解析器统一使用 Unicode 17）；
   不再依赖相邻解析库仓库的本地源码。其余版本调整须有具体必要性。
 

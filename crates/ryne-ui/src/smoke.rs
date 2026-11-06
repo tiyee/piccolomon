@@ -730,12 +730,12 @@ impl Editor {
                             editor.toggle_block_source(&ToggleBlockSource, window, cx);
                         }
                         30 => {
-                            check_eq!(geometry.display.tables[0].source.align[1], editable_markdown_parser::Alignment::Right);
+                            check_eq!(geometry.display.tables[0].source.align[1], ryne_parser::Alignment::Right);
                             let offset = geometry.display.tables[0].rows[1][1].start;
                             let row = geometry.row_for(offset, Affinity::Downstream).ok_or("missing aligned table row")?;
                             check_eq!(geometry.lines[row.line].align, TextAlign::Right);
                             editor.undo(&Undo, window, cx);
-                            check_eq!(editor.viewport.display.tables[0].source.align[1], editable_markdown_parser::Alignment::Center);
+                            check_eq!(editor.viewport.display.tables[0].source.align[1], ryne_parser::Alignment::Center);
                             editor.document = editor.document.fork("| | |\n| --- | --- |\n| | |\n");
                             editor.move_to(0, false, cx);
                         }

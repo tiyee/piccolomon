@@ -1,5 +1,5 @@
 //! Isolated release block queries. Arguments: sizes in KiB, samples, rounds, corpus.
-use editable_markdown_parser::Source;
+use ryne_parser::Source;
 use ryne_syntax::{block, ParseSnapshot};
 use std::{hint::black_box, time::Instant};
 

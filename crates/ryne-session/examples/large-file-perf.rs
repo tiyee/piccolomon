@@ -1,8 +1,8 @@
 //! Headless large-file diagnosis. Run with --release; this excludes GUI layout/paint.
 //! Arguments: corpus (plain/formatted/code/list/table/quote/long-line), sizes (MiB or KiB with k), samples (3).
 //! Optional fourth argument: lf/crlf/cr. Default sizes: 1,10. No warmup.
-use editable_markdown_parser::Edit;
 use ryne_core::PreparedEdit;
+use ryne_parser::Edit;
 use ryne_session::{EditorSession, SessionServices};
 use ryne_syntax::ParseSnapshot;
 use std::{hint::black_box, sync::Arc, time::Instant};

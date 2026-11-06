@@ -52,7 +52,7 @@ fn main() {
         let store = ryne_services::files::AtomicFileStore;
         assert_eq!(store.read(&alias).unwrap(), "original");
         store
-            .write(&alias, &editable_markdown_parser::Source::new("edited"))
+            .write(&alias, &ryne_parser::Source::new("edited"))
             .unwrap();
         let is_link = std::fs::symlink_metadata(&alias)
             .unwrap()
