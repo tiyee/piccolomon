@@ -17,8 +17,8 @@ Ryne’s menus and editable welcome guide are available in Simplified Chinese, T
 
 ## Get Ryne
 
-- **Windows 10 or 11 (64-bit x64).** Download the ZIP ending in `win-x86_64.zip`, extract it, and open `Ryne.exe` inside the `Ryne` folder. The release page requires a GitHub account with access to the repository. [Ryne downloads](https://github.com/tiyee/ryne/releases)
-- **macOS.** If you have a copy of `Ryne.app`, drag it to Applications and open it. You can also open a Markdown file from Finder with **Open With → Ryne**. The v0.2.6 download is for Windows only.
+- **Windows 10 or 11 (64-bit x64).** Download the ZIP ending in `win-x86_64.zip`, extract it, and open `Ryne.exe` inside the `Ryne` folder. [Ryne downloads](https://github.com/tiyee/ryne/releases)
+- **macOS.** Choose the ZIP ending in `mac-arm_64.zip` for Apple Silicon or `mac-x86_64.zip` for Intel. Extract it, drag `Ryne.app` to Applications, and open it. You can also open a Markdown file from Finder with **Open With → Ryne**. [Ryne downloads](https://github.com/tiyee/ryne/releases)
 
 ## Write your first note
 

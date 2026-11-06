@@ -19,8 +19,8 @@
 
 ## 安装与打开
 
-- **Windows 10 或 11（x64）。** 下载文件名以 `win-x86_64.zip` 结尾的压缩包，解压后打开 `Ryne` 文件夹，双击 `Ryne.exe`。下载页面需要使用有仓库访问权限的 GitHub 账号登录。[下载如言](https://github.com/tiyee/ryne/releases)
-- **macOS。** 如果你已拿到 `Ryne.app`，将它拖入“应用程序”文件夹后打开。也可以在访达中右键点按 Markdown 文件，选择**打开方式 → Ryne**。v0.2.6 发布页仅提供 Windows 下载包。
+- **Windows 10 或 11（x64）。** 下载文件名以 `win-x86_64.zip` 结尾的压缩包，解压后打开 `Ryne` 文件夹，双击 `Ryne.exe`。[下载如言](https://github.com/tiyee/ryne/releases)
+- **macOS。** Apple 芯片选择以 `mac-arm_64.zip` 结尾的压缩包，Intel 芯片选择 `mac-x86_64.zip`。解压后将 `Ryne.app` 拖入“应用程序”文件夹并打开。也可以在访达中右键点按 Markdown 文件，选择**打开方式 → Ryne**。[下载如言](https://github.com/tiyee/ryne/releases)
 
 ## 写第一篇笔记
 

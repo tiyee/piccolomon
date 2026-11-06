@@ -3,7 +3,7 @@ use ryne_extensions::{UpdateChecker, UpdateStatus};
 use std::{io::Read, time::Duration};
 
 pub struct GithubUpdates;
-const REPOSITORY: &str = "https://github.com/tiyee/ryne";
+const REPOSITORY: &str = "tiyee/ryne";
 impl UpdateChecker for GithubUpdates {
     fn check(&self, current: &str) -> Result<UpdateStatus, String> {
         let agent: ureq::Agent = ureq::Agent::config_builder()
@@ -11,7 +11,9 @@ impl UpdateChecker for GithubUpdates {
             .build()
             .into();
         let mut response = match agent
-            .get("https://api.github.com/repos/tiyee/ryne/releases/latest")
+            .get(format!(
+                "https://api.github.com/repos/{REPOSITORY}/releases/latest"
+            ))
             .header("User-Agent", "Ryne")
             .header("Accept", "application/vnd.github+json")
             .call()
@@ -47,7 +49,7 @@ fn parse_release(body: &str, current: &str) -> Result<UpdateStatus, String> {
     // Build a trusted repository URL instead of opening arbitrary response data.
     Ok(UpdateStatus::Available {
         version: version.to_string(),
-        url: format!("{REPOSITORY}/releases/latest"),
+        url: format!("https://github.com/{REPOSITORY}/releases/latest"),
     })
 }
 #[cfg(test)]
