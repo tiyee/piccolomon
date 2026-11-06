@@ -220,6 +220,7 @@ impl EditorElement {
             if let Some(error) = &frame.geometry.math_error {
                 editor.status = editor.locale.language.error(Text::FormulaFailed, error);
             }
+            editor.follow_outline(&frame.geometry, cx);
             editor.viewport.scroll = frame.geometry.scroll;
             editor.viewport.geometry = Some(frame.geometry.clone());
             editor.viewport.ensure_caret = false;

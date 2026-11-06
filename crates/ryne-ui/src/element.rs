@@ -6,7 +6,7 @@ pub(super) struct EditorElement {
     pub(super) editor: Entity<Editor>,
 }
 
-struct ModeTooltip(&'static str);
+pub(super) struct ModeTooltip(pub(super) &'static str);
 
 impl Render for ModeTooltip {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
@@ -364,8 +364,10 @@ impl Render for Editor {
         let extension_depth = extension_line_height
             - text_system.baseline_offset(extension_font, px(12.), extension_line_height);
         let baseline_depth = stem_depth.max(extension_depth);
+        let dock = self.sidebar_geometry(window);
+        let sidebar = self.sidebar_view(cx);
         let toolbar_page = theme::Page::new(
-            f32::from(window.bounds().size.width),
+            f32::from(window.viewport_size().width) - dock,
             self.document.source_mode,
         );
         let title = format!(
@@ -377,7 +379,7 @@ impl Render for Editor {
             window.set_window_title(&title);
             self.viewport.window_title = Some(title);
         }
-        div()
+        let root = div()
             .size_full()
             .flex()
             .flex_col()
@@ -385,8 +387,18 @@ impl Render for Editor {
             .text_color(rgb(theme::INK))
             .font_family(".SystemUIFont")
             .text_size(px(13.))
-            .key_context("MarkdownEditor")
-            .capture_key_down(cx.listener(Self::render_shortcut))
+            .key_context("RyneWindow")
+            .on_action(cx.listener(Self::open_folder))
+            .on_action(cx.listener(Self::sidebar_toggle))
+            .on_mouse_move(cx.listener(Self::sidebar_resize_move))
+            .on_mouse_up(
+                MouseButton::Left,
+                cx.listener(|s, _, _, cx| s.sidebar_resize_end(cx)),
+            )
+            .on_mouse_up_out(
+                MouseButton::Left,
+                cx.listener(|s, _, _, cx| s.sidebar_resize_end(cx)),
+            )
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|editor, _, _, cx| {
@@ -399,30 +411,6 @@ impl Render for Editor {
                     }
                 }),
             )
-            .on_action(cx.listener(Self::left))
-            .on_action(cx.listener(Self::right))
-            .on_action(cx.listener(Self::up))
-            .on_action(cx.listener(Self::down))
-            .on_action(cx.listener(Self::select_left))
-            .on_action(cx.listener(Self::select_right))
-            .on_action(cx.listener(Self::select_up))
-            .on_action(cx.listener(Self::select_down))
-            .on_action(cx.listener(Self::home))
-            .on_action(cx.listener(Self::end))
-            .on_action(cx.listener(Self::select_home))
-            .on_action(cx.listener(Self::select_end))
-            .on_action(cx.listener(Self::backspace))
-            .on_action(cx.listener(Self::delete))
-            .on_action(cx.listener(Self::enter))
-            .on_action(cx.listener(Self::hard_break))
-            .on_action(cx.listener(Self::tab))
-            .on_action(cx.listener(Self::outdent))
-            .on_action(cx.listener(Self::select_all))
-            .on_action(cx.listener(Self::copy))
-            .on_action(cx.listener(Self::cut))
-            .on_action(cx.listener(Self::paste))
-            .on_action(cx.listener(Self::undo))
-            .on_action(cx.listener(Self::redo))
             .on_action(cx.listener(Self::about))
             .on_action(cx.listener(Self::change_language))
             .on_action(cx.listener(Self::change_math_font))
@@ -437,10 +425,6 @@ impl Render for Editor {
             .on_action(cx.listener(Self::open))
             .on_action(cx.listener(Self::save))
             .on_action(cx.listener(Self::save_as))
-            .on_action(cx.listener(Self::format_source))
-            .on_action(cx.listener(Self::toggle_source))
-            .on_action(cx.listener(Self::toggle_block_source))
-            .on_action(cx.listener(Self::escape))
             .on_action(cx.listener(Self::quit))
             .when(
                 cfg!(target_os = "macos") && !window.is_fullscreen() && !cfg!(test),
@@ -453,7 +437,13 @@ impl Render for Editor {
             )
             .when(cfg!(any(not(target_os = "macos"), test)), |view| {
                 view.child(self.window_header(window, cx))
-            })
+            });
+        let right = div()
+            .flex()
+            .flex_col()
+            .flex_1()
+            .min_w_0()
+            .h_full()
             .child(
                 div()
                     .flex()
@@ -511,7 +501,40 @@ impl Render for Editor {
                             .items_center()
                             .child(
                                 div()
+                                    .id("toggle-sidebar")
+                                    .debug_selector(|| "toggle-sidebar".into())
+                                    .size(px(28.))
+                                    .flex_shrink_0()
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .cursor_pointer()
+                                    .tooltip({
+                                        let label = self.locale.language.text(Text::Sidebar);
+                                        move |_, cx| cx.new(|_| ModeTooltip(label)).into()
+                                    })
+                                    .child(
+                                        svg()
+                                            .path(if sidebar.is_some() {
+                                                "icon:panel_left_expand"
+                                            } else {
+                                                "icon:panel_right_expand"
+                                            })
+                                            .size(px(18.))
+                                            .text_color(rgb(theme::INK)),
+                                    )
+                                    .on_mouse_down(
+                                        MouseButton::Left,
+                                        cx.listener(|s, _, w, cx| {
+                                            cx.stop_propagation();
+                                            s.sidebar_toggle(&ToggleSidebar, w, cx)
+                                        }),
+                                    ),
+                            )
+                            .child(
+                                div()
                                     .id("format-source")
+                                    .debug_selector(|| "format-source".into())
                                     .size(px(28.))
                                     .flex_shrink_0()
                                     .flex()
@@ -542,6 +565,7 @@ impl Render for Editor {
                             .child(
                                 div()
                                     .id("toggle-source")
+                                    .debug_selector(|| "toggle-source".into())
                                     .size(px(28.))
                                     .flex_shrink_0()
                                     .flex()
@@ -586,6 +610,36 @@ impl Render for Editor {
                     // root also consumes Windows non-client titlebar presses,
                     // suppressing native dragging and all three window buttons.
                     .track_focus(&self.focus)
+                    .key_context("MarkdownEditor")
+                    .capture_key_down(cx.listener(Self::render_shortcut))
+                    .on_action(cx.listener(Self::left))
+                    .on_action(cx.listener(Self::right))
+                    .on_action(cx.listener(Self::up))
+                    .on_action(cx.listener(Self::down))
+                    .on_action(cx.listener(Self::select_left))
+                    .on_action(cx.listener(Self::select_right))
+                    .on_action(cx.listener(Self::select_up))
+                    .on_action(cx.listener(Self::select_down))
+                    .on_action(cx.listener(Self::home))
+                    .on_action(cx.listener(Self::end))
+                    .on_action(cx.listener(Self::select_home))
+                    .on_action(cx.listener(Self::select_end))
+                    .on_action(cx.listener(Self::backspace))
+                    .on_action(cx.listener(Self::delete))
+                    .on_action(cx.listener(Self::enter))
+                    .on_action(cx.listener(Self::hard_break))
+                    .on_action(cx.listener(Self::tab))
+                    .on_action(cx.listener(Self::outdent))
+                    .on_action(cx.listener(Self::select_all))
+                    .on_action(cx.listener(Self::copy))
+                    .on_action(cx.listener(Self::cut))
+                    .on_action(cx.listener(Self::paste))
+                    .on_action(cx.listener(Self::undo))
+                    .on_action(cx.listener(Self::redo))
+                    .on_action(cx.listener(Self::format_source))
+                    .on_action(cx.listener(Self::toggle_source))
+                    .on_action(cx.listener(Self::toggle_block_source))
+                    .on_action(cx.listener(Self::escape))
                     .flex_1()
                     .min_h_0()
                     .overflow_hidden()
@@ -626,6 +680,15 @@ impl Render for Editor {
                     } else {
                         self.locale.language.text(Text::LivePreview)
                     }),
-            )
+            );
+        let body = div().relative().flex().flex_1().min_h_0().w_full();
+        let body = match sidebar {
+            Some(panel) if dock > 0. => body.child(panel).child(right),
+            Some(panel) => body
+                .child(right)
+                .child(div().absolute().top_0().bottom_0().left_0().child(panel)),
+            None => body.child(right),
+        };
+        root.child(body)
     }
 }

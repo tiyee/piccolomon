@@ -4,6 +4,7 @@ use ryne_extensions::{RenderAction, RenderActionRequest, RenderControl, RenderSh
 
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct RenderFrameKey {
+    sidebar_layout: u64,
     document: SnapshotId,
     epoch: u64,
     bounds: Bounds<Pixels>,
@@ -61,6 +62,7 @@ impl RenderRegion {
 impl Geometry {
     pub(super) fn render_key(&self, viewport: Size<Pixels>) -> RenderFrameKey {
         RenderFrameKey {
+            sidebar_layout: self.sidebar_layout,
             document: self.snapshot,
             epoch: self.frame_epoch,
             bounds: self.bounds,

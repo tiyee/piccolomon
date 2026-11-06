@@ -7,11 +7,17 @@ pub struct FileSession {
     pub path: Option<PathBuf>,
     pub saving: bool,
     pub(crate) binding: Option<(PathBuf, PathBuf)>,
-    pub(crate) active: Option<u64>,
+    pub(crate) active: Option<(u64, PathBuf)>,
     pub(crate) queued: Option<SaveRequest>,
     pub(crate) next: u64,
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SaveIntent {
+    Save,
+    SaveAs,
+}
 pub struct SaveRequest {
+    pub(crate) intent: SaveIntent,
     pub(crate) id: u64,
     pub(crate) snapshot: Source,
     pub(crate) path: PathBuf,
@@ -19,18 +25,32 @@ pub struct SaveRequest {
     pub(crate) target: Option<PathBuf>,
 }
 pub struct SaveReceipt {
+    pub(crate) intent: SaveIntent,
     pub(crate) id: u64,
     pub(crate) snapshot: Source,
     pub(crate) path: PathBuf,
     pub(crate) result: std::io::Result<PathBuf>,
 }
 pub struct SaveCompletion {
+    pub intent: SaveIntent,
     pub accepted: bool,
     pub error: Option<String>,
     pub next: Option<SaveRequest>,
     pub clean: bool,
 }
+impl FileSession {
+    /// Display path of the write actually in progress (also for Save As).
+    pub fn saving_path(&self) -> Option<&std::path::Path> {
+        self.active.as_ref().map(|(_, path)| path.as_path())
+    }
+}
 impl SaveRequest {
+    pub(crate) fn active_write(&self) -> (u64, PathBuf) {
+        (
+            self.id,
+            std::path::absolute(&self.path).unwrap_or_else(|_| self.path.clone()),
+        )
+    }
     pub fn run(self) -> SaveReceipt {
         // Always return a terminal receipt so a failed service cannot strand
         // active/saving or prevent the next queued snapshot from being written.
@@ -44,6 +64,7 @@ impl SaveRequest {
         }))
         .unwrap_or_else(|_| Err(std::io::Error::other("file write callback panicked")));
         SaveReceipt {
+            intent: self.intent,
             id: self.id,
             snapshot: self.snapshot,
             path: self.path,

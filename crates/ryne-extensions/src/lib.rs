@@ -501,12 +501,14 @@ pub trait UpdateChecker: Send + Sync {
 }
 #[derive(Clone)]
 pub struct DesktopServices {
+    pub directories: Arc<dyn directory::DirectoryBrowser>,
     pub exports: ExportRegistry,
     pub artifacts: Arc<dyn ArtifactStore>,
     pub updates: Arc<dyn UpdateChecker>,
 }
 
 mod block_metadata;
+pub mod directory;
 
 mod projection;
 pub use projection::{project_checked, ProjectionBatch};

@@ -25,6 +25,7 @@ pub(super) fn test_editor(cx: &mut Context<Editor>) -> Editor {
     let mut editor = Editor::new(
         document,
         DesktopServices {
+            directories: Arc::new(ryne_services::directory::LocalDirectory),
             exports: ExportRegistry::new(vec![]).expect("test exports"),
             artifacts: Arc::new(ryne_services::files::AtomicArtifactStore),
             updates: Arc::new(ryne_services::updates::GithubUpdates),

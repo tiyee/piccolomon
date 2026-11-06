@@ -56,6 +56,7 @@ fn main() {
     ryne_ui::run(
         services,
         ryne_ui::DesktopServices {
+            directories: Arc::new(ryne_services::directory::LocalDirectory),
             exports,
             artifacts: Arc::new(ryne_services::files::AtomicArtifactStore),
             updates: Arc::new(ryne_services::updates::GithubUpdates),

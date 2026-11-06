@@ -76,6 +76,7 @@ impl EditorElement {
         let controls = &editor.viewport.control_index;
         let control_index = &controls.cells;
         let mut geometry = Geometry {
+            sidebar_layout: editor.sidebar.layout_generation,
             snapshot: editor.document.source.id(),
             frame_epoch: editor.viewport.frame_epoch,
             display: layout.display.clone(),
@@ -105,7 +106,8 @@ impl EditorElement {
         };
         if let Some(previous) = editor.viewport.geometry.as_ref().filter(|previous| {
             previous.snapshot == editor.document.source.id()
-                && (previous.page != page
+                && (previous.sidebar_layout != editor.sidebar.layout_generation
+                    || previous.page != page
                     || previous.source_mode != editor.document.source_mode
                     || previous.display.formulas != display.formulas)
         }) && let Some(row) = previous
@@ -124,7 +126,16 @@ impl EditorElement {
             }
         }
         let caret = display.snap(display.position_at(editor.caret()));
-        if editor.viewport.ensure_caret {
+        let jump = editor.sidebar.jump.filter(|(id, _)| {
+            *id == editor.document.source.id()
+                && editor.document.composition().is_none()
+                && !editor.viewport.dragging
+        });
+        if let Some((_, anchor)) = jump
+            && let Some(row) = geometry.row_for(display.position_at(anchor), Affinity::Downstream)
+        {
+            geometry.scroll = px(page.top) + row.top;
+        } else if editor.viewport.ensure_caret {
             let position =
                 geometry.position_with_affinity(caret, editor.caret_state.caret_affinity);
             if position.y < bounds.top() + px(8.) {

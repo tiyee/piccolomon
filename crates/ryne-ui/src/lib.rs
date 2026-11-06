@@ -26,7 +26,10 @@ mod profile;
 mod recent;
 mod recovery;
 mod render_controls;
+mod sidebar;
 mod smoke;
+#[cfg(windows)]
+mod windows_activation;
 pub use smoke::smoke_features;
 mod text_layout;
 mod theme;
@@ -84,6 +87,8 @@ actions!(
         ClearRecent,
         NoRecent,
         Open,
+        OpenFolder,
+        ToggleSidebar,
         Save,
         SaveAs,
         FormatSource,
@@ -104,6 +109,7 @@ fn heading_metrics(level: u8) -> (f32, f32) {
 }
 
 struct Editor {
+    sidebar: sidebar::SidebarState,
     document: Document,
     desktop: DesktopServices,
     formulas: std::sync::Arc<dyn FormulaRenderer>,
@@ -383,6 +389,7 @@ impl Editor {
             .cached_project_batch(&document, Some(highlighter.as_mut()), &[])
             .display;
         let mut editor = Self {
+            sidebar: sidebar::SidebarState::new(document.files.path.as_deref(), cx),
             document,
             desktop,
             formulas,
@@ -1278,6 +1285,58 @@ impl Editor {
     }
 }
 
+fn bind_window_keys(cx: &mut App) {
+    cx.bind_keys([
+        KeyBinding::new("left", Left, Some("MarkdownEditor")),
+        KeyBinding::new("right", Right, Some("MarkdownEditor")),
+        KeyBinding::new("up", Up, Some("MarkdownEditor")),
+        KeyBinding::new("down", Down, Some("MarkdownEditor")),
+        KeyBinding::new("shift-left", SelectLeft, Some("MarkdownEditor")),
+        KeyBinding::new("shift-right", SelectRight, Some("MarkdownEditor")),
+        KeyBinding::new("shift-up", SelectUp, Some("MarkdownEditor")),
+        KeyBinding::new("shift-down", SelectDown, Some("MarkdownEditor")),
+        KeyBinding::new("home", Home, Some("MarkdownEditor")),
+        KeyBinding::new("end", End, Some("MarkdownEditor")),
+        KeyBinding::new("shift-home", SelectHome, Some("MarkdownEditor")),
+        KeyBinding::new("shift-end", SelectEnd, Some("MarkdownEditor")),
+        KeyBinding::new("cmd-left", Home, Some("MarkdownEditor")),
+        KeyBinding::new("cmd-right", End, Some("MarkdownEditor")),
+        KeyBinding::new("cmd-shift-left", SelectHome, Some("MarkdownEditor")),
+        KeyBinding::new("cmd-shift-right", SelectEnd, Some("MarkdownEditor")),
+        KeyBinding::new("backspace", Backspace, Some("MarkdownEditor")),
+        KeyBinding::new("delete", Delete, Some("MarkdownEditor")),
+        KeyBinding::new("enter", Enter, Some("MarkdownEditor")),
+        KeyBinding::new("shift-enter", HardBreak, Some("MarkdownEditor")),
+        KeyBinding::new("tab", Tab, Some("MarkdownEditor")),
+        KeyBinding::new("shift-tab", Outdent, Some("MarkdownEditor")),
+        KeyBinding::new("cmd-a", SelectAll, Some("MarkdownEditor")),
+        KeyBinding::new("cmd-c", Copy, Some("MarkdownEditor")),
+        KeyBinding::new("cmd-x", Cut, Some("MarkdownEditor")),
+        KeyBinding::new("cmd-v", Paste, Some("MarkdownEditor")),
+        KeyBinding::new("cmd-z", Undo, Some("MarkdownEditor")),
+        KeyBinding::new("cmd-shift-z", Redo, Some("MarkdownEditor")),
+        KeyBinding::new("cmd-\\", ToggleSidebar, Some("RyneWindow")),
+        KeyBinding::new("cmd-n", New, Some("RyneWindow")),
+        KeyBinding::new("cmd-h", Hide, Some("RyneWindow")),
+        KeyBinding::new("cmd-shift-r", Reload, Some("RyneWindow")),
+        KeyBinding::new("cmd-shift-e", ExportPdf, Some("RyneWindow")),
+        KeyBinding::new("cmd-o", Open, Some("RyneWindow")),
+        KeyBinding::new("cmd-s", Save, Some("RyneWindow")),
+        KeyBinding::new("cmd-shift-s", SaveAs, Some("RyneWindow")),
+        KeyBinding::new("cmd-shift-m", ToggleSource, Some("MarkdownEditor")),
+        KeyBinding::new("cmd-shift-b", ToggleBlockSource, Some("MarkdownEditor")),
+        KeyBinding::new("escape", Escape, Some("MarkdownEditor")),
+        KeyBinding::new("cmd-q", Quit, Some("RyneWindow")),
+    ]);
+    #[cfg(windows)]
+    cx.bind_keys([
+        KeyBinding::new("ctrl-\\", ToggleSidebar, Some("RyneWindow")),
+        KeyBinding::new("ctrl-o", Open, Some("RyneWindow")),
+        KeyBinding::new("ctrl-s", Save, Some("RyneWindow")),
+        KeyBinding::new("ctrl-shift-s", SaveAs, Some("RyneWindow")),
+    ]);
+}
+
 pub fn run(
     services: SessionServices,
     desktop: DesktopServices,
@@ -1302,8 +1361,22 @@ pub fn run(
         math_font.font = MathFont::default();
     }
     formulas.set_font(math_font.font);
-    let path = argument.filter(|_| !smoke).map(PathBuf::from);
+    let path = argument
+        .filter(|_| !smoke)
+        .map(PathBuf::from)
+        .map(|p| std::path::absolute(&p).unwrap_or(p));
     let (open_url_sender, open_url_receiver) = async_channel::unbounded::<PathBuf>();
+    #[cfg(windows)]
+    if !smoke
+        && let Some(dir) =
+            i18n::preference_path().and_then(|p| p.parent().map(std::path::Path::to_owned))
+    {
+        match windows_activation::start(&dir, path.as_deref(), open_url_sender.clone()) {
+            Ok(true) => return,
+            Ok(false) => (),
+            Err(e) => eprintln!("Ryne file activation: {e}"),
+        }
+    }
     let application = Application::new().with_assets(crate::assets::Assets {
         formulas: formulas.clone(),
     });
@@ -1313,47 +1386,7 @@ pub fn run(
         }
     });
     application.run(move |cx: &mut App| {
-        cx.bind_keys([
-            KeyBinding::new("left", Left, Some("MarkdownEditor")),
-            KeyBinding::new("right", Right, Some("MarkdownEditor")),
-            KeyBinding::new("up", Up, Some("MarkdownEditor")),
-            KeyBinding::new("down", Down, Some("MarkdownEditor")),
-            KeyBinding::new("shift-left", SelectLeft, Some("MarkdownEditor")),
-            KeyBinding::new("shift-right", SelectRight, Some("MarkdownEditor")),
-            KeyBinding::new("shift-up", SelectUp, Some("MarkdownEditor")),
-            KeyBinding::new("shift-down", SelectDown, Some("MarkdownEditor")),
-            KeyBinding::new("home", Home, Some("MarkdownEditor")),
-            KeyBinding::new("end", End, Some("MarkdownEditor")),
-            KeyBinding::new("shift-home", SelectHome, Some("MarkdownEditor")),
-            KeyBinding::new("shift-end", SelectEnd, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-left", Home, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-right", End, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-shift-left", SelectHome, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-shift-right", SelectEnd, Some("MarkdownEditor")),
-            KeyBinding::new("backspace", Backspace, Some("MarkdownEditor")),
-            KeyBinding::new("delete", Delete, Some("MarkdownEditor")),
-            KeyBinding::new("enter", Enter, Some("MarkdownEditor")),
-            KeyBinding::new("shift-enter", HardBreak, Some("MarkdownEditor")),
-            KeyBinding::new("tab", Tab, Some("MarkdownEditor")),
-            KeyBinding::new("shift-tab", Outdent, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-a", SelectAll, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-c", Copy, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-x", Cut, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-v", Paste, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-z", Undo, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-shift-z", Redo, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-n", New, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-h", Hide, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-shift-r", Reload, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-shift-e", ExportPdf, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-o", Open, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-s", Save, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-shift-s", SaveAs, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-shift-m", ToggleSource, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-shift-b", ToggleBlockSource, Some("MarkdownEditor")),
-            KeyBinding::new("escape", Escape, Some("MarkdownEditor")),
-            KeyBinding::new("cmd-q", Quit, Some("MarkdownEditor")),
-        ]);
+        bind_window_keys(cx);
         let bounds = Bounds::centered(None, size(px(920.), px(680.)), cx);
         let opened = cx.open_window(
             WindowOptions {
@@ -1391,6 +1424,9 @@ pub fn run(
                         cx,
                     );
                     if !smoke {
+                        editor.sidebar.load(
+                            i18n::preference_path().map(|p| p.with_file_name("sidebar.json")),
+                        );
                         editor.recovery.directory =
                             i18n::preference_path().map(|p| p.with_file_name("drafts"));
                         editor.recent = recent::RecentFiles::load(

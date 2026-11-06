@@ -5435,6 +5435,7 @@ dependencies = [
  "formulary",
  "krilla",
  "krilla-svg",
+ "libc",
  "math-core",
  "merman",
  "pdf-writer 0.12.1",
@@ -5446,6 +5447,7 @@ dependencies = [
  "semver",
  "serde_json",
  "svg2pdf",
+ "tempfile",
  "tree-sitter",
  "tree-sitter-bash",
  "tree-sitter-highlight",
@@ -5497,8 +5499,11 @@ dependencies = [
  "ryne-session",
  "ryne-syntax",
  "serde_json",
+ "tempfile",
  "unicode-segmentation",
  "url",
+ "uuid",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

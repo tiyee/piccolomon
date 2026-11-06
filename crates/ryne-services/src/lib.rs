@@ -1,4 +1,5 @@
 //! Concrete algorithms and storage adapters. No GPUI dependencies.
+pub mod directory;
 pub mod files;
 pub mod highlight;
 pub mod language;

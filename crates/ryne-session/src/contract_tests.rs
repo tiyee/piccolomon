@@ -208,16 +208,25 @@ fn saving_during_editing_and_queued_saves_use_written_snapshots_and_serial_order
     assert!(doc.queue_save("second.md".into()).is_none());
     doc.insert_text(0..0, "3").unwrap();
     assert!(doc.queue_save("third.md".into()).is_none());
+    assert_eq!(
+        doc.files.saving_path(),
+        Some(std::path::absolute("first.md").unwrap().as_path())
+    );
     let receipt = first.run();
     let completed = doc.complete_save(receipt);
     assert!(completed.accepted);
     assert!(!completed.clean);
     assert!(doc.files.saving);
     let next = completed.next.unwrap();
+    assert_eq!(
+        doc.files.saving_path(),
+        Some(std::path::absolute("third.md").unwrap().as_path())
+    );
     assert_eq!(doc.files.path.as_deref(), Some(Path::new("first.md")));
     let completed = doc.complete_save(next.run());
     assert!(completed.clean);
     assert!(!doc.files.saving);
+    assert!(doc.files.saving_path().is_none());
     assert_eq!(doc.files.path.as_deref(), Some(Path::new("third.md")));
     assert_eq!(
         *memory.writes.lock().unwrap(),

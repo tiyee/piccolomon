@@ -48,8 +48,15 @@ fn both_backends_export_one_empty_a4_page() {
 
 #[test]
 fn both_backends_encode_every_page_of_a_long_document() {
+    // The PDFKit text check uses the CJK fonts installed on macOS. Keep the
+    // portable pagination contract usable on hosts with only Latin fonts.
+    let last_line = if cfg!(target_os = "macos") {
+        "末页中文 FINAL-TOKEN"
+    } else {
+        "FINAL-TOKEN"
+    };
     let display = Display {
-        text: format!("{}FINAL-TOKEN", "body line\n".repeat(200)),
+        text: format!("{}{last_line}", "body line\n".repeat(200)),
         ..Default::default()
     };
     let pages = layout_pages(&display).unwrap();
@@ -58,7 +65,47 @@ fn both_backends_encode_every_page_of_a_long_document() {
     for (name, exporter) in exporters() {
         let bytes = exporter.export(&display).unwrap();
         assert_eq!(page_count(&bytes), pages.len(), "{name}");
+        #[cfg(target_os = "macos")]
+        assert_last_page_text(name, &bytes);
     }
+}
+
+/// Read the encoded page tree, font mappings and content streams using the
+/// system PDF reader, independently of either exporter or the SVG layout.
+#[cfg(target_os = "macos")]
+fn assert_last_page_text(name: &str, bytes: &[u8]) {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("export.pdf");
+    std::fs::write(&file, bytes).unwrap();
+    let output = std::process::Command::new("/usr/bin/osascript")
+        .args([
+            "-l",
+            "JavaScript",
+            "-e",
+            r#"
+            ObjC.import('PDFKit');
+            function run(argv) {
+                const doc = $.PDFDocument.alloc.initWithURL($.NSURL.fileURLWithPath(argv[0]));
+                return ObjC.unwrap(doc.pageAtIndex(doc.pageCount - 1).string);
+            }
+        "#,
+        ])
+        .arg(file)
+        .output()
+        .expect("run macOS PDFKit reader");
+    assert!(
+        output.status.success(),
+        "{name}: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let text = String::from_utf8(output.stdout).unwrap();
+    // Readers may insert whitespace at font/run boundaries.
+    assert!(
+        text.split_whitespace()
+            .collect::<String>()
+            .contains("末页中文FINAL-TOKEN"),
+        "{name}: unexpected last page: {text:?}"
+    );
 }
 
 #[test]

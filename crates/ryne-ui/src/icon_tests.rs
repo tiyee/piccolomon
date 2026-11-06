@@ -48,6 +48,14 @@ fn render_menu_svg_assets_are_embedded_and_nonempty() {
         "window_maximize",
         "window_restore",
         "window_close",
+        "reading_list",
+        "folder",
+        "folder_open",
+        "folder_prohibited",
+        "folder_sync",
+        "panel_right_expand",
+        "panel_left_expand",
+        "text_bullet_list_square",
     ] {
         assert_icon_renders(name);
     }

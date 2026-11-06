@@ -3,7 +3,9 @@ pub mod block;
 pub mod code_block;
 pub mod list;
 pub mod math;
+mod outline;
 pub mod parser;
+pub use outline::OutlineHeading;
 mod query;
 #[cfg(any(test, feature = "query-metrics"))]
 pub mod query_metrics;

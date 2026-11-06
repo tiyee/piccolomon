@@ -39,7 +39,7 @@ pub struct SessionServices {
     pub files: Arc<dyn FileStore>,
 }
 pub mod files;
-pub use files::{FileSession, SaveCompletion, SaveReceipt, SaveRequest};
+pub use files::{FileSession, SaveCompletion, SaveIntent, SaveReceipt, SaveRequest};
 pub struct EditorSession {
     presentation_cache: std::cell::RefCell<presentation_cache::PresentationCache>,
     core: DocumentCore<Checkpoint>,
@@ -565,8 +565,16 @@ impl EditorSession {
         Ok(true)
     }
     pub fn queue_save(&mut self, path: std::path::PathBuf) -> Option<SaveRequest> {
+        self.queue_save_with_intent(path, SaveIntent::Save)
+    }
+    pub fn queue_save_with_intent(
+        &mut self,
+        path: std::path::PathBuf,
+        intent: SaveIntent,
+    ) -> Option<SaveRequest> {
         self.files.next += 1;
         let request = SaveRequest {
+            intent,
             id: self.files.next,
             snapshot: self.core.source().clone(),
             target: self
@@ -582,16 +590,17 @@ impl EditorSession {
             self.files.queued = Some(request);
             None
         } else {
-            self.files.active = Some(request.id);
+            self.files.active = Some(request.active_write());
             self.files.saving = true;
             Some(request)
         }
     }
     pub fn complete_save(&mut self, receipt: SaveReceipt) -> SaveCompletion {
-        if self.files.active != Some(receipt.id)
+        if self.files.active.as_ref().map(|(id, _)| *id) != Some(receipt.id)
             || receipt.snapshot.id().document_id != self.core.source().id().document_id
         {
             return SaveCompletion {
+                intent: receipt.intent,
                 accepted: false,
                 error: None,
                 next: None,
@@ -611,9 +620,10 @@ impl EditorSession {
             }
         };
         let next = self.files.queued.take();
-        self.files.active = next.as_ref().map(|r| r.id);
+        self.files.active = next.as_ref().map(SaveRequest::active_write);
         self.files.saving = next.is_some();
         SaveCompletion {
+            intent: receipt.intent,
             accepted: true,
             error,
             next,

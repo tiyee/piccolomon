@@ -98,6 +98,7 @@ pub(super) fn application_menus(
             items: vec![
                 MenuItem::action(text(Text::New), New),
                 MenuItem::action(text(Text::Open), Open),
+                MenuItem::action(text(Text::OpenFolder), OpenFolder),
                 MenuItem::submenu(Menu {
                     name: text(Text::Recent).into(),
                     items: recent,
@@ -560,9 +561,19 @@ mod tests {
                 let action = action.as_any().downcast_ref::<ExportRegistered>().unwrap();
                 assert_eq!(action.id, if v2 { "pdf-v2" } else { "pdf" });
             }
-            let MenuItem::Submenu(recent) = &menus[1].items[2] else {
-                panic!("recent submenu");
-            };
+            assert!(menus[1].items.iter().any(|item| matches!(item,
+                MenuItem::Action { name, action, .. } if name.as_ref()==language.text(Text::OpenFolder) && action.as_any().is::<OpenFolder>()
+            )));
+            let recent = menus[1]
+                .items
+                .iter()
+                .find_map(|item| match item {
+                    MenuItem::Submenu(sub) if sub.name.as_ref() == language.text(Text::Recent) => {
+                        Some(sub)
+                    }
+                    _ => None,
+                })
+                .expect("recent submenu");
             let MenuItem::Action { action, .. } = &recent.items[0] else {
                 panic!("recent action");
             };

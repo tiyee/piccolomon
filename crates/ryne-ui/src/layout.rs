@@ -269,6 +269,7 @@ pub(super) struct VisualRow {
 
 #[derive(Clone)]
 pub(super) struct Geometry {
+    pub(super) sidebar_layout: u64,
     pub(super) snapshot: SnapshotId,
     pub(super) frame_epoch: u64,
     pub(super) display: std::sync::Arc<ryne_projection::IndexedDisplay>,
@@ -370,7 +371,7 @@ impl Geometry {
         })
     }
     pub(super) fn is_current(&self, editor: &Editor) -> bool {
-        !self.rows.is_empty() && self.snapshot == editor.document.source.id()
+        self.sidebar_layout==editor.sidebar.layout_generation && !self.rows.is_empty() && self.snapshot == editor.document.source.id()
             // A cancelled preedit can return to the exact same projection before
             // another draw. Its original geometry is safe to reuse in that case.
             && (self.frame_epoch == editor.viewport.frame_epoch || self.display == editor.viewport.display)

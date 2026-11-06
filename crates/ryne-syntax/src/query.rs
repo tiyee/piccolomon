@@ -10,6 +10,11 @@ impl<'a> SemanticQuery<'a> {
     pub fn new(parse: &'a ParseSnapshot) -> Self {
         Self { parse }
     }
+    pub fn outline(&self) -> &'a [crate::OutlineHeading] {
+        self.parse
+            .outline
+            .get_or_init(|| crate::outline::collect(self.parse))
+    }
     pub fn block_at(&self, caret: usize) -> Option<block::Block> {
         block::at(self.parse, caret)
     }

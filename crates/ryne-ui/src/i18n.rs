@@ -130,6 +130,26 @@ impl Status {
 }
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Text {
+    FileTreeView,
+    OutlineView,
+    FileListView,
+    FilterHeadings,
+    NoMatches,
+    FolderOptions,
+    Sidebar,
+    Directory,
+    Outline,
+    OpenFolder,
+    DirectoryFailed,
+    Refresh,
+    Scanning,
+    Partial,
+    FilterFiles,
+    EmptyOutline,
+    EmptyFiles,
+    EmptyHeading,
+    SaveOpen,
+
     About,
     CheckUpdates,
     Hide,
@@ -273,7 +293,26 @@ pub(crate) enum Text {
 }
 impl Text {
     #[cfg(test)]
-    const ALL: [Self; 132] = [
+    const ALL: [Self; 151] = [
+        Self::FileTreeView,
+        Self::OutlineView,
+        Self::FileListView,
+        Self::FilterHeadings,
+        Self::NoMatches,
+        Self::FolderOptions,
+        Self::Sidebar,
+        Self::Directory,
+        Self::Outline,
+        Self::OpenFolder,
+        Self::DirectoryFailed,
+        Self::Refresh,
+        Self::Scanning,
+        Self::Partial,
+        Self::FilterFiles,
+        Self::EmptyOutline,
+        Self::EmptyFiles,
+        Self::EmptyHeading,
+        Self::SaveOpen,
         Self::About,
         Self::CheckUpdates,
         Self::Hide,
@@ -410,6 +449,25 @@ impl Text {
 
     fn translations(self) -> [&'static str; 7] {
         match self {
+            Self::FileTreeView => ["切换到文件树视图", "切換至檔案樹檢視", "Switch to file tree", "ファイルツリーに切り替え", "파일 트리로 전환", "Afficher l’arborescence", "Mostrar árbol de archivos"],
+            Self::OutlineView => ["切换到大纲视图", "切換至大綱檢視", "Switch to outline", "アウトラインに切り替え", "개요로 전환", "Afficher le plan", "Mostrar esquema"],
+            Self::FileListView => ["切换到文档列表", "切換至文件列表", "Switch to file list", "ファイル一覧に切り替え", "파일 목록으로 전환", "Afficher la liste des fichiers", "Mostrar lista de archivos"],
+            Self::NoMatches => ["没有匹配结果","沒有符合的結果","No matches","一致する項目はありません","일치하는 결과가 없습니다","Aucun résultat","Sin coincidencias"],
+            Self::FilterHeadings => ["筛选标题", "篩選標題", "Filter headings", "見出しを絞り込み", "제목 필터", "Filtrer les titres", "Filtrar títulos"],
+            Self::FolderOptions => ["目录选项", "資料夾選項", "Folder options", "フォルダのオプション", "폴더 옵션", "Options du dossier", "Opciones de carpeta"],
+            Self::Sidebar => ["侧边栏", "側邊欄", "Sidebar", "サイドバー", "사이드바", "Barre latérale", "Barra lateral"],
+            Self::Directory => ["文件", "檔案", "Files", "ファイル", "파일", "Fichiers", "Archivos"],
+            Self::Outline => ["大纲", "大綱", "Outline", "アウトライン", "개요", "Plan", "Esquema"],
+            Self::OpenFolder => ["打开文件夹…", "開啟資料夾…", "Open Folder…", "フォルダを開く…", "폴더 열기…", "Ouvrir un dossier…", "Abrir carpeta…"],
+            Self::DirectoryFailed => ["读取目录失败", "讀取目錄失敗", "Could not read folder", "フォルダを読み込めません", "폴더를 읽을 수 없음", "Lecture du dossier impossible", "No se pudo leer la carpeta"],
+            Self::Refresh => ["刷新", "重新整理", "Refresh", "再読み込み", "새로 고침", "Actualiser", "Actualizar"],
+            Self::Scanning => ["正在读取…", "正在讀取…", "Loading…", "読み込み中…", "읽는 중…", "Chargement…", "Cargando…"],
+            Self::Partial => ["仅显示部分结果", "僅顯示部分結果", "Showing partial results", "結果の一部を表示", "일부 결과만 표시", "Résultats partiels", "Resultados parciales"],
+            Self::FilterFiles => ["筛选名称或路径", "篩選名稱或路徑", "Filter by name or path", "名前・パスで絞り込み", "이름 또는 경로로 필터", "Filtrer par nom ou chemin", "Filtrar por nombre o ruta"],
+            Self::EmptyOutline => ["文档中还没有标题", "文件中還沒有標題", "No headings in this document", "見出しはありません", "문서에 제목이 없습니다", "Aucun titre dans ce document", "Este documento no tiene títulos"],
+            Self::EmptyFiles => ["没有可显示的文档", "沒有可顯示的文件", "No documents to show", "表示する文書はありません", "표시할 문서가 없습니다", "Aucun document à afficher", "No hay documentos que mostrar"],
+            Self::EmptyHeading => ["无标题", "無標題", "Untitled heading", "無題の見出し", "제목 없음", "Titre vide", "Sin título"],
+            Self::SaveOpen => ["保存并打开", "儲存並開啟", "Save and Open", "保存して開く", "저장하고 열기", "Enregistrer et ouvrir", "Guardar y abrir"],
             Self::About => [
                 "关于 Ryne",
                 "關於 Ryne",

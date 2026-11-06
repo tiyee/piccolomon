@@ -15,6 +15,31 @@ impl AssetSource for Assets {
                 }
                 "chevron_down" => &include_bytes!("../../../assets/icons/chevron_down.svg")[..],
                 "code" => &include_bytes!("../../../assets/icons/code.svg")[..],
+                "panel_right_expand" => {
+                    &include_bytes!("../../../assets/icons/panel_right_expand.svg")[..]
+                }
+                "panel_left_expand" => {
+                    &include_bytes!("../../../assets/icons/panel_left_expand.svg")[..]
+                }
+                "reading_list" => &include_bytes!("../../../assets/icons/reading_list.svg")[..],
+                "folder" => &include_bytes!("../../../assets/icons/folder.svg")[..],
+                "folder_open" => &include_bytes!("../../../assets/icons/folder_open.svg")[..],
+                "folder_prohibited" => {
+                    &include_bytes!("../../../assets/icons/folder_prohibited.svg")[..]
+                }
+                "folder_sync" => &include_bytes!("../../../assets/icons/folder_sync.svg")[..],
+                "text_bullet_list_square" => {
+                    &include_bytes!("../../../assets/icons/text_bullet_list_square.svg")[..]
+                }
+                "sidebar_document" => {
+                    &include_bytes!("../../../assets/icons/sidebar_document.svg")[..]
+                }
+                "sidebar_search" => &include_bytes!("../../../assets/icons/sidebar_search.svg")[..],
+                "sidebar_outline" => {
+                    &include_bytes!("../../../assets/icons/sidebar_outline.svg")[..]
+                }
+                "sidebar_plus" => &include_bytes!("../../../assets/icons/sidebar_plus.svg")[..],
+                "sidebar_cards" => &include_bytes!("../../../assets/icons/sidebar_cards.svg")[..],
                 "format" => &include_bytes!("../../../assets/icons/format.svg")[..],
                 "clip" => &include_bytes!("../../../assets/icons/clip.svg")[..],
                 "window_minimize" => {

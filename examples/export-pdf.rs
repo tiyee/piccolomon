@@ -18,6 +18,7 @@ fn document(text: &str) -> Result<ryne_session::EditorSession, String> {
 }
 fn desktop_services() -> Result<ryne_ui::DesktopServices, String> {
     Ok(ryne_ui::DesktopServices {
+        directories: Arc::new(ryne_services::directory::LocalDirectory),
         exports: ryne_ui::ExportRegistry::new(vec![
             ryne_ui::ExportDescriptor {
                 id: "pdf",
