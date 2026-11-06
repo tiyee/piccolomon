@@ -1,8 +1,19 @@
-# Ryne (如言)
+# Ryne (如言) — Markdown that takes shape as you write
 
 [简体中文](README.zh-CN.md)
 
-Ryne is a Markdown editor for Windows and macOS. You write directly in the formatted document. Click a **bold phrase** to edit its `**` marks, or click a heading to change its level. When you move on, the marks fold away. Your notes are saved as ordinary `.md` files you can open in another editor.
+Ryne is a native Markdown editor for Windows and macOS, built for everyday notes, technical documentation and long-form writing. Text wraps in a centered reading column so you can focus on the page.
+
+Write directly in the document as you read it. Move the cursor into bold, italic or struck-through text, a link or a span of inline code to reveal its Markdown marks. Move away and the formatting returns. Click a heading to edit its marks. When you need to change the structure, you can open the source for a single block or the whole file.
+
+- **Headings, lists and quotes.** Organize chapters with six heading levels. Write directly in numbered lists, bullet lists, task lists and nested quotes. Continue a list with Enter, adjust its indentation or click a checkbox to tick off a task.
+- **Editable tables.** Click a cell to type and use the keyboard to move between cells. The cell menu lets you insert, move or delete rows and columns and set column alignment.
+- **Readable code.** Use inline code for a command or a fenced block for a longer example. Press Enter after the opening fence to add its closing fence. Choose a language for syntax highlighting in Rust, Python, JavaScript, TypeScript, JSON or Bash.
+- **Diagrams and formulas.** Preview Mermaid diagrams and inline LaTeX formulas alongside your text. Click either to edit its source. To change the formula typeface, choose **Ryne → Math font**.
+- **Formatting and PDF export.** Tidy the Markdown in one undoable step. When you’re ready to share, export a paginated A4 PDF with your tables, formulas and Mermaid diagrams.
+- **Local Markdown files.** Open and save ordinary `.md` files with the original indentation and line endings of untouched text. Select, copy or paste across lines, and undo or redo edits.
+
+Ryne’s menus and editable welcome guide are available in Simplified Chinese, Traditional Chinese, English, Japanese, Korean, French and Spanish.
 
 ## Get Ryne
 
@@ -15,7 +26,9 @@ Ryne is a Markdown editor for Windows and macOS. You write directly in the forma
 2. Type `# Meeting notes` and press **Enter**. Under the heading, type `- [ ] Send minutes`. Click the checkbox to mark the task done.
 3. Choose **File → Save**, give the note a name such as `meeting.md`, and pick a folder. Next time, use **File → Open Recent** to find it.
 
-To change the language of the menus and the untouched welcome guide, choose **Ryne → Language**.
+To keep the original and save a second copy, choose **File → Save As**. You can also reload the file from disk in the File menu. Ryne asks before discarding unsaved edits.
+
+To change the language of the menus and the untouched welcome guide, choose **Ryne → Language**. Ryne remembers your choice and keeps any edits you’ve made to the guide.
 
 ## Work with Markdown
 
