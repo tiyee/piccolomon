@@ -1,6 +1,6 @@
 use super::*;
 
-const TITLEBAR_HEIGHT: f32 = 22.;
+const MACOS_TITLEBAR_HEIGHT: f32 = 22.;
 
 pub(super) struct EditorElement {
     pub(super) editor: Entity<Editor>,
@@ -33,6 +33,7 @@ fn window_control_button(
     let close = area == WindowControlArea::Close;
     div()
         .id(id)
+        .debug_selector(|| id.to_owned())
         .group("window-control")
         .w(px(30.))
         .h_full()
@@ -59,17 +60,32 @@ fn window_control_button(
 }
 
 impl Editor {
-    fn windows_titlebar(&self, window: &Window) -> impl IntoElement {
+    fn window_header(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .w_full()
+            .h(px(30.))
+            .flex_shrink_0()
+            .flex()
+            .items_center()
+            .border_b_1()
+            .border_color(rgb(theme::BORDER))
+            .child(self.window_menu(window, cx))
+            .when(
+                cfg!(any(target_os = "windows", test)) && !window.is_fullscreen(),
+                |row| row.child(self.windows_caption_controls(window)),
+            )
+    }
+
+    fn windows_caption_controls(&self, window: &Window) -> impl IntoElement {
         let maximized = window.is_maximized();
         div()
-            .id("windows-titlebar")
-            .w_full()
-            .h(px(TITLEBAR_HEIGHT))
-            .flex_shrink_0()
+            .flex_1()
+            .h_full()
             .flex()
             .child(
                 div()
                     .id("window-drag")
+                    .debug_selector(|| "window-drag".into())
                     .flex_1()
                     .h_full()
                     .window_control_area(WindowControlArea::Drag),
@@ -432,15 +448,11 @@ impl Render for Editor {
                     // The transparent native titlebar hides its text and lets PAPER
                     // show through. Keep a compact strip for the native traffic lights
                     // and window dragging above the toolbar.
-                    view.child(div().h(px(TITLEBAR_HEIGHT)).flex_shrink_0())
+                    view.child(div().h(px(MACOS_TITLEBAR_HEIGHT)).flex_shrink_0())
                 },
             )
-            .when(
-                cfg!(any(target_os = "windows", test)) && !window.is_fullscreen(),
-                |view| view.child(self.windows_titlebar(window)),
-            )
-            .when(!cfg!(target_os = "macos"), |view| {
-                view.child(self.window_menu(window, cx))
+            .when(cfg!(any(not(target_os = "macos"), test)), |view| {
+                view.child(self.window_header(window, cx))
             })
             .child(
                 div()

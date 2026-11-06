@@ -144,9 +144,10 @@ settings, commands and signing behavior.
   dialog controls follow macOS language settings.
 - The macOS titlebar uses the editor's background color and shows no title text;
   native window buttons remain available.
-  Windows draws minimize, maximize/restore and close buttons on the right of a
-  matching 22 px top strip; its empty area supports native window dragging and
-  double-click maximization. Closing uses the existing unsaved-changes prompt.
+  On Windows, the Ryne and File menus sit on the left of the titlebar, vertically
+  centered with the minimize, maximize/restore and close buttons on the right.
+  Drag the space between them to move the window or double-click it to maximize.
+  Closing uses the existing unsaved-changes prompt.
   Titlebar interactions preserve the document content and text selection.
   Dedicated Windows SVGs follow the other icons' rounded 1024-unit outlines.
   The editor toolbar leaves 2 px of padding above and below its mode button.

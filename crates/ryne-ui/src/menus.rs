@@ -267,16 +267,18 @@ impl Editor {
             .flex()
             .gap_1()
             .px_2()
-            .h(px(30.))
-            .items_center()
-            .border_b_1()
-            .border_color(rgb(theme::BORDER));
+            .h_full()
+            .flex_shrink_0()
+            .items_center();
         for (index, menu) in menus.iter().enumerate() {
             bar = bar.child(
                 div()
                     .id(("app-menu", index))
+                    .debug_selector(|| format!("app-menu-{index}"))
                     .px_3()
-                    .py_1()
+                    .h_full()
+                    .flex()
+                    .items_center()
                     .cursor_pointer()
                     .hover(|s| s.bg(rgb(0xecebe7)))
                     .child(menu.name.clone())
@@ -342,11 +344,12 @@ impl Editor {
                 deferred(
                     div()
                         .absolute()
-                        .top(px(30.))
+                        .top(relative(1.))
                         .left(px(8.))
                         .w(px(width))
                         .max_h(window.viewport_size().height - px(90.))
                         .id("app-menu-popup")
+                        .debug_selector(|| "app-menu-popup".into())
                         .overflow_y_scroll()
                         .flex()
                         .flex_col()

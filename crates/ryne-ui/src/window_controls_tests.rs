@@ -6,7 +6,7 @@ use super::{
 };
 use gpui::{
     point, px, Context, KeyBinding, Modifiers, MouseButton, MouseDownEvent, MouseUpEvent,
-    TestAppContext, WindowControlArea,
+    TestAppContext,
 };
 use std::sync::Arc;
 
@@ -58,16 +58,32 @@ fn titlebar_preserves_native_mouse_handling_and_document_focus(cx: &mut TestAppC
             editor.document.dirty(),
         )
     });
-    let width = cx.update(|window, _| window.viewport_size().width);
-    // Test builds render the Windows strip on every host. This catches focus
-    // interception on macOS CI without pretending to run Win32 window operations.
-    for (area, x) in [
-        (WindowControlArea::Drag, px(15.)),
-        (WindowControlArea::Min, width - px(75.)),
-        (WindowControlArea::Max, width - px(45.)),
-        (WindowControlArea::Close, width - px(15.)),
+    // Test builds render the Windows header on every host. Exercise the same
+    // row and hit targets without invoking native Win32 operations.
+    let drag = cx.debug_bounds("window-drag").expect("caption drag area");
+    assert!(drag.size.width > px(0.));
+    for (index, selector) in ["app-menu-0", "app-menu-1"].into_iter().enumerate() {
+        let menu = cx.debug_bounds(selector).expect("menu button");
+        assert_eq!(menu.center().y, drag.center().y);
+        assert!(menu.right() <= drag.left());
+        cx.simulate_click(menu.center(), Modifiers::default());
+        assert_eq!(editor.read_with(cx, |e, _| e.menus.top_menu), Some(index));
+        cx.update(|window, cx| window.draw(cx).clear());
+        let popup = cx.debug_bounds("app-menu-popup").expect("open menu");
+        assert!(popup.top() >= menu.bottom());
+    }
+    for area in [
+        "window-drag",
+        "window-minimize",
+        "window-maximize",
+        "window-close",
     ] {
-        let position = point(x, px(11.));
+        let bounds = cx.debug_bounds(area).expect("caption hit target");
+        let position = bounds.center();
+        assert_eq!(position.y, drag.center().y);
+        if area != "window-drag" {
+            assert!(bounds.left() >= drag.right());
+        }
         cx.simulate_mouse_move(position, None, Modifiers::default());
         for click_count in [1, 2] {
             cx.simulate_event(MouseDownEvent {
