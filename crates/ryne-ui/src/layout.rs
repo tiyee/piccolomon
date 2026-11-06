@@ -1,4 +1,5 @@
 use super::*;
+use ryne_syntax::block::BlockKind;
 pub(super) const BLOCK_CONTROL_HEIGHT: f32 = 24.;
 #[derive(Clone)]
 pub(super) struct Line {
@@ -395,18 +396,19 @@ impl Geometry {
                 px(self.page.left) + line.inset,
                 px(self.page.top) + row.top - self.scroll,
             );
-        if block.kind == ryne_syntax::block::BlockKind::Quote
+        if block.kind == BlockKind::Quote
             && let Some(quote) = self.display.quotes.iter().find(|quote| {
                 quote.source.start == block.anchor && quote.source.end == block.range.end
             })
         {
             // The type menu sits outside the quote panel, clear of its body icon.
             origin.x = self.bounds.left() + px(self.page.left + quote.inset as f32 - 32.);
-        } else if let Some(index) = self
-            .display
-            .code_blocks
-            .iter()
-            .position(|b| b.source.range == block.range)
+        } else if matches!(block.kind, BlockKind::Code | BlockKind::Mermaid)
+            && let Some(index) = self
+                .display
+                .code_blocks
+                .iter()
+                .position(|b| b.source.range == block.range)
         {
             let &(first, _) = self.text_layout.index.code_lines.get(&index)?;
             let first = &self.lines[first];
@@ -416,11 +418,12 @@ impl Geometry {
                     px(self.page.left) + first.inset - px(16.),
                     px(self.page.top) + first.top - self.scroll,
                 );
-        } else if let Some(table) = self
-            .display
-            .tables
-            .iter()
-            .find(|t| t.source.range == block.range)
+        } else if block.kind == BlockKind::Table
+            && let Some(table) = self
+                .display
+                .tables
+                .iter()
+                .find(|t| t.source.range == block.range)
         {
             let start = table.rows.first()?.first()?.start;
             let first = self
@@ -434,10 +437,11 @@ impl Geometry {
                     px(self.page.left) + cell.left(),
                     px(self.page.top) + first.top - self.scroll,
                 );
-        } else if let Some((_, marker)) = self
-            .list_markers
-            .iter()
-            .find(|(range, _)| range.start == block.range.start)
+        } else if block.is_list()
+            && let Some((_, marker)) = self
+                .list_markers
+                .iter()
+                .find(|(range, _)| range.start == block.range.start)
         {
             // Use the measured label bounds so long ordered markers keep the same gap.
             origin = marker.origin;

@@ -91,7 +91,7 @@ pub struct HistoryMemory {
 }
 pub struct DocumentCore<C> {
     source: Source,
-    saved: Source,
+    saved: Option<Source>,
     dirty: bool,
     undo: Vec<History<C>>,
     redo: Vec<History<C>>,
@@ -100,12 +100,19 @@ impl<C: Clone> DocumentCore<C> {
     pub fn new(text: &str) -> Self {
         let source = Source::new(text);
         Self {
-            saved: source.clone(),
+            saved: Some(source.clone()),
             source,
             dirty: false,
             undo: Vec::new(),
             redo: Vec::new(),
         }
+    }
+    /// A recovered document has no saved baseline, even when the draft is empty.
+    pub fn recovered(text: &str) -> Self {
+        let mut core = Self::new(text);
+        core.saved = None;
+        core.dirty = true;
+        core
     }
     pub fn source(&self) -> &Source {
         &self.source
@@ -114,7 +121,9 @@ impl<C: Clone> DocumentCore<C> {
         self.dirty
     }
     fn update_dirty(&mut self) {
-        self.dirty = self.source.id() != self.saved.id() && self.source.text() != self.saved.text();
+        self.dirty = self.saved.as_ref().is_none_or(|saved| {
+            self.source.id() != saved.id() && self.source.text() != saved.text()
+        });
     }
     pub fn history_len(&self, redo: bool) -> usize {
         if redo {
@@ -194,7 +203,7 @@ impl<C: Clone> DocumentCore<C> {
         if snapshot.id().document_id != self.source.id().document_id {
             return Err(Error::StaleSnapshot);
         }
-        self.saved = snapshot.clone();
+        self.saved = Some(snapshot.clone());
         self.update_dirty();
         Ok(())
     }

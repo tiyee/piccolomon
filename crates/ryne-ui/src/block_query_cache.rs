@@ -36,7 +36,7 @@ impl BlockQueryCache {
         {
             return result.clone();
         }
-        let result = block::at(parse, caret);
+        let result = block::outermost_at(parse, caret);
         *self.focus.borrow_mut() = Some((id, caret, result.clone()));
         result
     }

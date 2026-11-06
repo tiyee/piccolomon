@@ -12,9 +12,13 @@ impl Planner<'_> {
             return Err("block insertion is unavailable in source mode".into());
         }
         let semantics = ryne_syntax::SemanticQuery::new(&self.state.parse);
-        let block = semantics
-            .block_at(range.start)
+        let block = block::outermost_at(&self.state.parse, range.start)
             .filter(|block| block.range == range)
+            .or_else(|| {
+                semantics
+                    .block_at(range.start)
+                    .filter(|block| block.range == range)
+            })
             .or_else(|| {
                 self.state.parse.nodes.iter().find_map(|node| {
                     semantics

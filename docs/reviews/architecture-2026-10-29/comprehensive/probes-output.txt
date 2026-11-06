@@ -1,0 +1,17 @@
+formula_table rows=100 formula_count=100 retain_visits=20200
+formula_table rows=200 formula_count=200 retain_visits=80400
+formula_table rows=400 formula_count=400 retain_visits=320800
+formula_table rows=800 formula_count=800 retain_visits=1281600
+completion_history pairs=100 consume=false source_bytes=400 undo_entries=300 retained_bytes=328160
+completion_history pairs=200 consume=false source_bytes=800 undo_entries=600 retained_bytes=1136320
+completion_history pairs=400 consume=false source_bytes=1600 undo_entries=1200 retained_bytes=4192640
+completion_history pairs=400 consume=true source_bytes=1600 undo_entries=1200 retained_bytes=355840
+heading_after_fence newline="\n" heading="# title" reveal=true source_unchanged=true
+heading_after_fence newline="\n" heading="###### title" reveal=true source_unchanged=true
+heading_after_fence newline="\n" heading="title\n=====" reveal=true source_unchanged=true
+heading_after_fence newline="\r\n" heading="# title" reveal=true source_unchanged=true
+heading_after_fence newline="\r\n" heading="###### title" reveal=true source_unchanged=true
+heading_after_fence newline="\r\n" heading="title\n=====" reveal=true source_unchanged=true
+heading_after_fence newline="\r" heading="# title" reveal=false source_unchanged=true
+heading_after_fence newline="\r" heading="###### title" reveal=false source_unchanged=true
+heading_after_fence newline="\r" heading="title\n=====" reveal=false source_unchanged=true

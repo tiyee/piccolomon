@@ -108,3 +108,20 @@ fn history_accounting_observes_large_inverse_edits_without_changing_history() {
     assert_eq!(core.source().text(), raw);
     assert!(!core.dirty());
 }
+
+#[test]
+fn recovered_source_has_no_saved_baseline_until_first_save() {
+    for raw in ["", "中😀\r\n> row\r"] {
+        let mut core = DocumentCore::recovered(raw);
+        assert!(core.dirty());
+        assert_eq!(core.history_len(false), 0);
+        let edit = PreparedEdit::prepare(core.source(), vec![edit(0..0, "x")]).unwrap();
+        core.publish(edit, ()).unwrap();
+        let (undo, ()) = core.prepare_history(false).unwrap().unwrap();
+        core.publish_history(undo, false, ()).unwrap();
+        assert_eq!(core.source().text(), raw);
+        assert!(core.dirty());
+        core.mark_saved(&core.source().clone()).unwrap();
+        assert!(!core.dirty());
+    }
+}

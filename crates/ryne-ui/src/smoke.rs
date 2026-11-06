@@ -1167,13 +1167,17 @@ impl Editor {
                             editor.move_to(12,false,cx);
                         }
                         66 => {
-                            let block = editor.focused_block().ok_or("missing nested heading")?;
-                            check_eq!(ryne_extensions::BlockMetadata::from(block.kind).label,"H3");
-                            let control = geometry.block_control.ok_or("missing nested heading control")?;
+                            let block = geometry.block_target.as_ref().ok_or("missing outer list for nested heading")?;
+                            check_eq!(block.kind, block::BlockKind::List { ordered: true, task: false });
+                            check_eq!(editor.focused_block().as_ref(), Some(block));
+                            let heading = geometry.position(geometry.display.position_at(editor.document.head));
+                            editor.update_block_hover(heading + point(px(2.), px(8.)), cx);
+                            check_eq!(editor.menus.hovered_block.as_ref().map(|(_, b)| b), Some(block));
+                            let control = geometry.block_control.ok_or("missing outer list control")?;
                             let marker = geometry.list_markers.first().ok_or("missing long list marker")?.1;
                             check_eq!(control.right()+px(32.),marker.left());
                             check_eq!(control.center().y,marker.center().y);
-                            editor.block_action(geometry.snapshot,&block,BlockAction::Source,cx);
+                            editor.block_action(geometry.snapshot,block,BlockAction::Source,cx);
                         }
                         67 => {
                             check!(geometry.block_control.is_some());
@@ -2534,6 +2538,12 @@ impl Editor {
                             check!(editor.document.source.text()[block.range.clone()].contains("continuation"));
                             check!(editor.document.source.text()[block.range.clone()].contains("nested"));
                             check_eq!(geometry.text_layout.quote_panels.len(), 1);
+                            let literal = geometry.display.text.find("**literal**").ok_or("missing nested code text")?;
+                            editor.mouse_move(&MouseMoveEvent {
+                                position: geometry.position(literal) + point(px(3.), px(8.)),
+                                ..Default::default()
+                            }, window, cx);
+                            check_eq!(editor.menus.hovered_block.as_ref().map(|(_, b)| b), Some(&block));
                             editor.block_action(editor.document.source.id(), &block, BlockAction::Select, cx);
                             check_eq!(editor.selected(), block.range);
                             check!(!editor.document.dirty());

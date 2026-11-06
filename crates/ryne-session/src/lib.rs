@@ -69,7 +69,12 @@ impl Deref for EditorSession {
 }
 impl EditorSession {
     pub fn new(text: &str, services: SessionServices) -> Self {
-        let core = DocumentCore::new(text);
+        Self::from_core(DocumentCore::new(text), services)
+    }
+    pub fn recovered(text: &str, services: SessionServices) -> Self {
+        Self::from_core(DocumentCore::recovered(text), services)
+    }
+    fn from_core(core: DocumentCore<Checkpoint>, services: SessionServices) -> Self {
         let state = EditingState::new(core.source().clone());
         let diagnostics = DiagnosticLog::default();
         let features = Arc::new(GuardedFeatureEngine::new(

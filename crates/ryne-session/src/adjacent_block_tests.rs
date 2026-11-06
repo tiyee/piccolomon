@@ -91,6 +91,36 @@ fn first_block_only_allows_below_even_after_leading_blank_lines() {
 }
 
 #[test]
+fn menu_inserts_outside_a_container_starting_with_a_nested_block() {
+    for body in [
+        "- ### heading\n- second",
+        "- ```rs\n  literal\n  ```",
+        "> | col |\n> | --- |\n> | cell |",
+        "> - first\n> - second",
+    ] {
+        let raw = format!("before\n\n{body}\n\nafter").replace('\n', "\r\n");
+        for before in [false, true] {
+            let mut doc = new_document(&raw);
+            let start = "before\r\n\r\n".len();
+            let target = block::outermost_at(&doc.parse, start + 3).unwrap();
+            assert!(block::can_insert_above(&doc.parse, &target));
+            insert(&mut doc, &target, before, InsertBlock::Heading(2)).unwrap();
+            let inserted = block::outermost_at(&doc.parse, doc.selection().start).unwrap();
+            assert_eq!(inserted.kind, block::BlockKind::Heading(2));
+            let body = body.replace('\n', "\r\n");
+            let body_start = doc.source.text().find(&body).unwrap();
+            if before {
+                assert!(inserted.range.end <= body_start);
+            } else {
+                assert!(body_start + body.len() <= inserted.range.start);
+            }
+            doc.undo(false);
+            assert_eq!(doc.source.text(), raw);
+        }
+    }
+}
+
+#[test]
 fn nested_insertions_keep_container_prefix_and_code_literal() {
     for newline in ["\n", "\r\n", "\r"] {
         for raw in [

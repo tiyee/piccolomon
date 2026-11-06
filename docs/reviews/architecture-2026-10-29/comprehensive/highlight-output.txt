@@ -1,0 +1,8 @@
+detection_timeout first_attempts=1 pending=true next_frame_attempts=1 next_frame_spans=8 fresh_spans=8
+highlight_working_set blocks=64 cached=64 cold_parses=64 warm_parses=0 pending=false
+highlight_working_set blocks=80 cached=64 cold_parses=80 warm_parses=16 pending=false
+highlight_working_set blocks=128 cached=64 cold_parses=128 warm_parses=64 pending=false
+code_language_controls blocks=100 ast_nodes=201 code_candidates=100
+code_language_controls blocks=200 ast_nodes=401 code_candidates=200
+code_language_controls blocks=400 ast_nodes=801 code_candidates=400
+code_language_controls blocks=800 ast_nodes=1601 code_candidates=800

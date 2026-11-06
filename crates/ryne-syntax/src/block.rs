@@ -40,6 +40,12 @@ pub fn insertion_context(parse: &ParseSnapshot, block: &Block) -> Option<(Range<
     if let Some(view) = crate::parser::normalized(parse) {
         return insertion_context(view, block);
     }
+    // The first editable position in a container can belong to a child panel.
+    if matches!(block.kind, BlockKind::List { .. } | BlockKind::Quote)
+        && outermost_at(parse, block.range.start).as_ref() == Some(block)
+    {
+        return Some((block.range.clone(), String::new()));
+    }
     if at(parse, block.anchor).as_ref() != Some(block) {
         return None;
     }
@@ -81,6 +87,32 @@ pub fn can_insert_above(parse: &ParseSnapshot, block: &Block) -> bool {
     })
 }
 
+/// The upper-left type menu belongs to a direct child of the document.
+/// Use physical lines for leading indentation and the panel's full source range
+/// for trailing fence newlines. Sibling nodes are in source order.
+pub fn outermost_at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
+    let parse = parse.semantic();
+    let text = parse.source().text();
+    if !text.is_char_boundary(caret) {
+        return None;
+    }
+    let line_end = parse
+        .index()
+        .line(caret)
+        .map_or(text.len(), |line| line.end);
+    let siblings = &parse.nodes.first()?.children;
+    let end = siblings.partition_point(|&id| parse.nodes[id].envelope.start < line_end);
+    let &id = siblings[..end].last()?;
+    let node = &parse.nodes[id];
+    let block = match node.kind {
+        NodeKind::List(_) | NodeKind::BlockQuote => block_from_node(parse, id),
+        _ => at(parse, node.envelope.start)?,
+    };
+    (block.range.contains(&caret) || (caret == text.len() && caret == block.range.end))
+        .then_some(block)
+}
+
+/// Editing commands can address individual semantic blocks inside containers.
 pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
     #[cfg(any(test, feature = "query-metrics"))]
     crate::query_metrics::record(|m| m.queries += 1);
@@ -146,8 +178,8 @@ pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
         })
         .min_by_key(|(_, n)| n.envelope.len())?;
     let mut target = id;
-    // Ordinary prose in a list/quote belongs to that container's block control.
-    // Headings, code and tables retain their own type inside containers.
+    // Editing commands treat prose as part of its list or quote and can
+    // address headings, code and tables individually inside those containers.
     if node.kind == NodeKind::Paragraph
         && let Some(parent) = node.parent
         && matches!(
@@ -158,8 +190,7 @@ pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
         target = parent;
     }
     if parse.nodes[target].kind == NodeKind::BlockQuote {
-        // All prose lines/paragraphs in a quote share its outer block control,
-        // including nested quotes. Keep semantic child panels independent.
+        // Include the entire quotation when targeting its prose.
         let mut ancestor = parse.nodes[target].parent;
         while let Some(parent) = ancestor {
             if parse.nodes[parent].kind == NodeKind::BlockQuote {
@@ -175,8 +206,7 @@ pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
             .ok()
             .map(|i| &list::cached_items(parse)[i])
     {
-        // One type control represents the complete outer list. Item controls
-        // remain independent, including for nested lists of a different kind.
+        // Target the complete list, including nested lists of a different kind.
         let mut list = item.list;
         let mut ancestor = parse.nodes[list].parent;
         while let Some(id) = ancestor {
@@ -185,18 +215,28 @@ pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
             }
             ancestor = parse.nodes[id].parent;
         }
-        let &(first, task) = parse.block_directory().lists.get(&list)?;
-        let first = &list::cached_items(parse)[first];
-        let ordered = matches!(parse.nodes[list].kind, NodeKind::List(Some(_)));
-        return Some(Block {
-            range: first.range.start..parse.nodes[list].envelope.end,
-            scope: first.scope.clone(),
-            anchor: first.body,
-            kind: BlockKind::List { ordered, task },
-        });
+        target = list;
     }
+    Some(block_from_node(parse, target))
+}
 
+fn block_from_node(parse: &ParseSnapshot, id: usize) -> Block {
+    let node = &parse.nodes[id];
+    let mut anchor = node.envelope.start;
     let kind = match node.kind {
+        NodeKind::List(number) => {
+            let (first_body, task) = parse
+                .block_directory()
+                .lists
+                .get(&id)
+                .copied()
+                .unwrap_or((anchor, false));
+            anchor = first_body;
+            BlockKind::List {
+                ordered: number.is_some(),
+                task,
+            }
+        }
         NodeKind::Heading(level) => BlockKind::Heading(level),
         NodeKind::BlockQuote => BlockKind::Quote,
         NodeKind::CodeBlock(_) => BlockKind::Code,
@@ -229,18 +269,19 @@ pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
         }
         parent = ancestor.parent;
     }
-    Some(Block {
+    Block {
         range,
         scope,
-        anchor: node.envelope.start,
+        anchor,
         kind,
-    })
+    }
 }
 
 /// Only list-wide metadata needs a new directory; ordinary blocks use the
 /// existing range/line indexes and their current ancestor chain.
 #[derive(Default)]
 pub(crate) struct BlockDirectory {
+    /// First body anchor and presence of a task in the list's own items.
     lists: std::collections::BTreeMap<usize, (usize, bool)>,
 }
 impl BlockDirectory {
@@ -248,8 +289,10 @@ impl BlockDirectory {
         #[cfg(any(test, feature = "query-metrics"))]
         crate::query_metrics::record(|m| m.directories += 1);
         let mut result = Self::default();
-        for (index, item) in list::cached_items(parse).iter().enumerate() {
-            result.lists.entry(item.list).or_insert((index, false));
+        for item in list::cached_items(parse) {
+            if parse.nodes[item.list].children.first() == Some(&item.id) {
+                result.lists.insert(item.list, (item.body, false));
+            }
         }
         let mut stack: Vec<_> = parse
             .nodes
@@ -262,9 +305,12 @@ impl BlockDirectory {
             let node = &parse.nodes[id];
             if matches!(node.kind, NodeKind::Task(_))
                 && let Some(list) = item.and_then(|i: usize| parse.nodes[i].parent)
-                && let Some(entry) = result.lists.get_mut(&list)
             {
-                entry.1 = true;
+                result
+                    .lists
+                    .entry(list)
+                    .or_insert((parse.nodes[list].envelope.start, false))
+                    .1 = true;
             }
             let item = if node.kind == NodeKind::Item {
                 Some(id)
@@ -325,7 +371,7 @@ mod indexed_tests {
         }
     }
     #[test]
-    fn full_block_and_insertion_results_match_original_at_every_character_boundary() {
+    fn block_and_insertion_queries_at_every_character_boundary() {
         let samples = [
             "", "\n\n", "# a\n\ntext\n", "title\n===\n\n![alt](x)\n\n---\n\n<div>raw</div>\n",
             "- first\n  - [ ] nested\n- last\n\noutside\n\n1. next\n2. end\n",
@@ -346,6 +392,21 @@ mod indexed_tests {
                     let expected = oracle::at(&parse, caret);
                     assert_eq!(at(&parse, caret), expected, "{raw:?} at {caret}");
                     if let Some(block) = expected {
+                        // The menu now allows insertion beside the whole container
+                        // even when its first editable anchor is inside a child.
+                        if matches!(block.kind, BlockKind::List { .. } | BlockKind::Quote)
+                            && outermost_at(&parse, caret).as_ref() == Some(&block)
+                        {
+                            assert_eq!(
+                                insertion_context(&parse, &block),
+                                Some((block.range.clone(), String::new()))
+                            );
+                            assert_eq!(
+                                can_insert_above(&parse, &block),
+                                !raw[..block.range.start].trim().is_empty()
+                            );
+                            continue;
+                        }
                         assert_eq!(
                             insertion_context(&parse, &block),
                             oracle::insertion_context(&parse, &block),
@@ -419,7 +480,43 @@ mod tests {
             ("```mermaid\ngraph LR\n```\n", "graph", BlockKind::Mermaid),
             ("| a | b |\n|---|---|\n| c | d |\n", "d |", BlockKind::Table),
         ] {
-            assert_eq!(block(text, needle).kind, kind, "{text}");
+            let parse = ParseSnapshot::new(Source::new(text));
+            let caret = text.find(needle).unwrap();
+            let inner = at(&parse, caret).unwrap();
+            assert_eq!(inner.kind, kind, "{text}");
+            assert_eq!(outermost_at(&parse, caret), Some(inner), "{text}");
+        }
+    }
+
+    #[test]
+    fn nested_blocks_share_the_document_childs_menu_at_every_source_position() {
+        for ending in ["\n", "\r\n", "\r"] {
+            for (body, kind) in [
+                (
+                    "  9. ### title\n     > > 中😀\n\n     | col |\n     | --- |\n     | cell |\n\n  10. last",
+                    BlockKind::List { ordered: true, task: false },
+                ),
+                (
+                    "> - [ ] task\n>   - nested\n>\n> ```mermaid\n> graph LR\n> ```\n>\n> ![alt](url)",
+                    BlockKind::Quote,
+                ),
+                ("- ```rs\n  literal\n  ```", BlockKind::List { ordered: false, task: false }),
+                ("> | col |\n> | --- |\n> | cell |", BlockKind::Quote),
+            ] {
+                let body = body.replace('\n', ending);
+                let prefix = format!("before{ending}{ending}");
+                let text = format!("{prefix}{body}{ending}{ending}after");
+                let parse = ParseSnapshot::with_math(Source::new(&text));
+                let owner = outermost_at(&parse, prefix.len()).expect("missing outer container");
+                assert_eq!(owner.kind, kind);
+                assert_eq!(owner.range.start, prefix.len());
+                assert_eq!(owner.range, owner.scope);
+                for (byte, _) in body.char_indices() {
+                    assert_eq!(outermost_at(&parse, prefix.len() + byte).as_ref(), Some(&owner), "{text:?}, {byte}");
+                }
+                assert_eq!(outermost_at(&parse, text.len()).unwrap().kind, BlockKind::Paragraph);
+                assert_eq!(outermost_at(&parse, prefix.len() - 1), None);
+            }
         }
     }
 

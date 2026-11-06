@@ -1,6 +1,6 @@
 # Ryne Privacy Policy
 
-Last updated: October 25, 2026
+Last updated: November 6, 2026
 
 [简体中文](PRIVACY.zh-CN.md)
 
@@ -22,6 +22,7 @@ To provide its basic functions, Ryne processes or stores the following informati
 - **Recent files:** Up to ten paths of files successfully opened or saved, so you can reopen them quickly. Paths may contain file names, user names, or folder names.
 - **Preferences:** Your selected interface language and mathematical font. When following the system language, Ryne reads the system language setting.
 - **Temporary editing data:** The current document, selection, undo and redo history, and rendering caches are held in memory to support the current editing session.
+- **Untitled draft recovery:** After you edit an untitled document, Ryne periodically writes its committed Markdown as plain text in the private application data folder (`Ryne/drafts`). Recovery copies contain document text and stay local. Saving the current version, discarding the draft, or undoing to the original clean state removes the copy. Choosing Later keeps it for a future launch. Empty lock files may remain for reuse.
 - **Temporary save files:** When saving a document or export, Ryne first writes a temporary file in the destination directory and then replaces the destination file. Temporary files are not retained separately after normal completion; an unexpected interruption may leave temporary files behind.
 
 In a conventional Windows installation, preferences and recent file records are usually located in `%APPDATA%\Ryne`, in files named `language`, `math-font`, and `recent.json`. Windows application data redirection may affect the actual location for Microsoft Store installations.

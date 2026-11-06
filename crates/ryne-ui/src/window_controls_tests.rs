@@ -10,7 +10,7 @@ use gpui::{
 };
 use std::sync::Arc;
 
-fn test_editor(cx: &mut Context<Editor>) -> Editor {
+pub(super) fn test_editor(cx: &mut Context<Editor>) -> Editor {
     let formulas = Arc::new(ryne_services::math::FormularyRenderer::default());
     let document = Document::new(
         "plain text\r\n",

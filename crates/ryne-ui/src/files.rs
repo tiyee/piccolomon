@@ -194,7 +194,17 @@ impl Editor {
                                     } else {
                                         Text::Opened
                                     };
-                                    this.install_document(document, status, window, cx);
+                                    if document
+                                        .files
+                                        .path
+                                        .as_deref()
+                                        .is_some_and(|p| this.is_draft_path(p))
+                                    {
+                                        this.status = Text::DraftLocation.into();
+                                        cx.notify();
+                                    } else if this.clear_draft(cx) {
+                                        this.install_document(document, status, window, cx);
+                                    }
                                 }
                                 Err(error) => {
                                     this.status =
@@ -225,6 +235,11 @@ impl Editor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        if self.is_draft_path(&path) {
+            self.status = Text::DraftLocation.into();
+            cx.notify();
+            return;
+        }
         self.operations.close_after_save |= close_after;
         self.status = Text::Saving.into();
         if let Some(request) = self.document.queue_save(path) {
@@ -260,6 +275,7 @@ impl Editor {
                     && let Some(path) = editor.document.files.path.clone()
                 {
                     editor.remember_file(&path, cx);
+                    editor.track_draft(cx);
                 }
                 if let Some(request) = completion.next {
                     editor.run_save(request, window, cx)
@@ -268,6 +284,7 @@ impl Editor {
                     if completion.error.is_none()
                         && completion.clean
                         && editor.document.composition().is_none()
+                        && editor.clear_draft(cx)
                     {
                         editor.operations.allow_close = true;
                         window.remove_window();
@@ -346,13 +363,13 @@ impl Editor {
             return false;
         }
         if self.operations.allow_close || !self.document.dirty() {
-            return true;
+            return self.clear_draft(cx);
         }
         if self.operations.close_prompt {
             return false;
         }
         self.operations.close_prompt = true;
-        let closing_document = self.document.source.id().document_id;
+        let closing_snapshot = self.document.source.id();
         let answer = window.prompt(
             PromptLevel::Warning,
             self.locale.language.text(Text::SaveChanges),
@@ -375,8 +392,8 @@ impl Editor {
                 .ok()
                 .flatten();
             if answer == Some(1) {
-                let _ = this.update_in(cx, |this, window, _| {
-                    if this.document.source.id().document_id == closing_document {
+                let _ = this.update_in(cx, |this, window, cx| {
+                    if this.can_replace(closing_snapshot) && this.clear_draft(cx) {
                         this.operations.allow_close = true;
                         window.remove_window();
                     }
@@ -401,7 +418,7 @@ impl Editor {
                 };
                 if let Some(path) = path {
                     let _ = this.update_in(cx, |this, window, cx| {
-                        if this.document.source.id().document_id == closing_document {
+                        if this.document.source.id().document_id == closing_snapshot.document_id {
                             if !this.commit_composition(cx) {
                                 return;
                             }

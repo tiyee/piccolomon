@@ -1,0 +1,54 @@
+{
+  "date": "2026-10-29",
+  "baseline": "ae1a2e0",
+  "production_changes": false,
+  "architecture": {
+    "command": "python3 scripts/check-architecture.py",
+    "exit_code": 0,
+    "private_packages": 9
+  },
+  "format": {
+    "command": "cargo fmt --check",
+    "exit_code": 0
+  },
+  "unit_tests": {
+    "command": "cargo test --locked",
+    "exit_code": 0,
+    "passed": 329,
+    "failed": 0,
+    "ignored": 0,
+    "log": "tests-output.txt"
+  },
+  "clippy": {
+    "command": "/usr/local/opt/rust/bin/cargo-clippy clippy --locked --all-targets -- -D warnings",
+    "exit_code": 0,
+    "log": "clippy-output.txt"
+  },
+  "new_probes": {
+    "command": "python3 docs/reviews/architecture-2026-10-29/comprehensive/run.py",
+    "exit_code": 0,
+    "log": "probes-output.txt",
+    "scope": "Temporary feature source copy with retain predicate counter; real session APIs for CR headings and completion history."
+  },
+  "prior_boundary_probes": {
+    "command": "python3 docs/reviews/architecture-2026-10-29/followup/run.py",
+    "exit_code": 0,
+    "log": "boundary-output.txt"
+  },
+  "prior_highlight_probes": {
+    "command": "python3 docs/reviews/architecture-2026-10-28/followup/run.py",
+    "exit_code": 0,
+    "log": "highlight-output.txt"
+  },
+  "smoke": {
+    "command": "cargo run --locked -- --smoke-test",
+    "status": "running",
+    "log": "smoke-output.txt"
+  },
+  "not_measured": [
+    "Release GUI latency percentiles",
+    "Process peak RSS",
+    "Windows native acceptance",
+    "Manual IME candidate interaction"
+  ]
+}

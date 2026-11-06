@@ -67,7 +67,7 @@ Une liste numérotée peut commencer par un nombre différent de 1 :
 
 Entrée continue un élément non vide ; sur un élément vide, elle quitte un niveau. Tab / Maj+Tab augmentent ou réduisent le retrait de l'élément et de ses enfants ; le premier élément d'un niveau ne peut pas être décalé davantage. Maj+Entrée ajoute un saut dans l'élément. Cliquez sur la case d'une tâche pour changer son état ; vous pouvez annuler ou rétablir ce changement. Les marqueurs restent modifiables dans la source du bloc.
 
-Survolez un élément ou placez-y le curseur pour afficher le menu à trois points : insérer, déplacer, modifier le retrait ou supprimer l'élément et ses enfants. Le bouton de type en haut à droite sélectionne ou copie toute la liste. Alt+Entrée ouvre le menu de l'élément actif.
+Survolez un élément ou placez-y le curseur pour afficher le menu à trois points : insérer, déplacer, modifier le retrait ou supprimer l'élément et ses enfants. Le bouton de type en haut à gauche d'une liste de premier niveau sélectionne ou copie toute la liste. Alt+Entrée ouvre le menu de l'élément actif.
 
 ## Blocs de code
 
@@ -143,7 +143,7 @@ Le `---` ci-dessus est un séparateur sur sa propre ligne, entouré de lignes vi
 
 ## Source, insertion et fichiers
 
-Survolez le bouton de type d'un bloc pour modifier sa source locale, sélectionner le bloc ou copier sa source. La source des blocs imbriqués inclut les préfixes du conteneur. Cmd+Maj+B bascule la source du bloc ; Cmd+Maj+M la source complète. Échap ferme les menus ou replie la source. En mode source, saisie et retours sont littéraux.
+Le contenu imbriqué partage le bouton de type en haut à gauche du bloc de premier niveau. Survolez ce bouton pour modifier, sélectionner ou copier la source du bloc entier. Cmd+Maj+B bascule la source du bloc ; Cmd+Maj+M la source complète. Échap ferme les menus ou replie la source. En mode source, saisie et retours sont littéraux.
 
 À la fin du menu de type de bloc, choisissez « Ajouter en dessous » ou « Ajouter au-dessus », puis un type de bloc. Le premier bloc propose uniquement « Ajouter en dessous ». Une seule annulation retire l’insertion ; Échap revient au menu du bloc.
 

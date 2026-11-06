@@ -24,6 +24,7 @@ mod p1_smoke;
 mod paint;
 mod profile;
 mod recent;
+mod recovery;
 mod render_controls;
 mod smoke;
 pub use smoke::smoke_features;
@@ -108,6 +109,7 @@ struct Editor {
     formulas: std::sync::Arc<dyn FormulaRenderer>,
     math_font: math_fonts::MathFontPreference,
     recent: recent::RecentFiles,
+    recovery: recovery::Recovery,
     default_document: Option<welcome::DefaultDocument>,
     highlighter: Box<dyn SyntaxHighlighter>,
     fonts: theme::Fonts,
@@ -386,6 +388,7 @@ impl Editor {
             formulas,
             math_font,
             recent: recent::RecentFiles::default(),
+            recovery: Default::default(),
             default_document: None,
             highlighter,
             fonts: theme::Fonts::new(cx.text_system()),
@@ -468,6 +471,7 @@ impl Editor {
     }
     fn refresh_presentation(&mut self, interaction: bool, cx: &mut Context<Self>) {
         let _profile = profile::Scope::new("refresh");
+        self.track_draft(cx);
         // Keep preedit and drag geometry stable; apply the saved choice when
         // the normal input lifecycle next refreshes a settled document.
         if !self.viewport.dragging && self.document.composition().is_none() {
@@ -1227,7 +1231,7 @@ impl Editor {
             .contains(&position)
             .then(|| geometry.hover_source(position))
             .flatten()
-            .and_then(|source| crate::block::at(&self.document.parse, source))
+            .and_then(|source| self.viewport.block_cache.at(&self.document.parse, source))
             .map(|block| (geometry.snapshot, block));
         let closed_menu = self.menus.block_menu.take().is_some();
         if self.menus.hovered_block != block || closed_menu {
@@ -1387,6 +1391,8 @@ pub fn run(
                         cx,
                     );
                     if !smoke {
+                        editor.recovery.directory =
+                            i18n::preference_path().map(|p| p.with_file_name("drafts"));
                         editor.recent = recent::RecentFiles::load(
                             i18n::preference_path().map(|p| p.with_file_name("recent.json")),
                         );
@@ -1412,6 +1418,9 @@ pub fn run(
                     weak.update(cx, |editor, cx| editor.request_close(window, cx))
                         .unwrap_or(true)
                 });
+                if !smoke && path.is_none() {
+                    editor.update(cx, |editor, cx| editor.offer_drafts(window, cx));
+                }
                 if smoke {
                     editor.update(cx, |editor, cx| {
                         editor.start_smoke(force_failure, window, cx)
