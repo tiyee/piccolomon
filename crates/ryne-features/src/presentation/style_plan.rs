@@ -133,6 +133,7 @@ impl StylePlan {
                 marker: get(Attr::Marker) != 0,
                 math: get(Attr::Math) != 0,
                 diagram: get(Attr::Diagram) != 0,
+                image_failure: false,
             };
             let hidden = get(Attr::Hidden) != 0;
             if let Some((r, s, h)) = runs

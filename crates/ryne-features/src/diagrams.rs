@@ -54,8 +54,9 @@ impl PreviewProvider for FencedPreview {
                 .join("\n"))
         };
         Some(PreviewInput {
+            fold_errors: false,
             feature: self.id,
-            block: block.clone(),
+            block: block.into(),
             input,
             renderer: self.renderer.clone(),
         })

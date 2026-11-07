@@ -4,6 +4,7 @@ mod builtins;
 mod code_actions;
 mod commands;
 pub mod diagrams;
+pub mod images;
 pub mod input;
 mod list_actions;
 mod math;
@@ -21,6 +22,7 @@ pub struct MarkdownFeatures {
     formulas: Arc<dyn FormulaRenderer>,
     registry: Registry,
     previews: Vec<diagrams::FencedPreview>,
+    images: Option<images::ImagePreview>,
     additional: Vec<Arc<dyn BuiltinFeature + Send + Sync>>,
 }
 impl MarkdownFeatures {
@@ -28,11 +30,12 @@ impl MarkdownFeatures {
         formulas: Arc<dyn FormulaRenderer>,
         previews: Vec<diagrams::FencedPreview>,
     ) -> Result<Self, String> {
-        let registry = builtins::registry(&formulas, &previews, &[])?;
+        let registry = builtins::registry(&formulas, &previews, None, &[])?;
         Ok(Self {
             formulas,
             previews,
             registry,
+            images: None,
             additional: Vec::new(),
         })
     }
@@ -47,7 +50,22 @@ impl MarkdownFeatures {
         feature: Arc<dyn BuiltinFeature + Send + Sync>,
     ) -> Result<Self, String> {
         self.additional.push(feature);
-        self.registry = builtins::registry(&self.formulas, &self.previews, &self.additional)?;
+        self.registry = builtins::registry(
+            &self.formulas,
+            &self.previews,
+            self.images.as_ref(),
+            &self.additional,
+        )?;
+        Ok(self)
+    }
+    pub fn with_images(mut self, renderer: Arc<dyn DiagramRenderer>) -> Result<Self, String> {
+        self.images = Some(images::ImagePreview(renderer));
+        self.registry = builtins::registry(
+            &self.formulas,
+            &self.previews,
+            self.images.as_ref(),
+            &self.additional,
+        )?;
         Ok(self)
     }
     pub fn registry(&self) -> &Registry {
@@ -91,9 +109,11 @@ impl FeatureEngine for MarkdownFeatures {
                 })
             })
             .collect::<Option<Vec<_>>>()?;
-        Self::new(formulas, previews)
-            .ok()
-            .map(|f| Arc::new(f) as Arc<dyn FeatureEngine>)
+        let mut features = Self::new(formulas, previews).ok()?;
+        if let Some(images) = &self.images {
+            features = features.with_images(images.0.snapshot()?).ok()?;
+        }
+        Some(Arc::new(features))
     }
     fn render_controls(&self, state: &EditingState) -> Result<Vec<RenderControl>, String> {
         self.registry.render_actions().controls(state)

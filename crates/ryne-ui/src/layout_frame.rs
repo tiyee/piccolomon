@@ -90,6 +90,7 @@ impl EditorElement {
             height: layout.height,
             math_painted: 0,
             diagrams_painted: 0,
+            failed_images_painted: 0,
             diagram_images: editor.viewport.diagram_images.clone(),
             diagram_paint_error: None,
             math_error: None,
@@ -117,7 +118,15 @@ impl EditorElement {
         {
             let source = previous
                 .display
-                .source_at(row.range.start, Affinity::Downstream);
+                .image_failure_at(row.range.start)
+                .map_or_else(
+                    || {
+                        previous
+                            .display
+                            .source_at(row.range.start, Affinity::Downstream)
+                    },
+                    |v| v.source.anchor,
+                );
             let offset = display.position_at(source);
             if let Some(next) = geometry.row_for(offset, Affinity::Downstream) {
                 geometry.scroll = (px(page.top) + next.top
@@ -315,7 +324,14 @@ impl EditorElement {
             };
             let origin = bounds.origin
                 + point(
-                    px(page.left) + line.inset - marker_width - px(10.),
+                    px(page.left) + line.inset
+                        - marker_width
+                        - px(10.)
+                        - if display.image_failure_at(line.start).is_some() {
+                            px(theme::IMAGE_FAILURE_INSET)
+                        } else {
+                            px(0.)
+                        },
                     px(page.top) + line.top - geometry.scroll,
                 );
             geometry.list_markers.push((

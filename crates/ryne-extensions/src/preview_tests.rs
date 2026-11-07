@@ -3,6 +3,65 @@ use crate::{CancelControl, DiagramRenderer};
 use ryne_parser::{Session, Source};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 
+struct DocumentPreview {
+    calls: AtomicUsize,
+    malformed: bool,
+    renderer: Arc<dyn DiagramRenderer>,
+}
+impl PreviewProvider for DocumentPreview {
+    fn source_cache_generation(&self) -> Option<u64> {
+        Some(0)
+    }
+    fn document_inputs(&self, _: &EditingState) -> Option<Vec<PreviewInput>> {
+        self.calls.fetch_add(1, Ordering::Relaxed);
+        Some(vec![PreviewInput {
+            fold_errors: false,
+            feature: "untrusted",
+            block: ryne_projection::PreviewSource {
+                range: 0..3,
+                scope: 0..3,
+                anchor: if self.malformed { 99 } else { 0 },
+                indent: 0,
+            },
+            input: Ok("image".into()),
+            renderer: self.renderer.clone(),
+        }])
+    }
+}
+#[test]
+fn document_candidates_merge_with_fences_and_share_cache_validation_and_identity() {
+    let state = state("one\n\n```diagram\nbody\n```\n");
+    for malformed in [false, true] {
+        let image = Arc::new(DocumentPreview {
+            calls: AtomicUsize::new(0),
+            malformed,
+            renderer: Arc::new(Renderer),
+        });
+        let fence = Probe::new(true, "diagram");
+        let registry =
+            PreviewRegistry::new(vec![("image", image.clone()), ("fence", fence.clone())]);
+        let mut cache = PreviewCache::default();
+        for _ in 0..3 {
+            let batch = registry.cached_batch(&state, &mut cache);
+            if malformed {
+                assert_eq!(batch.inputs.len(), 1);
+                assert_eq!(batch.inputs[0].feature, "fence");
+                assert_eq!(batch.diagnostics.len(), 1);
+            } else {
+                assert_eq!(batch.inputs.len(), 2);
+                assert_eq!(batch.inputs[0].feature, "image");
+                assert_eq!(batch.inputs[1].feature, "fence");
+                assert!(batch.inputs[0].block.range.end < batch.inputs[1].block.range.start);
+            }
+        }
+        assert_eq!(
+            image.calls.load(Ordering::Relaxed),
+            if malformed { 3 } else { 1 }
+        );
+        assert_eq!(fence.calls(), 1);
+    }
+}
+
 struct Renderer;
 impl DiagramRenderer for Renderer {
     fn generation(&self) -> u64 {
@@ -70,8 +129,9 @@ impl PreviewProvider for Probe {
             return None;
         }
         Some(PreviewInput {
+            fold_errors: false,
             feature: "untrusted-id",
-            block: block.clone(),
+            block: block.into(),
             input: Ok(state.source.text()[block.range.clone()].to_owned()),
             renderer: self.renderer.clone(),
         })

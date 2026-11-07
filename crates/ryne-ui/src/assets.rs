@@ -53,6 +53,7 @@ impl AssetSource for Assets {
                 "eye" => &include_bytes!("../../../assets/icons/eye.svg")[..],
                 "divider" => &include_bytes!("../../../assets/icons/divider.svg")[..],
                 "image" => &include_bytes!("../../../assets/icons/image.svg")[..],
+                "image_failed" => &include_bytes!("../../../assets/icons/image_failed.svg")[..],
                 "mermaid" => &include_bytes!("../../../assets/icons/mermaid.svg")[..],
                 "table" => &include_bytes!("../../../assets/icons/table.svg")[..],
                 "more_vertical" => &include_bytes!("../../../assets/icons/more_vertical.svg")[..],

@@ -123,14 +123,16 @@ El menú de tres puntos de la celda cambia la alineación e inserta, mueve o eli
 
 ## Citas, imágenes, separadores y texto sin procesar
 
-Las citas ocultan `>` y muestran un icono de cita delante del texto sobre un fondo claro. El contenido y los formatos en línea se editan directamente; el código del bloque permite cambiar los marcadores. Las citas anidadas conservan la sangría. Intro continúa una cita no vacía; la nueva línea conserva el fondo y la sangría. En una línea de cita vacía, Intro sale de un nivel; Mayús+Intro añade un salto de línea dentro de la cita. El modo de código fuente conserva los saltos literales. Las citas vacías, las imágenes y el texto sin procesar conservan código editable. Las imágenes aún no tienen vista previa.
+Las citas ocultan `>` y muestran un icono de cita delante del texto sobre un fondo claro. El contenido y los formatos en línea se editan directamente; el código del bloque permite cambiar los marcadores. Las citas anidadas conservan la sangría. Intro continúa una cita no vacía; la nueva línea conserva el fondo y la sangría. En una línea de cita vacía, Intro sale de un nivel; Mayús+Intro añade un salto de línea dentro de la cita. El modo de código fuente conserva los saltos literales. Las citas vacías y el texto sin procesar conservan código editable. Las imágenes HTTP(S), FTP, `file:` y `data:` que ocupan un párrafo muestran una vista previa: haz clic para editar su Markdown y sal para restaurar la imagen. Se admiten PNG, JPEG, el primer fotograma GIF, WebP y SVG. Las URL data admiten Base64 y codificación porcentual; los archivos locales usan `file:///...`. Si falla la carga, se muestra un icono de imagen rota seguido de la URL en rojo y tachada, limitada a 256 caracteres más puntos suspensivos. Haz clic para editar todo el Markdown. Las imágenes mezcladas con texto conservan el código.
 
 > Una cita con **negrita en línea**.
 >
 > Un segundo párrafo dentro del mismo bloque de cita.
 > > Una cita anidada.
 
-![Descripción de la imagen](https://example.org/image.png)
+![Error de carga](https://example.org/image.png)
+
+![Ejemplo SVG](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NDAiIGhlaWdodD0iMzYwIiB2aWV3Qm94PSIwIDAgNjQwIDM2MCI+CiAgPHJlY3QgeD0iMiIgeT0iMiIgd2lkdGg9IjYzNiIgaGVpZ2h0PSIzNTYiIHJ4PSIyNCIgZmlsbD0iI2YzZjZmYSIgc3Ryb2tlPSIjZDVkZGU3IiBzdHJva2Utd2lkdGg9IjQiLz4KICA8Y2lyY2xlIGN4PSI0NjIiIGN5PSIxMDYiIHI9IjM0IiBmaWxsPSIjZjRjNzZiIi8+CiAgPHBhdGggZD0iTTUyIDI4NCAyMTAgMTE2IDM2NiAyODRaIiBmaWxsPSIjOWJiN2NhIi8+CiAgPHBhdGggZD0ibTI3MCAyODQgMTI2LTEyNiAxOTIgMTI2WiIgZmlsbD0iIzYzOGJhNiIvPgogIDxwYXRoIGQ9Im0xNzIgMTU2IDM4LTQwIDM4IDQxLTM5LTEyWiIgZmlsbD0iI2ZmZiIvPgogIDxwYXRoIGQ9Ik01MiAyODRoNTM2IiBmaWxsPSJub25lIiBzdHJva2U9IiM0OTZiODEiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgo=)
 
 ---
 

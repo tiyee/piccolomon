@@ -163,6 +163,12 @@ pub trait FeatureModule {
 /// Compatibility name for existing static feature implementations.
 pub use FeatureModule as BuiltinFeature;
 pub trait PreviewProvider: Send + Sync {
+    /// Optional non-fenced candidates in source order. These use the same
+    /// bounded cache, resource identity and visibility rules as fenced previews.
+    /// Returning Some replaces this provider's per-fence `input` callback.
+    fn document_inputs(&self, _: &EditingState) -> Option<Vec<PreviewInput>> {
+        None
+    }
     /// Opt in only for pure candidate extraction depending on source identity and
     /// this generation, never on selection, visibility or composition. Opted-in
     /// callbacks may be collected in batches independently of provider precedence.
@@ -173,9 +179,11 @@ pub trait PreviewProvider: Send + Sync {
     }
     fn input(
         &self,
-        state: &EditingState,
-        block: &ryne_syntax::code_block::CodeBlock,
-    ) -> Option<PreviewInput>;
+        _state: &EditingState,
+        _block: &ryne_syntax::code_block::CodeBlock,
+    ) -> Option<PreviewInput> {
+        None
+    }
 }
 pub trait BlockUiProvider: Send + Sync {
     fn adornment(&self, block: &ryne_syntax::block::Block, source_open: bool) -> AdornmentSpec;

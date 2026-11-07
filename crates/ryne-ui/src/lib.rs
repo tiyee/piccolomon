@@ -11,7 +11,9 @@ mod files;
 mod frame_index;
 mod hit_index;
 mod i18n;
+mod image_smoke;
 mod input;
+pub use image_smoke::smoke_image_renderer;
 mod layout;
 mod layout_frame;
 #[cfg(test)]
@@ -530,6 +532,13 @@ impl Editor {
             .diagrams
             .iter()
             .map(|v| v.source.range.clone())
+            .chain(
+                self.viewport
+                    .display
+                    .image_failures
+                    .iter()
+                    .map(|v| v.source.range.clone()),
+            )
             .collect::<Vec<_>>();
         let (views, request) = self.document.diagram_views(frozen, &folded);
         if let Some(request) = request {
@@ -671,15 +680,29 @@ impl Editor {
         }
         let position = self.viewport.display.position_at(self.document.head);
         if !extend
-            && let Some(diagram) = self.viewport.display.diagrams.iter().find(|view| {
-                if forward {
-                    position == view.display.start
-                } else {
-                    position == view.display.end
-                }
-            })
+            && let Some(anchor) = self
+                .viewport
+                .display
+                .diagrams
+                .iter()
+                .map(|v| (&v.display, v.source.anchor))
+                .chain(
+                    self.viewport
+                        .display
+                        .image_failures
+                        .iter()
+                        .map(|v| (&v.display, v.source.anchor)),
+                )
+                .find_map(|(range, anchor)| {
+                    (if forward {
+                        position == range.start
+                    } else {
+                        position == range.end
+                    })
+                    .then_some(anchor)
+                })
         {
-            self.move_to(diagram.source.anchor, false, cx);
+            self.move_to(anchor, false, cx);
             return;
         }
         if !extend
@@ -819,15 +842,29 @@ impl Editor {
         let selection = self.document.selection();
         let position = self.viewport.display.position_at(self.document.head);
         if selection.is_empty()
-            && let Some(view) = self.viewport.display.diagrams.iter().find(|view| {
-                if forward {
-                    position == view.display.start
-                } else {
-                    position == view.display.end
-                }
-            })
+            && let Some(anchor) = self
+                .viewport
+                .display
+                .diagrams
+                .iter()
+                .map(|v| (&v.display, v.source.anchor))
+                .chain(
+                    self.viewport
+                        .display
+                        .image_failures
+                        .iter()
+                        .map(|v| (&v.display, v.source.anchor)),
+                )
+                .find_map(|(range, anchor)| {
+                    (if forward {
+                        position == range.start
+                    } else {
+                        position == range.end
+                    })
+                    .then_some(anchor)
+                })
         {
-            self.move_to(view.source.anchor, false, cx);
+            self.move_to(anchor, false, cx);
             return;
         }
         let removed = self.document.delete(forward);
@@ -1120,11 +1157,20 @@ impl Editor {
                     .into_iter()
                     .map(|i| &geometry.lines[i])
                     .find_map(|line| {
-                        let index = line.diagram?;
+                        let anchor = line
+                            .diagram
+                            .map(|i| geometry.display.diagrams[i].source.anchor)
+                            .or_else(|| {
+                                geometry
+                                    .display
+                                    .image_failure_at(line.start)
+                                    .map(|v| v.source.anchor)
+                            })?;
                         let top = geometry.bounds.top() + px(geometry.page.top) + line.top
                             - geometry.scroll;
-                        (event.position.y >= top && event.position.y < top + line.line_height)
-                            .then_some(geometry.display.diagrams[index].source.anchor)
+                        (event.position.y >= top
+                            && event.position.y < top + line.shaped.size(line.line_height).height)
+                            .then_some(anchor)
                     })
                     .unwrap_or(source)
             } else {

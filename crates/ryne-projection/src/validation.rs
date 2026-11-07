@@ -56,6 +56,7 @@ impl Display {
             if span.source.len() == span.display.len()
                 && !span.style.math
                 && !span.style.diagram
+                && !span.style.image_failure
                 && !source[span.source.clone()]
                     .char_indices()
                     .map(|(p, _)| p)
@@ -158,7 +159,12 @@ impl Display {
             let bytes = (d.pixel_width as usize)
                 .checked_mul(d.pixel_height as usize)
                 .and_then(|n| n.checked_mul(4));
-            if !code(&view.source)
+            if !sr(&view.source.range)
+                || !sr(&view.source.scope)
+                || !point(view.source.anchor)
+                || view.source.scope.start > view.source.range.start
+                || view.source.range.end > view.source.scope.end
+                || !view.source.range.contains(&view.source.anchor)
                 || !dr(&view.display)
                 || !metric(d.width)
                 || !metric(d.height)
@@ -172,12 +178,52 @@ impl Display {
                 return Err("invalid projection diagram".into());
             }
         }
+        for view in &self.image_failures {
+            if !sr(&view.source.range)
+                || !sr(&view.source.scope)
+                || !point(view.source.anchor)
+                || !view.source.range.contains(&view.source.anchor)
+                || view.source.scope.start > view.source.range.start
+                || view.source.range.end > view.source.scope.end
+                || view.source.indent > 32768
+                || !dr(&view.display)
+            {
+                return Err("invalid image failure source mapping".into());
+            }
+        }
         self.validate_layout()
     }
 
     /// Consumer invariants, also checked once when building a new GUI layout.
     /// This checks metadata, never scans the source or reparses the document.
     pub fn validate_layout(&self) -> Result<(), String> {
+        let mut end = 0;
+        for view in &self.image_failures {
+            let range = &view.display;
+            if range.is_empty()
+                || range.start < end
+                || !self
+                    .text
+                    .get(range.clone())
+                    .is_some_and(|s| !s.contains(['\r', '\n']) && s.graphemes(true).count() <= 257)
+                || (range.start > 0 && self.text.as_bytes().get(range.start - 1) != Some(&b'\n'))
+                || self
+                    .diagrams
+                    .iter()
+                    .any(|v| v.display.start < range.end && range.start < v.display.end)
+                || self
+                    .formulas
+                    .iter()
+                    .any(|v| v.display.start < range.end && range.start < v.display.end)
+                || self
+                    .tables
+                    .iter()
+                    .any(|v| v.range.start < range.end && range.start < v.range.end)
+            {
+                return Err("invalid image failure preview".into());
+            }
+            end = range.end;
+        }
         let metric = |n: f32| n.is_finite() && (0.0..=32768.0).contains(&n);
         if self.code_blocks.iter().any(|v| {
             v.source.indent > 32768 || v.rows.iter().any(|r| self.text.get(r.clone()).is_none())
@@ -294,8 +340,20 @@ impl Display {
         }
         let mut formula = 0;
         let mut diagram = 0;
+        let mut failure = 0;
         for span in &self.spans {
-            if span.style.math {
+            if span.style.image_failure {
+                if span.style.math
+                    || span.style.diagram
+                    || !self
+                        .image_failures
+                        .get(failure)
+                        .is_some_and(|v| v.display == span.display && v.source.range == span.source)
+                {
+                    return Err("image failure mapping mismatch".into());
+                }
+                failure += 1;
+            } else if span.style.math {
                 if span.style.diagram
                     || !self
                         .formulas
@@ -316,7 +374,10 @@ impl Display {
                 diagram += 1;
             }
         }
-        if formula != self.formulas.len() || diagram != self.diagrams.len() {
+        if formula != self.formulas.len()
+            || diagram != self.diagrams.len()
+            || failure != self.image_failures.len()
+        {
             return Err("unmapped layout object".into());
         }
         Ok(())
@@ -399,15 +460,11 @@ mod tests {
         display.diagrams = [0..3, 4..7]
             .into_iter()
             .map(|range| DiagramView {
-                source: CodeBlock {
+                source: PreviewSource {
                     range: range.clone(),
                     scope: range.clone(),
                     anchor: range.start,
-                    rows: vec![],
-                    language: String::new(),
-                    closing: None,
                     indent: 0,
-                    continuation: String::new(),
                 },
                 display: range,
                 diagram: resource.clone(),

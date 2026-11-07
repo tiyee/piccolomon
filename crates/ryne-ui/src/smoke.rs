@@ -133,7 +133,10 @@ impl Editor {
             let p1_only=std::env::var_os("RYNE_SMOKE_P1_REPAIR_ONLY").is_some();
             let third_batch_only=std::env::var_os("RYNE_SMOKE_THIRD_BATCH_ONLY").is_some();
             let low_risk_only=std::env::var_os("RYNE_SMOKE_LOW_RISK_ONLY").is_some();
-            let stages: Vec<u16> = if low_risk_only {
+            let image_only = std::env::var_os("RYNE_SMOKE_IMAGES_ONLY").is_some();
+            let stages: Vec<u16> = if image_only {
+                std::iter::once(0).chain(374..386).collect()
+            } else if low_risk_only {
                 std::iter::once(0).chain(372..374).collect()
             } else if p1_only {
                 std::iter::once(0).chain(295..372).collect()
@@ -148,7 +151,7 @@ impl Editor {
             } else if code_language_only {
                 std::iter::once(0).chain(259..267).collect()
             } else {
-                (0..375).collect()
+                (0..387).collect()
             };
             for stage in stages {
                 cx.background_executor()
@@ -2925,6 +2928,10 @@ impl Editor {
                             crate::low_risk_smoke::verify(editor,&geometry,window)?;
                             println!("Low-risk layout checks passed: 180 formulas in one Unicode paragraph at four widths; ordered formula placement/metrics; ordinary/table vertical navigation matches linear oracle with wrapped and empty cells, formula heights, and table boundaries; source/history unchanged");
                             if low_risk_only {cx.quit();return Ok(());}
+                        }
+                        373..=384 => {
+                            crate::image_smoke::step(stage - 1, editor, &geometry, window, cx)?;
+                            if stage == 385 && image_only { cx.quit(); return Ok(()); }
                         }
                         _ => {
                             if performance_only {

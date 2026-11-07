@@ -120,6 +120,14 @@ impl PreviewRegistry {
                 }
                 Some(candidates)
             });
+            let directory =
+                directory.or_else(|| match document_inputs(id, provider.as_ref(), state) {
+                    Ok(inputs) => inputs,
+                    Err(error) => {
+                        batch.diagnostics.push(error);
+                        Some(Arc::new(Vec::new()))
+                    }
+                });
             directories.push(directory);
         }
         // With only stable providers, visit positive candidates instead of every
@@ -135,7 +143,19 @@ impl PreviewRegistry {
                     .into_iter(),
             )
         } else {
-            Box::new(0..blocks.len())
+            Box::new(
+                blocks
+                    .iter()
+                    .map(|b| b.range.start)
+                    .chain(
+                        directories
+                            .iter()
+                            .flatten()
+                            .flat_map(|c| c.iter().map(|(i, _)| *i)),
+                    )
+                    .collect::<BTreeSet<_>>()
+                    .into_iter(),
+            )
         };
         let mut failed = BTreeSet::new();
         for index in indices {
@@ -149,7 +169,10 @@ impl PreviewRegistry {
                         .ok()
                         .map(|i| candidates[i].1.clone()))
                 } else {
-                    input(id, provider.as_ref(), state, &blocks[index])
+                    match blocks.binary_search_by_key(&index, |b| b.range.start) {
+                        Ok(i) => input(id, provider.as_ref(), state, &blocks[i]),
+                        Err(_) => Ok(None),
+                    }
                 };
                 match result {
                     Ok(Some(input)) => {
@@ -190,15 +213,22 @@ fn collect(
     state: &EditingState,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> (Candidates, bool) {
+    match document_inputs(id, provider, state) {
+        Ok(Some(candidates)) => return (candidates, false),
+        Ok(None) => (),
+        Err(error) => {
+            diagnostics.push(error);
+            return (Arc::new(Vec::new()), true);
+        }
+    }
     let mut candidates = Vec::new();
     let mut failed = false;
-    for (index, block) in ryne_syntax::SemanticQuery::new(&state.parse)
+    for block in ryne_syntax::SemanticQuery::new(&state.parse)
         .code_blocks()
         .iter()
-        .enumerate()
     {
         match input(id, provider, state, block) {
-            Ok(Some(input)) => candidates.push((index, input)),
+            Ok(Some(input)) => candidates.push((block.range.start, input)),
             Ok(None) => (),
             Err(error) => {
                 diagnostics.push(error);
@@ -213,6 +243,45 @@ fn collect(
         }
     }
     (Arc::new(candidates), failed)
+}
+
+fn document_inputs(
+    id: &'static str,
+    provider: &dyn PreviewProvider,
+    state: &EditingState,
+) -> Result<Option<Candidates>, Diagnostic> {
+    catch_callback(id, "document preview inputs", || {
+        provider.document_inputs(state)
+    })?
+    .map(|mut inputs| {
+        inputs.sort_by_key(|input| input.block.range.start);
+        inputs.truncate(MAX_CANDIDATES);
+        let mut end = 0;
+        let mut candidates = Vec::with_capacity(inputs.len());
+        for mut input in inputs {
+            let b = &input.block;
+            if b.range.is_empty()
+                || b.range.start < end
+                || state.source.text().get(b.range.clone()).is_none()
+                || state.source.text().get(b.scope.clone()).is_none()
+                || !state.source.text().is_char_boundary(b.anchor)
+                || !b.range.contains(&b.anchor)
+                || b.scope.start > b.range.start
+                || b.range.end > b.scope.end
+                || b.indent > 32768
+            {
+                return Err(Diagnostic {
+                    feature: id.into(),
+                    message: "invalid preview source range".into(),
+                });
+            }
+            end = b.range.end;
+            input.feature = id;
+            candidates.push((b.range.start, input));
+        }
+        Ok(Arc::new(candidates))
+    })
+    .transpose()
 }
 
 #[cfg(test)]

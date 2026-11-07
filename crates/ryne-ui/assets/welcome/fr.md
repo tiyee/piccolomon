@@ -123,14 +123,16 @@ Le menu à trois points de la cellule change l'alignement, insère, déplace ou 
 
 ## Citations, images, séparateurs et texte brut
 
-Les citations masquent `>` et affichent une icône de citation devant le texte sur un fond clair. Le contenu et les formats en ligne sont modifiables directement ; la source du bloc permet de modifier les marqueurs. Les citations imbriquées conservent leur retrait. Entrée continue une citation non vide ; la nouvelle ligne conserve le fond et le retrait. Sur une ligne de citation vide, Entrée quitte un niveau ; Maj+Entrée ajoute un saut de ligne dans la citation. Le mode source conserve les retours littéraux. Les citations vides, les images et le texte brut restent en source modifiable. Les images n'ont pas encore d'aperçu.
+Les citations masquent `>` et affichent une icône de citation devant le texte sur un fond clair. Le contenu et les formats en ligne sont modifiables directement ; la source du bloc permet de modifier les marqueurs. Les citations imbriquées conservent leur retrait. Entrée continue une citation non vide ; la nouvelle ligne conserve le fond et le retrait. Sur une ligne de citation vide, Entrée quitte un niveau ; Maj+Entrée ajoute un saut de ligne dans la citation. Le mode source conserve les retours littéraux. Les citations vides et le texte brut restent en source modifiable. Une image HTTP(S), FTP, `file:` ou `data:` seule dans un paragraphe affiche un aperçu : cliquez pour modifier son Markdown, puis quittez pour rétablir l’image. PNG, JPEG, la première image GIF, WebP et SVG sont pris en charge. Les URL data acceptent Base64 et l’encodage pour cent ; les fichiers locaux utilisent `file:///...`. En cas d’échec, une icône d’image brisée précède l’URL rouge barrée, limitée à 256 caractères suivis de points de suspension. Cliquez pour modifier le Markdown complet. Les images mêlées au texte restent en source.
 
 > Une citation avec du **gras en ligne**.
 >
 > Un deuxième paragraphe dans le même bloc de citation.
 > > Une citation imbriquée.
 
-![Description de l'image](https://example.org/image.png)
+![Échec du chargement](https://example.org/image.png)
+
+![Exemple SVG](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NDAiIGhlaWdodD0iMzYwIiB2aWV3Qm94PSIwIDAgNjQwIDM2MCI+CiAgPHJlY3QgeD0iMiIgeT0iMiIgd2lkdGg9IjYzNiIgaGVpZ2h0PSIzNTYiIHJ4PSIyNCIgZmlsbD0iI2YzZjZmYSIgc3Ryb2tlPSIjZDVkZGU3IiBzdHJva2Utd2lkdGg9IjQiLz4KICA8Y2lyY2xlIGN4PSI0NjIiIGN5PSIxMDYiIHI9IjM0IiBmaWxsPSIjZjRjNzZiIi8+CiAgPHBhdGggZD0iTTUyIDI4NCAyMTAgMTE2IDM2NiAyODRaIiBmaWxsPSIjOWJiN2NhIi8+CiAgPHBhdGggZD0ibTI3MCAyODQgMTI2LTEyNiAxOTIgMTI2WiIgZmlsbD0iIzYzOGJhNiIvPgogIDxwYXRoIGQ9Im0xNzIgMTU2IDM4LTQwIDM4IDQxLTM5LTEyWiIgZmlsbD0iI2ZmZiIvPgogIDxwYXRoIGQ9Ik01MiAyODRoNTM2IiBmaWxsPSJub25lIiBzdHJva2U9IiM0OTZiODEiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgo=)
 
 ---
 

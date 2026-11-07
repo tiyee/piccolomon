@@ -16,6 +16,12 @@ fn main() {
                     renderer: Arc::new(ryne_services::mermaid::MermanRenderer),
                 }],
             )
+            .and_then(|features| {
+                features.with_images(
+                    ryne_ui::smoke_image_renderer()
+                        .unwrap_or_else(|| Arc::new(ryne_services::images::ImageRenderer)),
+                )
+            })
             .and_then(|mut features| {
                 for fixture in ryne_ui::smoke_features() {
                     features = features.with_feature(fixture)?;

@@ -101,6 +101,7 @@ impl BuiltinFeature for Builtin {
 pub(crate) fn registry(
     formulas: &Arc<dyn FormulaRenderer>,
     previews: &[crate::diagrams::FencedPreview],
+    images: Option<&crate::images::ImagePreview>,
     additional: &[Arc<dyn BuiltinFeature + Send + Sync>],
 ) -> Result<Registry, String> {
     let builtins = [
@@ -182,6 +183,7 @@ pub(crate) fn registry(
         .map(|f| f as &dyn BuiltinFeature)
         .collect::<Vec<_>>();
     features.extend(previews.iter().map(|p| p as &dyn BuiltinFeature));
+    features.extend(images.map(|p| p as &dyn BuiltinFeature));
     features.extend(additional.iter().map(|f| f.as_ref() as &dyn BuiltinFeature));
     Registry::build(&features)
 }

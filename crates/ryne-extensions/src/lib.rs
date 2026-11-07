@@ -464,8 +464,10 @@ pub use render_actions::*;
 
 #[derive(Clone)]
 pub struct PreviewInput {
+    /// Failure is an atomic preview and follows focus/freeze visibility, like success.
+    pub fold_errors: bool,
     pub feature: &'static str,
-    pub block: CodeBlock,
+    pub block: ryne_projection::PreviewSource,
     pub input: Result<String, String>,
     pub renderer: Arc<dyn DiagramRenderer>,
 }
@@ -474,6 +476,7 @@ pub struct PreviewBatch {
     pub inputs: Vec<PreviewInput>,
     pub diagnostics: Vec<Diagnostic>,
 }
+pub mod image;
 mod preview;
 pub use preview::PreviewCache;
 mod host;

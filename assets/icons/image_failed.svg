@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="icon" width="200" height="200" viewBox="0 0 1024 1024" fill="none" stroke="currentColor" stroke-width="64" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M576 160H266.667A106.667 106.667 0 0 0 160 266.667v490.666A106.667 106.667 0 0 0 266.667 864H384l-48-192 128-64-32-160 160-96-64-64z"/>
+  <path d="M752 160h5.333A106.667 106.667 0 0 1 864 266.667v490.666A106.667 106.667 0 0 1 757.333 864H544l-48-160 128-64-32-160 160-96-64-96z"/>
+  <circle cx="320" cy="336" r="64"/>
+</svg>

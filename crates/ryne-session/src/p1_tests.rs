@@ -84,15 +84,11 @@ impl FeatureEngine for Malformed {
                 span.style.math = false;
                 span.style.diagram = true;
                 d.diagrams.push(ryne_projection::DiagramView {
-                    source: ryne_syntax::code_block::CodeBlock {
+                    source: ryne_projection::PreviewSource {
                         range: f.source.clone(),
                         scope: f.source.clone(),
-                        rows: vec![],
-                        language: "test".into(),
-                        closing: None,
                         anchor: f.source.start,
                         indent: 0,
-                        continuation: String::new(),
                     },
                     display: f.display,
                     diagram: Arc::new(ryne_projection::Diagram {

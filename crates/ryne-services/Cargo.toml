@@ -23,6 +23,11 @@ math-core.workspace = true
 ttf-parser.workspace = true
 merman.workspace = true
 resvg.workspace = true
+image = { workspace = true, features = ["png", "jpeg", "gif", "webp"] }
+url.workspace = true
+data-url.workspace = true
+percent-encoding.workspace = true
+suppaftp.workspace = true
 
 svg2pdf.workspace = true
 pdf-writer.workspace = true

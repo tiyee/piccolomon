@@ -103,10 +103,19 @@ impl JobHost {
         let mut requested = Vec::new();
         for preview in inputs.into_iter().take(MAX_BLOCKS) {
             let block = preview.block;
+            let visible = !state.source_mode
+                && !state.block_source.as_ref().is_some_and(|s| {
+                    s.range.start < block.range.end && block.range.start < s.range.end
+                });
+            let active = block.range.contains(&state.head);
+            let folded_visible =
+                visible && ((!frozen && !active) || (frozen && folded.contains(&block.range)));
             let source = match preview.input {
                 Ok(s) => s,
                 Err(e) => {
-                    views.push((block.range, Err(e)));
+                    if !preview.fold_errors || folded_visible {
+                        views.push((block.range, Err(e)));
+                    }
                     continue;
                 }
             };
@@ -115,7 +124,9 @@ impl JobHost {
             }) {
                 Ok(generation) => generation,
                 Err(diagnostic) => {
-                    views.push((block.range, Err(diagnostic.message.clone())));
+                    if !preview.fold_errors || folded_visible {
+                        views.push((block.range, Err(diagnostic.message.clone())));
+                    }
                     self.diagnostics.record(diagnostic);
                     continue;
                 }
@@ -127,19 +138,16 @@ impl JobHost {
                 source,
             };
             sources.push(key.clone());
-            let visible = !state.source_mode
-                && !state.block_source.as_ref().is_some_and(|s| {
-                    s.range.start < block.range.end && block.range.start < s.range.end
-                });
-            let active = block.range.contains(&state.head);
-            if visible && ((!frozen && !active) || (frozen && folded.contains(&block.range))) {
+            if folded_visible {
                 if let Some(result) = self.cache.get(&key) {
                     views.push((block.range, result.clone()))
                 }
                 if !frozen {
                     requested.push((key, preview.renderer))
                 }
-            } else if let Some(Err(e)) = self.cache.get(&key) {
+            } else if !preview.fold_errors
+                && let Some(Err(e)) = self.cache.get(&key)
+            {
                 views.push((block.range, Err(e.clone())))
             }
         }

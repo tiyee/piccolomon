@@ -42,7 +42,7 @@ To change the language of the menus and the untouched welcome guide, choose **Ry
 
 To insert a table or another block without typing the syntax, hover just below the last line and click **+**. To insert one between two existing blocks, hover over the first block’s upper-left icon and choose **Add below**.
 
-To edit the Markdown marks for a list, table or quote, choose **Edit block source** from that same menu. To see the whole file’s Markdown, click the **eye** in the toolbar. Click the **code** icon to return to the formatted view. Images and raw HTML appear as editable source.
+To edit the Markdown marks for a list, table or quote, choose **Edit block source** from that same menu. To see the whole file’s Markdown, click the **eye** in the toolbar. Click the **code** icon to return to the formatted view. Standalone images from HTTP(S), FTP, `file:` and `data:` URLs (PNG, JPEG, GIF first frame, WebP and SVG) render proportionally within the available text width, including in lists and quotes; click an image to edit its Markdown. Failed or oversized images show a broken-image icon followed by a red, struck-through URL; addresses longer than 256 characters end with an ellipsis. Click the icon or URL to edit the complete Markdown source. Data URLs accept Base64 and percent encoding; local files use `file:///...` URLs. Relative paths, images mixed with text, and raw HTML remain editable source.
 
 ## Save and share
 

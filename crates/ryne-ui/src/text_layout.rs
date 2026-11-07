@@ -190,7 +190,9 @@ impl TextLayout {
                 if style.italic {
                     face = face.italic();
                 }
-                let color = rgb(if style.marker {
+                let color = rgb(if style.image_failure {
+                    theme::IMAGE_ERROR
+                } else if style.marker {
                     theme::MARKER
                 } else if style.link {
                     theme::LINK
@@ -245,11 +247,28 @@ impl TextLayout {
             {
                 display.checked_layout_advance(start, diagram.display.end)?;
                 let quote = display.quote_at(start);
-                let inset =
-                    px((diagram.source.indent * 18 + quote.map_or(0, |q| q.depth * 14)) as f32)
-                        .max(px(quote.map_or(0, |q| q.inset) as f32));
-                let available = (px(page.width) - inset).max(px(40.));
-                let scale = (f32::from(available) / diagram.diagram.width).min(1.);
+                let inset = display
+                    .list_row(start)
+                    .map_or_else(
+                        || {
+                            px(
+                                (diagram.source.indent * 18 + quote.map_or(0, |q| q.depth * 14))
+                                    as f32,
+                            )
+                        },
+                        |row| {
+                            px(row.source.item.inset as f32
+                                + quote.map_or(0, |q| q.depth * 32) as f32)
+                        },
+                    )
+                    .max(px(quote.map_or(0, |q| q.inset) as f32));
+                // Even deep containers and very narrow columns must fit the image.
+                // Keep the inset when possible, reserving one pixel for its content.
+                let right =
+                    (px(page.width) - if quote.is_some() { px(12.) } else { px(0.) }).max(px(1.));
+                let inset = inset.min((right - px(1.)).max(px(0.)));
+                let width = px(diagram.diagram.width).min(right - inset);
+                let scale = f32::from(width) / diagram.diagram.width;
                 let height = px(diagram.diagram.height * scale + 24.);
                 let shaped = window
                     .text_system()
@@ -281,7 +300,7 @@ impl TextLayout {
                     inset,
                     cell: None,
                     align: TextAlign::Left,
-                    width: px(diagram.diagram.width * scale),
+                    width,
                     mixed: None,
                 });
                 top += height;
@@ -417,6 +436,12 @@ impl TextLayout {
                     px(quote.map_or(0, |q| q.inset) as f32)
                         + if code.is_some() { px(16.) } else { px(0.) },
                 );
+            let inset = inset
+                + if display.image_failure_at(start).is_some() {
+                    px(theme::IMAGE_FAILURE_INSET)
+                } else {
+                    px(0.)
+                };
             for layout in shape_inline(
                 display,
                 &runs,

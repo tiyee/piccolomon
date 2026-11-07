@@ -24,6 +24,7 @@ pub struct Style {
     pub marker: bool,
     pub math: bool,
     pub diagram: bool,
+    pub image_failure: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -43,6 +44,8 @@ pub struct Display {
     pub tables: Vec<TableView>,
     pub formulas: Vec<MathView>,
     pub diagrams: Vec<DiagramView>,
+    /// Folded image failures; the display text holds a bounded address label.
+    pub image_failures: Vec<ImageFailureView>,
     pub flow: Vec<FlowBlock>,
     pub source_len: usize,
 }
@@ -160,7 +163,7 @@ pub struct MathView {
 
 #[derive(Clone, Debug)]
 pub struct DiagramView {
-    pub source: CodeBlock,
+    pub source: PreviewSource,
     pub display: Range<usize>,
     pub diagram: Arc<Diagram>,
 }
@@ -212,6 +215,14 @@ impl PartialEq for DiagramView {
 }
 
 impl Display {
+    pub fn image_failure_at(&self, offset: usize) -> Option<&ImageFailureView> {
+        let index = self
+            .image_failures
+            .partition_point(|v| v.display.end <= offset);
+        self.image_failures
+            .get(index)
+            .filter(|v| v.display.contains(&offset))
+    }
     pub fn quote_at(&self, offset: usize) -> Option<&QuoteView> {
         self.quotes
             .iter()
@@ -294,7 +305,11 @@ impl Display {
                 .filter(|s| s.display.start <= position)
         };
         span.map_or(if position == 0 { 0 } else { self.source_len }, |s| {
-            if s.source.len() == s.display.len() && !s.style.math && !s.style.diagram {
+            if s.source.len() == s.display.len()
+                && !s.style.math
+                && !s.style.diagram
+                && !s.style.image_failure
+            {
                 s.source.start + position.saturating_sub(s.display.start).min(s.source.len())
             } else if position <= s.display.start {
                 s.source.start
@@ -329,6 +344,7 @@ impl Display {
             } else if span.source.len() == span.display.len()
                 && !span.style.math
                 && !span.style.diagram
+                && !span.style.image_failure
             {
                 span.display.start + source - span.source.start
             } else {

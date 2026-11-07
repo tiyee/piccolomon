@@ -226,8 +226,9 @@ fn a_module_publishes_controls_templates_preview_and_ui_atomically() {
                 }
             }
             Some(PreviewInput {
+                fold_errors: false,
                 feature: "misreported",
-                block: block.clone(),
+                block: block.into(),
                 input: Ok("registered".into()),
                 renderer: Arc::new(Renderer),
             })

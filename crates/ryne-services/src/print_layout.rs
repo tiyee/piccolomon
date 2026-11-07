@@ -295,9 +295,16 @@ impl Layout<'_> {
             } else {
                 "sans-serif"
             };
-            let color = style
-                .syntax
-                .map_or(if style.link { 0x306fa6 } else { 0x30343b }, |c| c.color());
+            let color = style.syntax.map_or(
+                if style.image_failure {
+                    0xc62828
+                } else if style.link {
+                    0x306fa6
+                } else {
+                    0x30343b
+                },
+                |c| c.color(),
+            );
             self.page.push_str(&format!(r##"<text x="{x}" y="{baseline}" xml:space="preserve" font-family="{family}" font-size="{size}" font-weight="{}" font-style="{}" fill="#{color:06x}">{}</text>"##, if style.bold || style.heading > 0 { 700 } else { 400 }, if style.italic { "italic" } else { "normal" }, escape(&text)));
             if style.strike || style.link {
                 let y = baseline - if style.strike { size * 0.35 } else { -2. };

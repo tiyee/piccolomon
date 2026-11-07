@@ -30,6 +30,7 @@ fn embedded_block_icons_render_at_control_size() {
 fn render_menu_svg_assets_are_embedded_and_nonempty() {
     for name in [
         "format",
+        "image_failed",
         "eye",
         "code",
         "checkbox_checked",

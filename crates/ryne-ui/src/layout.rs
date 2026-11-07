@@ -283,6 +283,7 @@ pub(super) struct Geometry {
     pub(super) height: Pixels,
     pub(super) math_painted: usize,
     pub(super) diagrams_painted: usize,
+    pub(super) failed_images_painted: usize,
     pub(super) diagram_images: Vec<std::sync::Arc<RenderImage>>,
     pub(super) diagram_paint_error: Option<(usize, String)>,
     pub(super) math_error: Option<String>,
@@ -363,6 +364,8 @@ impl Geometry {
             })?;
         Some(if let Some(i) = line.diagram {
             self.display.diagrams[i].source.anchor
+        } else if let Some(view) = self.display.image_failure_at(line.start) {
+            view.source.anchor
         } else if let Some(i) = line.code {
             self.display.code_blocks[i].source.anchor
         } else {
@@ -397,6 +400,9 @@ impl Geometry {
                 px(self.page.left) + line.inset,
                 px(self.page.top) + row.top - self.scroll,
             );
+        if self.display.image_failure_at(row.range.start).is_some() {
+            origin.x -= px(theme::IMAGE_FAILURE_INSET);
+        }
         if block.kind == BlockKind::Quote
             && let Some(quote) = self.display.quotes.iter().find(|quote| {
                 quote.source.start == block.anchor && quote.source.end == block.range.end

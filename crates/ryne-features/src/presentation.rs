@@ -358,6 +358,29 @@ impl PresentationBuilder<'_> {
         if !quote::prefixes(parse, &quotes).apply_plan(text, &mut plan) {
             return Display::plain_source(text);
         }
+        let mut folded_failures = Vec::new();
+        if !source_mode {
+            for image in ryne_syntax::image::blocks(parse) {
+                if block_window
+                    .is_some_and(|w| w.start < image.range.end && image.range.start < w.end)
+                {
+                    continue;
+                }
+                if let Some((_, result)) = diagrams.iter().find(|(range, _)| *range == image.range)
+                {
+                    plan.set(image.range.clone(), Attr::Hidden, 1);
+                    match result {
+                        Ok(resource) => {
+                            folded_diagrams.push((crate::images::source(image), resource.clone()))
+                        }
+                        Err(_) => folded_failures.push((
+                            crate::images::source(image),
+                            crate::images::failure_label(&image.destination),
+                        )),
+                    }
+                }
+            }
+        }
         let initial_styles = plan.resolve(text.len());
         let (patch, mut insertions) =
             table_component::substitutions(text, &tables, &initial_styles);
@@ -452,6 +475,7 @@ impl PresentationBuilder<'_> {
         let mut insertion_cursor = 0;
         folded_diagrams.sort_by_key(|(b, _)| b.range.start);
         let mut folded_diagrams = folded_diagrams.iter().peekable();
+        let mut folded_failures = folded_failures.iter().peekable();
         rendered.sort_by_key(|(range, _)| range.start);
         let mut rendered = rendered.iter().peekable();
         let empty_code_anchors = structured
@@ -514,6 +538,35 @@ impl PresentationBuilder<'_> {
                     source: block.clone(),
                     display: range,
                     diagram: diagram.clone(),
+                });
+                if text[block.range.clone()].ends_with(['\r', '\n']) {
+                    let from = display.text.len();
+                    display.text.push('\n');
+                    display.spans.push(Span {
+                        source: block.range.end..block.range.end,
+                        display: from..from + 1,
+                        style: Style::default(),
+                    });
+                }
+            }
+            if let Some((block, label)) =
+                folded_failures.next_if(|(block, _)| block.range.start == start)
+            {
+                let from = display.text.len();
+                display.text.push_str(label);
+                let range = from..display.text.len();
+                display.spans.push(Span {
+                    source: block.range.clone(),
+                    display: range.clone(),
+                    style: Style {
+                        image_failure: true,
+                        strike: true,
+                        ..Style::default()
+                    },
+                });
+                display.image_failures.push(ImageFailureView {
+                    source: block.clone(),
+                    display: range,
                 });
                 if text[block.range.clone()].ends_with(['\r', '\n']) {
                     let from = display.text.len();
@@ -590,6 +643,7 @@ impl PresentationBuilder<'_> {
                     && s.source.len() == s.display.len()
                     && !s.style.math
                     && !s.style.diagram
+                    && !s.style.image_failure
             }) {
                 last.source.end = end;
                 last.display.end = display.text.len();

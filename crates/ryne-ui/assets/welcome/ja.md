@@ -123,14 +123,16 @@ flowchart LR
 
 ## 引用、画像、区切り線と生のテキスト
 
-引用は `>` を隠し、本文の前に引用アイコン、ブロックに淡い背景を表示します。本文とインライン書式を直接編集でき、構造記号はブロックソースで変更できます。入れ子の引用はインデントを保持します。空でない引用で Enter を押すと引用を継続し、新しい行も背景とインデントを保持します。空の引用行で Enter を押すと一段外に出ます。Shift+Enter は引用内の強制改行です。ソースモードでは通常の改行を挿入します。空の引用、画像、生のテキストは編集可能なソースを保持します。画像プレビューは未対応です。
+引用は `>` を隠し、本文の前に引用アイコン、ブロックに淡い背景を表示します。本文とインライン書式を直接編集でき、構造記号はブロックソースで変更できます。入れ子の引用はインデントを保持します。空でない引用で Enter を押すと引用を継続し、新しい行も背景とインデントを保持します。空の引用行で Enter を押すと一段外に出ます。Shift+Enter は引用内の強制改行です。ソースモードでは通常の改行を挿入します。空の引用と生のテキストは編集可能なソースを保持します。段落を単独で占める HTTP(S)、FTP、`file:`、`data:` の画像はプレビューを表示します。クリックして Markdown を編集し、離れると画像に戻ります。PNG、JPEG、GIF の先頭フレーム、WebP、SVG に対応します。Data URL は Base64 とパーセントエンコードに対応し、ローカルファイルには `file:///...` を使います。読み込み失敗時は破損画像アイコンと取り消し線付きの赤い URL を表示し、256 文字を超える部分は省略記号で示します。クリックすると完全な Markdown を編集できます。本文中の画像はソースを保持します。
 
 > **太字**を含む引用。
 >
 > 同じ引用ブロック内の二つ目の段落。
 > > 入れ子の引用。
 
-![画像の説明](https://example.org/image.png)
+![読み込み失敗](https://example.org/image.png)
+
+![SVG のサンプル](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NDAiIGhlaWdodD0iMzYwIiB2aWV3Qm94PSIwIDAgNjQwIDM2MCI+CiAgPHJlY3QgeD0iMiIgeT0iMiIgd2lkdGg9IjYzNiIgaGVpZ2h0PSIzNTYiIHJ4PSIyNCIgZmlsbD0iI2YzZjZmYSIgc3Ryb2tlPSIjZDVkZGU3IiBzdHJva2Utd2lkdGg9IjQiLz4KICA8Y2lyY2xlIGN4PSI0NjIiIGN5PSIxMDYiIHI9IjM0IiBmaWxsPSIjZjRjNzZiIi8+CiAgPHBhdGggZD0iTTUyIDI4NCAyMTAgMTE2IDM2NiAyODRaIiBmaWxsPSIjOWJiN2NhIi8+CiAgPHBhdGggZD0ibTI3MCAyODQgMTI2LTEyNiAxOTIgMTI2WiIgZmlsbD0iIzYzOGJhNiIvPgogIDxwYXRoIGQ9Im0xNzIgMTU2IDM4LTQwIDM4IDQxLTM5LTEyWiIgZmlsbD0iI2ZmZiIvPgogIDxwYXRoIGQ9Ik01MiAyODRoNTM2IiBmaWxsPSJub25lIiBzdHJva2U9IiM0OTZiODEiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgo=)
 
 ---
 

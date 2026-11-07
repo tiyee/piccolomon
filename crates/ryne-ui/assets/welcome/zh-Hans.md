@@ -123,14 +123,16 @@ flowchart LR
 
 ## 引用、图片、分隔线与原始文本
 
-引用隐藏 `>`，正文前显示引用图标，文字块带浅色背景；可直接编辑正文和行内格式，局部源码入口可修改结构标记。嵌套引用保留缩进。非空引用中 Enter 自动续行，新行延续背景和缩进；空引用行 Enter 退出一层，Shift+Enter 插入引用内硬换行。局部或全文源码中 Enter 保持原始换行。空引用草稿、图片和原始文字仍保留可编辑源码，图片尚无图像预览。
+引用隐藏 `>`，正文前显示引用图标，文字块带浅色背景；可直接编辑正文和行内格式，局部源码入口可修改结构标记。嵌套引用保留缩进。非空引用中 Enter 自动续行，新行延续背景和缩进；空引用行 Enter 退出一层，Shift+Enter 插入引用内硬换行。局部或全文源码中 Enter 保持原始换行。空引用草稿和原始文字保留可编辑源码。独占一段的 HTTP(S)、FTP、`file:` 和 `data:` 图片可预览，点击后编辑 Markdown；离开后恢复图片。支持 PNG、JPEG、GIF 首帧、WebP 和 SVG。Data URL 支持 Base64 和百分号编码，本地文件使用 `file:///...` 地址。加载失败时显示裂图图标和带删除线的红色地址，超过 256 个字符时追加省略号；点击可编辑完整 Markdown。与文字混排的图片保留源码。
 
 > 带有 **行内粗体** 的引用。
 >
 > 同一个引用块中的第二个段落。
 > > 嵌套引用。
 
-![图片说明](https://example.org/image.png)
+![加载失败](https://example.org/image.png)
+
+![SVG 示例](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NDAiIGhlaWdodD0iMzYwIiB2aWV3Qm94PSIwIDAgNjQwIDM2MCI+CiAgPHJlY3QgeD0iMiIgeT0iMiIgd2lkdGg9IjYzNiIgaGVpZ2h0PSIzNTYiIHJ4PSIyNCIgZmlsbD0iI2YzZjZmYSIgc3Ryb2tlPSIjZDVkZGU3IiBzdHJva2Utd2lkdGg9IjQiLz4KICA8Y2lyY2xlIGN4PSI0NjIiIGN5PSIxMDYiIHI9IjM0IiBmaWxsPSIjZjRjNzZiIi8+CiAgPHBhdGggZD0iTTUyIDI4NCAyMTAgMTE2IDM2NiAyODRaIiBmaWxsPSIjOWJiN2NhIi8+CiAgPHBhdGggZD0ibTI3MCAyODQgMTI2LTEyNiAxOTIgMTI2WiIgZmlsbD0iIzYzOGJhNiIvPgogIDxwYXRoIGQ9Im0xNzIgMTU2IDM4LTQwIDM4IDQxLTM5LTEyWiIgZmlsbD0iI2ZmZiIvPgogIDxwYXRoIGQ9Ik01MiAyODRoNTM2IiBmaWxsPSJub25lIiBzdHJva2U9IiM0OTZiODEiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgo=)
 
 ---
 

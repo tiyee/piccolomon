@@ -123,14 +123,16 @@ flowchart LR
 
 ## 인용, 이미지, 구분선과 원시 텍스트
 
-인용은 `>`를 숨기고 본문 앞에 인용 아이콘과 블록에 옅은 배경을 표시합니다. 본문과 인라인 서식을 직접 편집하고 블록 원문에서 구조 기호를 바꿀 수 있습니다. 중첩 인용은 들여쓰기를 유지합니다. 내용이 있는 인용에서 Enter는 인용을 이어 쓰고 새 줄에도 배경과 들여쓰기를 유지합니다. 빈 인용 줄에서 Enter는 한 단계 밖으로 나가고 Shift+Enter는 인용 안에 강제 줄 바꿈을 삽입합니다. 원문 모드에서는 일반 줄 바꿈을 유지합니다. 빈 인용, 이미지와 원시 텍스트는 편집 가능한 원문을 유지합니다. 이미지 미리 보기는 아직 제공하지 않습니다.
+인용은 `>`를 숨기고 본문 앞에 인용 아이콘과 블록에 옅은 배경을 표시합니다. 본문과 인라인 서식을 직접 편집하고 블록 원문에서 구조 기호를 바꿀 수 있습니다. 중첩 인용은 들여쓰기를 유지합니다. 내용이 있는 인용에서 Enter는 인용을 이어 쓰고 새 줄에도 배경과 들여쓰기를 유지합니다. 빈 인용 줄에서 Enter는 한 단계 밖으로 나가고 Shift+Enter는 인용 안에 강제 줄 바꿈을 삽입합니다. 원문 모드에서는 일반 줄 바꿈을 유지합니다. 빈 인용과 원시 텍스트는 편집 가능한 원문을 유지합니다. 단독 문단의 HTTP(S), FTP, `file:`, `data:` 이미지는 미리 보기를 표시합니다. 클릭하면 Markdown을 편집하고 다른 곳으로 이동하면 이미지로 돌아갑니다. PNG, JPEG, GIF 첫 프레임, WebP, SVG를 지원합니다. Data URL은 Base64와 퍼센트 인코딩을 지원하며 로컬 파일은 `file:///...` 주소를 사용합니다. 로딩에 실패하면 깨진 이미지 아이콘과 취소선이 있는 빨간 URL을 표시하며, 256자를 넘는 부분은 말줄임표로 표시합니다. 클릭하면 전체 Markdown을 편집할 수 있습니다. 본문에 섞인 이미지는 원문을 유지합니다.
 
 > **굵은 글자**가 있는 인용.
 >
 > 같은 인용 블록 안의 두 번째 문단.
 > > 중첩 인용.
 
-![이미지 설명](https://example.org/image.png)
+![로딩 실패](https://example.org/image.png)
+
+![SVG 예제](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NDAiIGhlaWdodD0iMzYwIiB2aWV3Qm94PSIwIDAgNjQwIDM2MCI+CiAgPHJlY3QgeD0iMiIgeT0iMiIgd2lkdGg9IjYzNiIgaGVpZ2h0PSIzNTYiIHJ4PSIyNCIgZmlsbD0iI2YzZjZmYSIgc3Ryb2tlPSIjZDVkZGU3IiBzdHJva2Utd2lkdGg9IjQiLz4KICA8Y2lyY2xlIGN4PSI0NjIiIGN5PSIxMDYiIHI9IjM0IiBmaWxsPSIjZjRjNzZiIi8+CiAgPHBhdGggZD0iTTUyIDI4NCAyMTAgMTE2IDM2NiAyODRaIiBmaWxsPSIjOWJiN2NhIi8+CiAgPHBhdGggZD0ibTI3MCAyODQgMTI2LTEyNiAxOTIgMTI2WiIgZmlsbD0iIzYzOGJhNiIvPgogIDxwYXRoIGQ9Im0xNzIgMTU2IDM4LTQwIDM4IDQxLTM5LTEyWiIgZmlsbD0iI2ZmZiIvPgogIDxwYXRoIGQ9Ik01MiAyODRoNTM2IiBmaWxsPSJub25lIiBzdHJva2U9IiM0OTZiODEiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgo=)
 
 ---
 

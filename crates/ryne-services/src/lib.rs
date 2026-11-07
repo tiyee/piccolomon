@@ -2,6 +2,7 @@
 pub mod directory;
 pub mod files;
 pub mod highlight;
+pub mod images;
 pub mod language;
 pub mod math;
 pub mod mermaid;

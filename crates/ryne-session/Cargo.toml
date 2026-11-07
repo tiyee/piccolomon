@@ -15,6 +15,10 @@ ryne-parser.workspace = true
 [dev-dependencies]
 ryne-features.workspace = true
 ryne-services.workspace = true
+url.workspace = true
+base64.workspace = true
+unicode-segmentation.workspace = true
+tempfile = "=3.27.0"
 
 [[example]]
 name = "render-interactions"

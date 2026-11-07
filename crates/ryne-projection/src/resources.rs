@@ -1,5 +1,30 @@
 use std::{ops::Range, sync::Arc};
 pub const OBJECT: &str = "\u{fffc}";
+/// Source geometry shared by fenced diagrams and standalone image previews.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PreviewSource {
+    pub range: Range<usize>,
+    pub scope: Range<usize>,
+    pub anchor: usize,
+    pub indent: usize,
+}
+impl From<&ryne_syntax::code_block::CodeBlock> for PreviewSource {
+    fn from(block: &ryne_syntax::code_block::CodeBlock) -> Self {
+        Self {
+            range: block.range.clone(),
+            // Parser envelopes may stop before the closing fence's final
+            // newline; the preview consumes that physical newline as well.
+            scope: block.scope.start.min(block.range.start)..block.scope.end.max(block.range.end),
+            anchor: block.anchor,
+            indent: block.indent,
+        }
+    }
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct ImageFailureView {
+    pub source: PreviewSource,
+    pub display: Range<usize>,
+}
 #[derive(Debug)]
 pub struct Formula {
     pub path: String,

@@ -321,7 +321,11 @@ mod tests {
                 .find(|s| s.display.start <= position && position < s.display.end)
         };
         span.map_or(if position == 0 { 0 } else { display.source_len }, |s| {
-            if s.source.len() == s.display.len() && !s.style.math && !s.style.diagram {
+            if s.source.len() == s.display.len()
+                && !s.style.math
+                && !s.style.diagram
+                && !s.style.image_failure
+            {
                 s.source.start + position.saturating_sub(s.display.start).min(s.source.len())
             } else if position <= s.display.start {
                 s.source.start
@@ -352,6 +356,7 @@ mod tests {
                 return if span.source.len() == span.display.len()
                     && !span.style.math
                     && !span.style.diagram
+                    && !span.style.image_failure
                 {
                     span.display.start + source - span.source.start
                 } else {

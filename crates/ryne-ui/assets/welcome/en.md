@@ -123,14 +123,16 @@ The cell's three-dot menu changes alignment and inserts, moves or deletes rows a
 
 ## Quotes, images, separators and raw text
 
-Quotes hide `>` and show a quote icon before the text on a pale block background. Edit the body and inline formatting directly; use block source to change structural markers. Nested quotes retain indentation. Enter continues a nonempty quote; the empty new row retains its background and indentation. Enter on an empty quote row exits one level; Shift+Enter adds a hard break within the quote. Source mode keeps literal newlines. Empty quote drafts, images and raw text retain editable source. Images do not yet show an image preview.
+Quotes hide `>` and show a quote icon before the text on a pale block background. Edit the body and inline formatting directly; use block source to change structural markers. Nested quotes retain indentation. Enter continues a nonempty quote; the empty new row retains its background and indentation. Enter on an empty quote row exits one level; Shift+Enter adds a hard break within the quote. Source mode keeps literal newlines. Empty quote drafts and raw text retain editable source. Standalone HTTP(S), FTP, `file:` and `data:` images show a preview; click to edit their Markdown and leave to restore the image. PNG, JPEG, the first GIF frame WebP and SVG are supported. Data URLs accept Base64 and percent encoding; local files use `file:///...` URLs. Loading failures show a broken-image icon and a red, struck-through URL, limited to 256 characters plus an ellipsis. Click to edit the complete Markdown. Images mixed with text retain editable source.
 
 > A quote with **inline emphasis**.
 >
 > A second paragraph in the same quote block.
 > > A nested quote.
 
-![Image description](https://example.org/image.png)
+![Failed to load](https://example.org/image.png)
+
+![SVG example](data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NDAiIGhlaWdodD0iMzYwIiB2aWV3Qm94PSIwIDAgNjQwIDM2MCI+CiAgPHJlY3QgeD0iMiIgeT0iMiIgd2lkdGg9IjYzNiIgaGVpZ2h0PSIzNTYiIHJ4PSIyNCIgZmlsbD0iI2YzZjZmYSIgc3Ryb2tlPSIjZDVkZGU3IiBzdHJva2Utd2lkdGg9IjQiLz4KICA8Y2lyY2xlIGN4PSI0NjIiIGN5PSIxMDYiIHI9IjM0IiBmaWxsPSIjZjRjNzZiIi8+CiAgPHBhdGggZD0iTTUyIDI4NCAyMTAgMTE2IDM2NiAyODRaIiBmaWxsPSIjOWJiN2NhIi8+CiAgPHBhdGggZD0ibTI3MCAyODQgMTI2LTEyNiAxOTIgMTI2WiIgZmlsbD0iIzYzOGJhNiIvPgogIDxwYXRoIGQ9Im0xNzIgMTU2IDM4LTQwIDM4IDQxLTM5LTEyWiIgZmlsbD0iI2ZmZiIvPgogIDxwYXRoIGQ9Ik01MiAyODRoNTM2IiBmaWxsPSJub25lIiBzdHJva2U9IiM0OTZiODEiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgo=)
 
 ---
 

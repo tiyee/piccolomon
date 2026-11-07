@@ -1,7 +1,7 @@
 use super::*;
 pub(super) struct CodePresentation {
     pub structured: Vec<code_block::CodeBlock>,
-    pub diagrams: Vec<(code_block::CodeBlock, std::sync::Arc<Diagram>)>,
+    pub diagrams: Vec<(PreviewSource, std::sync::Arc<Diagram>)>,
     pub patch: BlockContribution,
 }
 pub(super) fn contribute(
@@ -37,7 +37,7 @@ pub(super) fn contribute(
         }
         patch.hide(block.range.clone(), true);
         if let Some((_, Ok(diagram))) = diagrams.iter().find(|(range, _)| *range == block.range) {
-            folded_diagrams.push((block.clone(), diagram.clone()));
+            folded_diagrams.push((block.into(), diagram.clone()));
             continue;
         }
         for row in &block.rows {

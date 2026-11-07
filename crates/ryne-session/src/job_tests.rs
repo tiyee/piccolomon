@@ -206,8 +206,9 @@ fn renderer_instance_is_part_of_cache_identity() {
     let block = ryne_syntax::code_block::blocks(&doc.parse)[0].clone();
     let other = Arc::new(FakeRenderer(AtomicU64::new(1)));
     let make = |renderer: Arc<dyn DiagramRenderer>| PreviewInput {
+        fold_errors: false,
         feature: "same",
-        block: block.clone(),
+        block: (&block).into(),
         input: Ok("same".into()),
         renderer,
     };

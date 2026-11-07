@@ -3,6 +3,8 @@ use ryne_core::DocumentCore;
 use ryne_extensions::*;
 use ryne_parser::Source;
 use ryne_projection::{DiagramViewInput, Display};
+#[cfg(test)]
+mod image_tests;
 use ryne_syntax::ParseSnapshot;
 use std::{
     ops::{Deref, Range},
@@ -413,6 +415,15 @@ impl EditorSession {
     }
     pub fn insert_templates(&self) -> &[(&'static str, InsertBlock)] {
         self.features.insert_templates()
+    }
+    pub fn invalidate_preview(&mut self, range: &Range<usize>, error: String) {
+        for input in self.cached_preview_inputs() {
+            if input.block.range == *range
+                && let Ok(source) = input.input
+            {
+                self.jobs.invalidate(&source, error.clone());
+            }
+        }
     }
     pub fn preview_at_caret(&self) -> Option<Range<usize>> {
         self.cached_preview_inputs()

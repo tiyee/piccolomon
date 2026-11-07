@@ -82,6 +82,30 @@ impl EditorElement {
                     cx,
                 );
             }
+            for view in &frame.geometry.display.image_failures {
+                let height = frame
+                    .geometry
+                    .row_for(view.display.start, Affinity::Downstream)
+                    .map_or(px(theme::BODY.1), |row| row.line_height);
+                let icon = Bounds::new(
+                    frame.geometry.position(view.display.start)
+                        + point(-px(theme::IMAGE_FAILURE_INSET), (height - px(24.)) / 2.),
+                    size(px(24.), px(24.)),
+                );
+                if icon.intersects(&bounds)
+                    && window
+                        .paint_svg(
+                            icon,
+                            "icon:image_failed".into(),
+                            TransformationMatrix::default(),
+                            rgb(theme::MUTED).into(),
+                            cx,
+                        )
+                        .is_ok()
+                {
+                    frame.geometry.failed_images_painted += 1;
+                }
+            }
             for (origin, label, height) in &frame.list_labels {
                 if origin.y + *height < bounds.top() || origin.y > bounds.bottom() {
                     continue;
@@ -226,14 +250,9 @@ impl EditorElement {
             editor.viewport.ensure_caret = false;
             if let Some((index, error)) = &frame.geometry.diagram_paint_error {
                 let view = &frame.geometry.display.diagrams[*index];
-                let source = view
-                    .source
-                    .rows
-                    .iter()
-                    .map(|r| &editor.document.source.text()[r.content.clone()])
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                editor.document.jobs.invalidate(&source, error.clone());
+                editor
+                    .document
+                    .invalidate_preview(&view.source.range, error.clone());
                 editor.status = editor.locale.language.error(Text::DiagramFailed, error);
                 editor.refresh(cx);
             }

@@ -445,6 +445,12 @@ impl Editor {
                 let line = &geometry.lines[row.line];
                 line.diagram
                     .map(|i| geometry.display.diagrams[i].source.anchor)
+                    .or_else(|| {
+                        geometry
+                            .display
+                            .image_failure_at(row.range.start)
+                            .map(|v| v.source.anchor)
+                    })
                     .unwrap_or_else(|| {
                         geometry
                             .display
