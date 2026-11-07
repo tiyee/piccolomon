@@ -76,6 +76,7 @@ impl State {
                 editor.viewport.frame_epoch = editor.viewport.frame_epoch.wrapping_add(1);
                 let page = theme::Page::new(f32::from(geometry.bounds.size.width), false);
                 let key = text_layout::LayoutKey::new(
+                    theme::palette(cx),
                     editor,
                     page,
                     window,

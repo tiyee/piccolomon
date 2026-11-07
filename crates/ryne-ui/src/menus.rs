@@ -23,10 +23,17 @@ pub(super) struct SelectMathFont {
     pub font: MathFont,
 }
 
+#[derive(Clone, Debug, PartialEq, Action)]
+#[action(namespace = ryne, no_json)]
+pub(super) struct SelectTheme {
+    pub mode: theme::Mode,
+}
+
 pub(super) fn application_menus(
     language: Language,
     preference: Preference,
     math_font: MathFont,
+    theme: theme::Mode,
     paths: &[PathBuf],
     exports: &[ExportDescriptor],
 ) -> Vec<Menu> {
@@ -86,6 +93,23 @@ pub(super) fn application_menus(
                         })
                         .collect(),
                 }),
+                MenuItem::submenu(Menu {
+                    name: text(Text::Theme).into(),
+                    items: theme::Mode::ALL
+                        .into_iter()
+                        .map(|mode| {
+                            let label = text(mode.label());
+                            MenuItem::action(
+                                if mode == theme {
+                                    format!("✓ {label}")
+                                } else {
+                                    label.into()
+                                },
+                                SelectTheme { mode },
+                            )
+                        })
+                        .collect(),
+                }),
                 MenuItem::action(text(Text::CheckUpdates), CheckUpdates),
                 MenuItem::separator(),
                 MenuItem::action(text(Text::Hide), Hide),
@@ -128,6 +152,7 @@ impl Editor {
             self.locale.language,
             self.locale.preference,
             self.math_font.font,
+            theme::selected(cx),
             &self.recent.paths,
             self.desktop.exports.formats(),
         ));
@@ -168,6 +193,27 @@ impl Editor {
         cx: &mut Context<Self>,
     ) {
         self.select_language(action.preference, cx);
+    }
+    pub(super) fn change_theme(
+        &mut self,
+        action: &SelectTheme,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.menus.close_all();
+        let result = cx.update_global::<theme::Settings, _>(|settings, _| {
+            settings.system = window.appearance();
+            settings.select(action.mode)
+        });
+        if let Err(error) = result {
+            self.status = self
+                .locale
+                .language
+                .error(Text::ThemePreferenceFailed, error);
+        }
+        self.sync_application_menus(cx);
+        // Layout keys include the palette. Projection, source and IME state stay intact.
+        cx.refresh_windows();
     }
     pub(super) fn change_math_font(
         &mut self,
@@ -256,10 +302,12 @@ impl Editor {
     /// GPUI 0.2.2 stores app menus on Windows without drawing a native menu bar.
     /// Present the same command tree inside the window on those platforms.
     pub(super) fn window_menu(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
+        let colors = theme::palette(cx);
         let menus = application_menus(
             self.locale.language,
             self.locale.preference,
             self.math_font.font,
+            theme::selected(cx),
             &self.recent.paths,
             self.desktop.exports.formats(),
         );
@@ -281,7 +329,7 @@ impl Editor {
                     .flex()
                     .items_center()
                     .cursor_pointer()
-                    .hover(|s| s.bg(rgb(0xecebe7)))
+                    .hover(move |s| s.bg(rgb(colors.hover)))
                     .child(menu.name.clone())
                     .on_mouse_down(
                         MouseButton::Left,
@@ -311,7 +359,7 @@ impl Editor {
                                 .px_3()
                                 .py_2()
                                 .cursor_pointer()
-                                .hover(|s| s.bg(rgb(0xecebe7)))
+                                .hover(move |s| s.bg(rgb(colors.hover)))
                                 .child(format!("{} ▸", submenu.name))
                                 .on_mouse_down(
                                     MouseButton::Left,
@@ -355,9 +403,9 @@ impl Editor {
                         .flex()
                         .flex_col()
                         .py_1()
-                        .bg(rgb(theme::PAPER))
+                        .bg(rgb(colors.paper))
                         .border_1()
-                        .border_color(rgb(theme::BORDER))
+                        .border_color(rgb(colors.border))
                         .shadow_lg()
                         .occlude()
                         .children(items),
@@ -369,6 +417,7 @@ impl Editor {
     }
 }
 fn window_menu_item(item: MenuItem, cx: &mut Context<Editor>) -> AnyElement {
+    let colors = theme::palette(cx);
     match item {
         MenuItem::Action { name, action, .. } => {
             let enabled = !action.as_any().is::<NoRecent>();
@@ -378,9 +427,9 @@ fn window_menu_item(item: MenuItem, cx: &mut Context<Editor>) -> AnyElement {
                 .py_2()
                 .text_ellipsis()
                 .when(enabled, |s| {
-                    s.cursor_pointer().hover(|s| s.bg(rgb(0xecebe7)))
+                    s.cursor_pointer().hover(move |s| s.bg(rgb(colors.hover)))
                 })
-                .when(!enabled, |s| s.text_color(rgb(theme::MUTED)))
+                .when(!enabled, |s| s.text_color(rgb(colors.muted)))
                 .child(name)
                 .on_mouse_down(
                     MouseButton::Left,
@@ -400,7 +449,7 @@ fn window_menu_item(item: MenuItem, cx: &mut Context<Editor>) -> AnyElement {
         _ => div()
             .h(px(1.))
             .my_1()
-            .bg(rgb(theme::BORDER))
+            .bg(rgb(colors.border))
             .into_any_element(),
     }
 }
@@ -440,6 +489,7 @@ mod tests {
             Language::En,
             Preference(None),
             MathFont::default(),
+            theme::Mode::System,
             &[],
             &exports,
         );
@@ -457,11 +507,56 @@ mod tests {
         );
     }
     #[::core::prelude::v1::test]
+    fn theme_submenu_localizes_routes_and_marks_exactly_one_choice() {
+        for language in Language::ALL {
+            for selected in theme::Mode::ALL {
+                let menus = application_menus(
+                    language,
+                    Preference(None),
+                    MathFont::default(),
+                    selected,
+                    &[],
+                    &test_exports(),
+                );
+                let menu = menus[0]
+                    .items
+                    .iter()
+                    .find_map(|item| match item {
+                        MenuItem::Submenu(menu)
+                            if menu.name.as_ref() == language.text(Text::Theme) =>
+                        {
+                            Some(menu)
+                        }
+                        _ => None,
+                    })
+                    .expect("theme submenu");
+                assert_eq!(menu.items.len(), 3);
+                for (item, mode) in menu.items.iter().zip(theme::Mode::ALL) {
+                    let MenuItem::Action { name, action, .. } = item else {
+                        panic!("theme action")
+                    };
+                    assert_eq!(
+                        action.as_any().downcast_ref::<SelectTheme>().unwrap().mode,
+                        mode
+                    );
+                    assert_eq!(name.starts_with("✓ "), mode == selected);
+                    assert!(name.ends_with(language.text(mode.label())));
+                }
+            }
+        }
+    }
+    #[::core::prelude::v1::test]
     fn math_font_submenu_localizes_routes_and_marks_exactly_one_choice() {
         for language in Language::ALL {
             for selected in MathFont::ALL {
-                let menus =
-                    application_menus(language, Preference(None), selected, &[], &test_exports());
+                let menus = application_menus(
+                    language,
+                    Preference(None),
+                    selected,
+                    theme::Mode::System,
+                    &[],
+                    &test_exports(),
+                );
                 let MenuItem::Submenu(menu) = &menus[0].items[2] else {
                     panic!("math font submenu")
                 };
@@ -500,6 +595,7 @@ mod tests {
                     language,
                     *preference,
                     MathFont::default(),
+                    theme::Mode::System,
                     &[],
                     &test_exports(),
                 );
@@ -546,6 +642,7 @@ mod tests {
                 language,
                 Preference(None),
                 MathFont::default(),
+                theme::Mode::System,
                 std::slice::from_ref(&path),
                 &test_exports(),
             );

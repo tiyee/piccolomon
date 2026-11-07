@@ -6,11 +6,13 @@ impl EditorElement {
         window: &mut Window,
         cx: &mut App,
     ) -> Frame {
+        let colors = theme::palette(cx);
         let _profile = profile::Scope::new("layout_frame");
         let attempt = {
             let editor = self.editor.read(cx);
             let page = theme::Page::new(f32::from(bounds.size.width), editor.document.source_mode);
             let key = text_layout::LayoutKey::new(
+                colors,
                 editor,
                 page,
                 window,
@@ -59,6 +61,7 @@ impl EditorElement {
                 let page =
                     theme::Page::new(f32::from(bounds.size.width), editor.document.source_mode);
                 let key = text_layout::LayoutKey::new(
+                    colors,
                     editor,
                     page,
                     window,
@@ -194,7 +197,7 @@ impl EditorElement {
                 &[TextRun {
                     len: label.len(),
                     font: editor.fonts.code.clone(),
-                    color: rgb(theme::MUTED).into(),
+                    color: rgb(colors.muted).into(),
                     background_color: None,
                     underline: None,
                     strikethrough: None,
@@ -270,7 +273,14 @@ impl EditorElement {
                     controls: contributions,
                 });
             }
-            table_quads.push(fill(cell, rgb(if header { 0xeeefed } else { 0xffffff })));
+            table_quads.push(fill(
+                cell,
+                rgb(if header {
+                    colors.table_header
+                } else {
+                    colors.table_cell
+                }),
+            ));
             for edge in [
                 Bounds::new(cell.origin, size(cell.size.width, px(1.))),
                 Bounds::new(
@@ -283,7 +293,7 @@ impl EditorElement {
                     size(px(1.), cell.size.height),
                 ),
             ] {
-                table_quads.push(fill(edge, rgb(theme::BORDER)));
+                table_quads.push(fill(edge, rgb(colors.border)));
             }
         }
         let mut list_labels = Vec::new();
@@ -303,7 +313,7 @@ impl EditorElement {
                 &[TextRun {
                     len: label.len(),
                     font: editor.fonts.body.clone(),
-                    color: rgb(theme::MUTED).into(),
+                    color: rgb(colors.muted).into(),
                     background_color: None,
                     underline: None,
                     strikethrough: None,
@@ -445,10 +455,10 @@ impl EditorElement {
             });
         }
         let selected = display.position_at(selected.start)..display.position_at(selected.end);
-        let selections = geometry.selection_quads(selected, rgba(0x9abfe966).into());
+        let selections = geometry.selection_quads(selected, rgba(colors.selection).into());
         let cursor = fill(
             geometry.caret_bounds(caret, editor.caret_state.caret_affinity),
-            rgb(theme::LINK),
+            rgb(colors.link),
         );
         let focused_block = (editor.menus.render_menu.is_none()
             && !editor.document.source_mode
@@ -523,9 +533,9 @@ impl EditorElement {
                     .justify_center()
                     .rounded_md()
                     .text_size(px(22.))
-                    .text_color(rgb(0x858b93))
+                    .text_color(rgb(colors.muted))
                     .cursor_pointer()
-                    .hover(|style| style.bg(rgb(0xe8e7e2)).text_color(rgb(theme::LINK)))
+                    .hover(move |style| style.bg(rgb(colors.hover)).text_color(rgb(colors.link)))
                     .child("+")
                     .on_hover(move |hovered, _, cx| {
                         if *hovered {
@@ -557,10 +567,10 @@ impl EditorElement {
                         .id("append-menu")
                         .w(px(380.).min(bounds.size.width))
                         .p_1()
-                        .bg(rgb(0xfdfcf9))
-                        .text_color(rgb(0x363c44))
+                        .bg(rgb(colors.popup))
+                        .text_color(rgb(colors.ink))
                         .border_1()
-                        .border_color(rgb(0xdeddd7))
+                        .border_color(rgb(colors.border))
                         .rounded_md()
                         .shadow_md()
                         .cursor_default()
@@ -569,10 +579,11 @@ impl EditorElement {
                                 .px_3()
                                 .py_2()
                                 .text_size(px(12.))
-                                .text_color(rgb(0x858b93))
+                                .text_color(rgb(colors.muted))
                                 .child(language.text(Text::AddContent)),
                         );
                     menu = menu.child(insert_type_picker(
+                        colors,
                         self.editor.clone(),
                         snapshot,
                         None,
@@ -617,8 +628,9 @@ impl EditorElement {
                 let entity = self.editor.clone();
                 let target = block.clone();
                 let icon = block_type_icon(
+                    colors,
                     &spec.metadata,
-                    if menu_open { theme::LINK } else { 0x858b93 },
+                    if menu_open { colors.link } else { colors.muted },
                 );
                 let mut control = div()
                     .id("block-control")
@@ -629,12 +641,12 @@ impl EditorElement {
                     .items_center()
                     .justify_center()
                     .rounded_md()
-                    .text_color(rgb(0x858b93))
+                    .text_color(rgb(colors.muted))
                     .cursor_pointer()
                     .when(menu_open, |style| {
-                        style.bg(rgb(0xe8e7e2)).text_color(rgb(theme::LINK))
+                        style.bg(rgb(colors.hover)).text_color(rgb(colors.link))
                     })
-                    .hover(|style| style.bg(rgb(0xe8e7e2)).text_color(rgb(0x454b53)))
+                    .hover(move |style| style.bg(rgb(colors.hover)).text_color(rgb(colors.ink)))
                     .child(icon)
                     .on_hover(move |hovered, _, cx| {
                         if *hovered {
@@ -694,10 +706,10 @@ impl EditorElement {
                         .id("block-menu")
                         .w(menu_width)
                         .p_1()
-                        .bg(rgb(0xfdfcf9))
-                        .text_color(rgb(0x363c44))
+                        .bg(rgb(colors.popup))
+                        .text_color(rgb(colors.ink))
                         .border_1()
-                        .border_color(rgb(0xdeddd7))
+                        .border_color(rgb(colors.border))
                         .rounded_md()
                         .shadow_md()
                         .cursor_default()
@@ -709,8 +721,8 @@ impl EditorElement {
                                 .px_3()
                                 .py_2()
                                 .text_size(px(12.))
-                                .text_color(rgb(0x858b93))
-                                .child(block_type_icon(&spec.metadata, 0x858b93))
+                                .text_color(rgb(colors.muted))
+                                .child(block_type_icon(colors, &spec.metadata, colors.muted))
                                 .child(title),
                         );
                     if let Some(before) = block_insert {
@@ -724,7 +736,7 @@ impl EditorElement {
                                     .text_size(px(13.))
                                     .cursor_pointer()
                                     .rounded_md()
-                                    .hover(|style| style.bg(rgb(theme::CODE_BG)))
+                                    .hover(move |style| style.bg(rgb(colors.code_bg)))
                                     .child(format!(
                                         "‹  {}",
                                         language.text(if before {
@@ -745,6 +757,7 @@ impl EditorElement {
                                     }),
                             )
                             .child(insert_type_picker(
+                                colors,
                                 self.editor.clone(),
                                 snapshot,
                                 Some((block.clone(), before)),
@@ -754,6 +767,7 @@ impl EditorElement {
                     } else {
                         menu = menu.children(items.iter().map(|item| {
                             block_menu_item(
+                                colors,
                                 language.block_action(item.command, source_open),
                                 item.command,
                                 self.editor.clone(),

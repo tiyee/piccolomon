@@ -270,7 +270,13 @@ fn verify_widths(editor: &Editor, window: &mut Window) -> Result<(), String> {
             width,
             top: theme::TOP,
         };
-        let key = text_layout::LayoutKey::new(editor, page, window, &Default::default());
+        let key = text_layout::LayoutKey::new(
+            theme::Palette::LIGHT,
+            editor,
+            page,
+            window,
+            &Default::default(),
+        );
         let layout = text_layout::TextLayout::build(editor, key, window)?;
         let line = layout
             .lines

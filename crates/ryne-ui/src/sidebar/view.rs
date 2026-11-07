@@ -2,25 +2,44 @@ use super::*;
 
 const TREE_ROW: f32 = 32.;
 const TREE_INDENT: f32 = 16.;
+const OUTLINE_ICON: f32 = 14.;
 const CARD: f32 = 90.;
 
-fn note(text: impl Into<SharedString>) -> Div {
+impl SidebarState {
+    pub(crate) fn surface(&self, colors: theme::Palette) -> Option<Div> {
+        self.prefs.visible.then(|| {
+            div()
+                .w(px(self.prefs.width))
+                .flex_shrink_0()
+                .border_r_1()
+                .border_color(rgb(colors.border))
+                .bg(rgb(colors.code_bg))
+        })
+    }
+}
+
+fn note(colors: theme::Palette, text: impl Into<SharedString>) -> Div {
     div()
         .px_2()
         .py_1()
         .text_size(px(12.))
-        .text_color(rgb(theme::MUTED))
+        .text_color(rgb(colors.muted))
         .child(text.into())
 }
-fn highlight(d: Stateful<Div>, selected: bool, focused: bool) -> Stateful<Div> {
-    let accent = Hsla::from(rgb(theme::LINK));
+fn highlight(
+    colors: theme::Palette,
+    d: Stateful<Div>,
+    selected: bool,
+    focused: bool,
+) -> Stateful<Div> {
+    let accent = Hsla::from(rgb(colors.link));
     d.relative()
         .border_1()
-        .border_color(rgb(theme::CODE_BG))
-        .when(!selected, |d| d.hover(|d| d.bg(rgb(theme::BORDER))))
+        .border_color(rgb(colors.code_bg))
+        .when(!selected, |d| d.hover(move |d| d.bg(rgb(colors.border))))
         .when(selected, |d| {
             d.bg(accent.opacity(0.13))
-                .text_color(rgb(theme::HEADING_INK))
+                .text_color(rgb(colors.heading_ink))
                 .child(
                     div()
                         .absolute()
@@ -185,6 +204,7 @@ impl Editor {
         window: &Window,
         cx: &mut Context<Self>,
     ) -> Option<AnyElement> {
+        let colors = theme::palette(cx);
         let lang = self.locale.language;
         let id = self.document.source.id();
         let focused = self.sidebar.focus.is_focused(window);
@@ -210,12 +230,13 @@ impl Editor {
             };
             return Some(
                 highlight(
+                    colors,
                     row,
                     self.sidebar.active == Some(index),
                     focused && self.sidebar.outline_focus == Some((id, index)),
                 )
                 .h(px(TREE_ROW))
-                .pl(px(24. + 24. * heading.depth as f32))
+                .pl(px(8. + OUTLINE_ICON * heading.depth as f32))
                 .when(
                     heading.level == 1 || self.sidebar.active == Some(index),
                     |d| d.font_weight(FontWeight::SEMIBOLD),
@@ -223,7 +244,19 @@ impl Editor {
                 .pr_2()
                 .flex()
                 .items_center()
-                .child(div().text_ellipsis().child(label))
+                .gap_1()
+                .child(
+                    svg()
+                        .path(format!("icon:text_header_{}", heading.level))
+                        .size(px(OUTLINE_ICON))
+                        .flex_shrink_0()
+                        .text_color(rgb(if self.sidebar.active == Some(index) {
+                            colors.heading_ink
+                        } else {
+                            colors.muted
+                        })),
+                )
+                .child(div().flex_1().min_w_0().text_ellipsis().child(label))
                 .on_mouse_down(
                     MouseButton::Left,
                     cx.listener(move |s, _, window, cx| {
@@ -249,6 +282,7 @@ impl Editor {
         let name = entry.name.to_string_lossy().into_owned();
         let selected = state.browser.relative_current() == Some(path.as_path());
         let row = highlight(
+            colors,
             row,
             selected,
             focused && state.browse_focus[pane.index()].as_ref() == Some(&path),
@@ -259,7 +293,7 @@ impl Editor {
             EntryKind::DirectoryLink => "icon:folder",
             EntryKind::Document => state.document_icon(&path, self.document.files.saving_path()),
         };
-        let glyph = chrome::glyph(icon, 14., if selected { theme::INK } else { theme::MUTED });
+        let glyph = chrome::glyph(icon, 14., if selected { colors.ink } else { colors.muted });
         let row = if let Some(preview) = preview {
             let dir = path
                 .parent()
@@ -290,7 +324,7 @@ impl Editor {
                         .justify_between()
                         .gap_1()
                         .text_size(px(11.))
-                        .text_color(rgb(theme::MUTED))
+                        .text_color(rgb(colors.muted))
                         .child(div().min_w_0().text_ellipsis().child(dir))
                         .child(div().flex_shrink_0().child(date)),
                 )
@@ -308,7 +342,7 @@ impl Editor {
                         .text_size(px(12.))
                         .line_height(px(17.))
                         .line_clamp(2)
-                        .text_color(rgb(theme::MUTED))
+                        .text_color(rgb(colors.muted))
                         .child(preview),
                 )
         } else {
@@ -327,7 +361,7 @@ impl Editor {
                     r.child(
                         div()
                             .flex_shrink_0()
-                            .text_color(rgb(theme::MUTED))
+                            .text_color(rgb(colors.muted))
                             .child("↗"),
                     )
                 })
@@ -372,11 +406,10 @@ impl Editor {
         }
     }
     pub(crate) fn sidebar_view(&mut self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let colors = theme::palette(cx);
         self.update_browser_rows();
         self.pump_directory(cx);
-        if !self.sidebar.prefs.visible {
-            return None;
-        }
+        let surface = self.sidebar.surface(colors)?;
         let pane = self.sidebar.pane();
         let outline = pane == Pane::Outline;
         let language = self.locale.language;
@@ -418,20 +451,15 @@ impl Editor {
                 }
             }
         };
-        let mut panel = div()
+        let mut panel = surface
             .id("sidebar")
             .debug_selector(|| "sidebar".into())
             .occlude()
             .relative()
             .h_full()
-            .w(px(self.sidebar.prefs.width))
             .min_h_0()
-            .flex_shrink_0()
             .flex()
             .flex_col()
-            .border_r_1()
-            .border_color(rgb(theme::BORDER))
-            .bg(rgb(theme::CODE_BG))
             .text_size(px(14.))
             .overflow_hidden()
             .when(!protected, |d| d.track_focus(&self.sidebar.focus))
@@ -451,7 +479,7 @@ impl Editor {
                     .child(chrome::glyph(
                         self.sidebar.folder_icon(Path::new(""), true),
                         14.,
-                        theme::MUTED,
+                        colors.muted,
                     ))
                     .child(
                         div().text_ellipsis().child(
@@ -492,22 +520,32 @@ impl Editor {
                 div()
                     .flex_1()
                     .when(outline, |d| {
-                        d.child(note(language.text(
-                            if self.sidebar.heading_needle.is_empty() {
+                        d.child(note(
+                            colors,
+                            language.text(if self.sidebar.heading_needle.is_empty() {
                                 Text::EmptyOutline
                             } else {
                                 Text::NoMatches
-                            },
-                        )))
+                            }),
+                        ))
                     })
                     .when(!outline && root.is_none(), |d| {
-                        d.child(
+                        d.flex().items_center().justify_center().p_3().child(
                             div()
                                 .id("choose-folder")
                                 .cursor_pointer()
-                                .p_2()
-                                .text_color(rgb(theme::LINK))
-                                .child(language.text(Text::OpenFolder))
+                                .px_4()
+                                .py_3()
+                                .rounded_md()
+                                .flex()
+                                .flex_col()
+                                .items_center()
+                                .gap_2()
+                                .text_size(px(12.))
+                                .text_color(rgb(colors.muted))
+                                .hover(move |d| d.bg(rgb(colors.border)))
+                                .child(chrome::glyph("icon:folder_open", 32., colors.muted))
+                                .child(div().text_center().child(language.text(Text::OpenFolder)))
                                 .on_click(
                                     cx.listener(|s, _, w, cx| s.open_folder(&OpenFolder, w, cx)),
                                 ),
@@ -519,13 +557,17 @@ impl Editor {
                             && self.sidebar.request.is_none()
                             && self.sidebar.browser.errors.is_empty(),
                         |d| {
-                            d.child(note(language.text(
-                                if pane == Pane::List && !self.sidebar.browser.filter.is_empty() {
-                                    Text::NoMatches
-                                } else {
-                                    Text::EmptyFiles
-                                },
-                            )))
+                            d.child(note(
+                                colors,
+                                language.text(
+                                    if pane == Pane::List && !self.sidebar.browser.filter.is_empty()
+                                    {
+                                        Text::NoMatches
+                                    } else {
+                                        Text::EmptyFiles
+                                    },
+                                ),
+                            ))
                         },
                     ),
             )
@@ -538,16 +580,16 @@ impl Editor {
                     .first_key_value()
                     .map(|(p, e)| format!("{} {e}", p.display()))
             }) {
-                panel = panel.child(note(format!(
-                    "{} · {error}",
-                    language.text(Text::DirectoryFailed)
-                )));
+                panel = panel.child(note(
+                    colors,
+                    format!("{} · {error}", language.text(Text::DirectoryFailed)),
+                ));
             }
             if self.sidebar.request.is_some() {
-                panel = panel.child(note(language.text(Text::Scanning)));
+                panel = panel.child(note(colors, language.text(Text::Scanning)));
             }
             if self.sidebar.browser.limited() {
-                panel = panel.child(note(language.text(Text::Partial)));
+                panel = panel.child(note(colors, language.text(Text::Partial)));
             }
             if let Some(root) = root.as_ref() {
                 panel = panel.child(self.sidebar_footer(root, pane, cx));

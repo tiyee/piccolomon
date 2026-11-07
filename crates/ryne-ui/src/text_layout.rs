@@ -105,11 +105,13 @@ pub(super) struct LayoutKey {
     page: theme::Page,
     source_mode: bool,
     fonts: theme::Fonts,
+    pub colors: theme::Palette,
     scale: f32,
     reserved: Arc<Vec<(ControlKey, u32)>>,
 }
 impl LayoutKey {
     pub(super) fn new(
+        colors: theme::Palette,
         editor: &Editor,
         page: theme::Page,
         window: &Window,
@@ -122,6 +124,7 @@ impl LayoutKey {
             page,
             source_mode: editor.document.source_mode,
             fonts: editor.fonts.clone(),
+            colors,
             scale: window.scale_factor(),
             reserved: editor.viewport.control_index.reserved.clone(),
         }
@@ -151,6 +154,7 @@ impl TextLayout {
         key: LayoutKey,
         window: &mut Window,
     ) -> Result<Self, String> {
+        let colors = key.colors;
         let _profile = profile::Scope::new("text_layout_build");
         profile::layout(false);
         let display = &editor.viewport.display;
@@ -191,17 +195,17 @@ impl TextLayout {
                     face = face.italic();
                 }
                 let color = rgb(if style.image_failure {
-                    theme::IMAGE_ERROR
+                    colors.image_error
                 } else if style.marker {
-                    theme::MARKER
+                    colors.marker
                 } else if style.link {
-                    theme::LINK
+                    colors.link
                 } else if let Some(syntax) = style.syntax {
-                    syntax.color()
+                    colors.syntax(syntax)
                 } else if style.heading > 0 {
-                    theme::HEADING_INK
+                    colors.heading_ink
                 } else {
-                    theme::INK
+                    colors.ink
                 })
                 .into();
                 TextRun {
@@ -209,7 +213,7 @@ impl TextLayout {
                     font: face,
                     color,
                     background_color: (style.code && !style.source)
-                        .then(|| rgb(theme::CODE_BG).into()),
+                        .then(|| rgb(colors.code_bg).into()),
                     underline: style.link.then_some(UnderlineStyle {
                         color: None,
                         thickness: px(1.),

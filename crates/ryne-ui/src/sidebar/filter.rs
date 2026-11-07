@@ -211,6 +211,7 @@ impl EntityInputHandler for Filter {
 }
 impl Render for Filter {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let colors = theme::palette(cx);
         let entity = cx.entity();
         div()
             .id("sidebar-filter")
@@ -222,9 +223,9 @@ impl Render for Filter {
             .px_2()
             .h(px(29.))
             .flex_shrink_0()
-            .bg(rgb(theme::PAPER))
+            .bg(rgb(colors.paper))
             .border_1()
-            .border_color(rgb(theme::BORDER))
+            .border_color(rgb(colors.border))
             .rounded_md()
             .on_key_down(cx.listener(Self::keys))
             .on_mouse_down(
@@ -272,7 +273,7 @@ impl Render for Filter {
                                 &[TextRun {
                                     len: text.len(),
                                     font: font(".SystemUIFont"),
-                                    color: rgb(if empty { theme::MUTED } else { theme::INK })
+                                    color: rgb(if empty { colors.muted } else { colors.ink })
                                         .into(),
                                     background_color: None,
                                     underline: None,
@@ -304,7 +305,7 @@ impl Render for Filter {
                                             point(x(sel.start), bounds.top()),
                                             point(x(sel.end), bounds.bottom()),
                                         ),
-                                        Hsla::from(rgb(theme::LINK)).opacity(0.2),
+                                        Hsla::from(rgb(colors.link)).opacity(0.2),
                                     ));
                                 }
                                 let _ = line.paint(origin, bounds.size.height, window, cx);
@@ -314,7 +315,7 @@ impl Render for Filter {
                                             point(x(head), bounds.top() + px(5.)),
                                             size(px(1.), bounds.size.height - px(10.)),
                                         ),
-                                        rgb(theme::INK),
+                                        rgb(colors.ink),
                                     ));
                                 }
                                 if let Some(mark) = marked {
@@ -323,7 +324,7 @@ impl Render for Filter {
                                             point(x(mark.start), bounds.bottom() - px(4.)),
                                             size(x(mark.end) - x(mark.start), px(1.)),
                                         ),
-                                        rgb(theme::INK),
+                                        rgb(colors.ink),
                                     ));
                                 }
                             })

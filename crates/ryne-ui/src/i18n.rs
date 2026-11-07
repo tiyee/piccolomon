@@ -263,6 +263,11 @@ pub(crate) enum Text {
     CompositionRange,
     AppendFailed,
     PreferenceFailed,
+    Theme,
+    ThemeSystem,
+    Dark,
+    Light,
+    ThemePreferenceFailed,
     MathFont,
     MathFontPreferenceFailed,
     AddContent,
@@ -293,7 +298,7 @@ pub(crate) enum Text {
 }
 impl Text {
     #[cfg(test)]
-    const ALL: [Self; 151] = [
+    const ALL: [Self; 156] = [
         Self::FileTreeView,
         Self::OutlineView,
         Self::FileListView,
@@ -418,6 +423,11 @@ impl Text {
         Self::CompositionRange,
         Self::AppendFailed,
         Self::PreferenceFailed,
+        Self::Theme,
+        Self::ThemeSystem,
+        Self::Dark,
+        Self::Light,
+        Self::ThemePreferenceFailed,
         Self::MathFont,
         Self::MathFontPreferenceFailed,
         Self::AddContent,
@@ -1185,6 +1195,21 @@ impl Text {
                 "실시간 미리 보기",
                 "Aperçu en direct",
                 "Vista previa en vivo",
+            ],
+            Self::Theme => ["主题", "主題", "Theme", "テーマ", "테마", "Thème", "Tema"],
+            Self::ThemeSystem => [
+                "跟随系统", "跟隨系統", "Follow system", "システムに合わせる", "시스템 설정 따르기",
+                "Suivre le système", "Seguir el sistema",
+            ],
+            Self::Dark => ["暗色", "深色", "Dark", "ダーク", "어둡게", "Sombre", "Oscuro"],
+            Self::Light => ["亮色", "淺色", "Light", "ライト", "밝게", "Clair", "Claro"],
+            Self::ThemePreferenceFailed => [
+                "主题已切换，但偏好保存失败", "主題已切換，但偏好儲存失敗",
+                "Theme changed, but the preference could not be saved",
+                "テーマは変更されましたが、設定を保存できませんでした",
+                "테마가 변경되었지만 설정을 저장하지 못했습니다",
+                "Thème modifié, mais impossible d’enregistrer la préférence",
+                "Tema cambiado, pero no se pudo guardar la preferencia",
             ],
             Self::MathFont => [
                 "数学字体",

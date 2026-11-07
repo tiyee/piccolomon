@@ -7,7 +7,7 @@ Ryne is a native Markdown editor for Windows and macOS, built for everyday notes
 Write directly in the document as you read it. Move the cursor into bold, italic or struck-through text, a link or a span of inline code to reveal its Markdown marks. Move away and the formatting returns. Click a heading to edit its marks. When you need to change the structure, you can open the source for a single block or the whole file.
 
 - **Headings, lists and quotes.** Organize chapters with six heading levels. Write directly in numbered lists, bullet lists, task lists and nested quotes. Continue a list with Enter, adjust its indentation or click a checkbox to tick off a task.
-- **Browse files and headings.** The first button in the toolbar’s right-hand group opens the sidebar. Under **Files**, expand folders or switch to the list to filter by name or relative path. Opening a document sets its parent folder as the new root. Use the icon at the top left of the sidebar to switch to **Outline**, then choose a heading to scroll there and keep your text selection.
+- **Browse files and headings.** The first button in the toolbar’s right-hand group opens the sidebar. Under **Files**, expand folders or switch to the list to filter by name or relative path. Opening a document sets its parent folder as the new root. Use the icon at the top left of the sidebar to switch to **Outline**, where H1–H6 icons identify heading levels and each nested level indents by one icon’s width. Choose a heading to scroll there and keep your text selection.
 - **Editable tables.** Click a cell to type and use the keyboard to move between cells. The cell menu lets you insert, move or delete rows and columns and set column alignment.
 - **Readable code.** Use inline code for a command or a fenced block for a longer example. Press Enter after the opening fence to add its closing fence. Choose a language for syntax highlighting in Rust, Python, JavaScript, TypeScript, JSON or Bash.
 - **Diagrams and formulas.** Preview Mermaid diagrams and inline LaTeX formulas alongside your text. Click either to edit its source. To change the formula typeface, choose **Ryne → Math font**.
@@ -30,6 +30,8 @@ Ryne’s menus and editable welcome guide are available in Simplified Chinese, T
 To keep the original and save a second copy, choose **File → Save As**. You can also reload the file from disk in the File menu. Ryne asks before discarding unsaved edits.
 
 To change the language of the menus and the untouched welcome guide, choose **Ryne → Language**. Ryne remembers your choice and keeps any edits you’ve made to the guide.
+
+Choose **Ryne → Theme** for **Follow system, Dark or Light**. Ryne follows the system appearance by default and remembers your choice for the next launch.
 
 ## Work with Markdown
 

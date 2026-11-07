@@ -25,7 +25,7 @@ pub(super) fn verify(editor: &Editor, geometry: &Geometry, window: &Window) -> R
         .map(|span| TextRun {
             len: span.display.len(),
             font: editor.fonts.body.clone(),
-            color: rgb(theme::INK).into(),
+            color: rgb(theme::Palette::LIGHT.ink).into(),
             background_color: None,
             underline: None,
             strikethrough: None,

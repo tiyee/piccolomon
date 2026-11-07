@@ -523,13 +523,13 @@ pub(super) fn render_action_width(
         })
 }
 fn menu_item(
+    (language, colors): (Language, theme::Palette),
     item: RenderMenuItem,
     key: RenderFrameKey,
     selected: bool,
     entity: Entity<Editor>,
     index: usize,
     child: bool,
-    language: Language,
 ) -> AnyElement {
     let enabled = item.action.enabled;
     let mut row = div()
@@ -547,15 +547,18 @@ fn menu_item(
         } else {
             CursorStyle::Arrow
         })
-        .text_color(rgb(if enabled { 0x363c44 } else { 0xa4a4a4 }));
+        .text_color(rgb(if enabled { colors.ink } else { colors.marker }));
     if selected && enabled {
-        row = row.bg(rgb(0xe5edf8));
+        row = row.bg(rgb(colors.selected));
     }
     let mut label = div().flex().flex_1().min_w_0().gap_2().items_center();
     if item.action.checked {
-        label = label.child(icon("checkmark_square", 0x555e69));
+        label = label.child(icon("checkmark_square", colors.ink));
     } else if let Some(name) = item.action.icon {
-        label = label.child(icon(name, if enabled { 0x6f7781 } else { 0xb9bdc2 }));
+        label = label.child(icon(
+            name,
+            if enabled { colors.muted } else { colors.marker },
+        ));
     }
     label = label.child(language.render_label(item.action.label, item.action.fallback));
     row = row.child(label);
@@ -564,7 +567,7 @@ fn menu_item(
             div()
                 .flex_shrink_0()
                 .text_size(px(11.))
-                .text_color(rgb(if enabled { 0x8c9198 } else { 0xb5b8bc }))
+                .text_color(rgb(if enabled { colors.muted } else { colors.marker }))
                 .child(shortcut_hint(s)),
         );
     }
@@ -585,18 +588,18 @@ fn menu_item(
     .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
     .into_any_element()
 }
-fn popup(id: &'static str, width: Pixels, height: Pixels) -> Stateful<Div> {
+fn popup(colors: theme::Palette, id: &'static str, width: Pixels, height: Pixels) -> Stateful<Div> {
     div()
         .id(id)
         .w(width)
         .max_h(height)
         .overflow_y_scroll()
         .p_1()
-        .bg(rgb(0xf8f8f7))
+        .bg(rgb(colors.popup))
         .text_size(px(14.))
-        .text_color(rgb(0x363c44))
+        .text_color(rgb(colors.ink))
         .border_1()
-        .border_color(rgb(0xd1d2d4))
+        .border_color(rgb(colors.border))
         .rounded_md()
         .shadow_md()
         .cursor_default()
@@ -612,6 +615,7 @@ pub(super) fn prepaint_render_controls(
     window: &mut Window,
     cx: &mut App,
 ) {
+    let colors = theme::palette(cx);
     let key = geometry.render_key(window.viewport_size());
     // Structural icons remain visible while dragging or composing; only activation is suppressed.
     for region in &geometry.render_regions {
@@ -635,7 +639,7 @@ pub(super) fn prepaint_render_controls(
             .flex()
             .items_center()
             .justify_center()
-            .child(icon(name, 0x6f7781));
+            .child(icon(name, colors.muted));
         if editor.available {
             geometry.render_buttons.push(trigger);
             let entity = entity.clone();
@@ -714,24 +718,24 @@ pub(super) fn prepaint_render_controls(
             .rounded_sm()
             .overflow_hidden()
             .cursor_pointer()
-            .hover(|s| s.bg(rgb(0xe1e3e6)))
+            .hover(move |s| s.bg(rgb(colors.hover)))
             .child(match header {
                 Some(label) => div()
                     .flex()
                     .gap_1()
                     .items_center()
                     .text_size(px(12.))
-                    .text_color(rgb(theme::MUTED))
+                    .text_color(rgb(colors.muted))
                     .child(label)
                     .child(
                         svg()
                             .path("icon:chevron_down")
                             .size(px(12.))
                             .flex_shrink_0()
-                            .text_color(rgb(theme::MUTED)),
+                            .text_color(rgb(colors.muted)),
                     )
                     .into_any_element(),
-                None => icon("more_vertical", 0x8b8f94),
+                None => icon("more_vertical", colors.muted),
             })
             .on_mouse_down(MouseButton::Left, move |_, window, cx| {
                 cx.stop_propagation();
@@ -759,6 +763,7 @@ pub(super) fn prepaint_render_menu(
     window: &mut Window,
     cx: &mut App,
 ) {
+    let colors = theme::palette(cx);
     if !editor.available {
         return;
     }
@@ -787,22 +792,22 @@ pub(super) fn prepaint_render_menu(
             })
         })
         .min(geometry.bounds.size.width);
-    let mut view = popup("render-menu", width, geometry.bounds.size.height);
+    let mut view = popup(colors, "render-menu", width, geometry.bounds.size.height);
     let mut last_group = None;
     for (index, row) in menu.rows.iter().enumerate() {
         if last_group.is_some_and(|g| g != row.group()) {
-            view = view.child(div().h(px(1.)).my_1().bg(rgb(0xdedfe1)));
+            view = view.child(div().h(px(1.)).my_1().bg(rgb(colors.border)));
         }
         last_group = Some(row.group());
         view = view.child(match row {
             RenderMenuRow::Action(item) => menu_item(
+                (language, colors),
                 item.clone(),
                 key.clone(),
                 menu.selected == index,
                 entity.clone(),
                 index,
                 false,
-                language,
             ),
             RenderMenuRow::Submenu {
                 label, fallback, ..
@@ -819,7 +824,7 @@ pub(super) fn prepaint_render_menu(
                     .justify_between()
                     .rounded_md()
                     .cursor_pointer()
-                    .when(menu.selected == index, |s| s.bg(rgb(0xe5edf8)))
+                    .when(menu.selected == index, |s| s.bg(rgb(colors.selected)))
                     .child(language.render_label(label, fallback))
                     .child(div().flex_shrink_0().child("›"))
                     .on_hover(move |value, _, cx| {
@@ -859,19 +864,24 @@ pub(super) fn prepaint_render_menu(
                 width.max(render_action_width(&item.action, language, window))
             })
             .min(geometry.bounds.size.width);
-        let mut child = popup("render-submenu", child_width, geometry.bounds.size.height)
-            .children(children.iter().enumerate().map(|(i, item)| {
-                menu_item(
-                    item.clone(),
-                    key.clone(),
-                    menu.child_selected == i,
-                    entity.clone(),
-                    i,
-                    true,
-                    language,
-                )
-            }))
-            .into_any_element();
+        let mut child = popup(
+            colors,
+            "render-submenu",
+            child_width,
+            geometry.bounds.size.height,
+        )
+        .children(children.iter().enumerate().map(|(i, item)| {
+            menu_item(
+                (language, colors),
+                item.clone(),
+                key.clone(),
+                menu.child_selected == i,
+                entity.clone(),
+                i,
+                true,
+            )
+        }))
+        .into_any_element();
         let measured = child.layout_as_root(
             size(child_width.into(), AvailableSpace::MinContent),
             window,

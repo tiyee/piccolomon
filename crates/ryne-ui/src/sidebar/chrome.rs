@@ -7,7 +7,12 @@ pub(super) fn glyph(name: &'static str, size: f32, color: u32) -> Svg {
         .flex_shrink_0()
         .text_color(rgb(color))
 }
-fn tool(id: &'static str, icon: &'static str, label: &'static str) -> Stateful<Div> {
+fn tool(
+    colors: theme::Palette,
+    id: &'static str,
+    icon: &'static str,
+    label: &'static str,
+) -> Stateful<Div> {
     div()
         .id(id)
         .debug_selector(move || id.into())
@@ -18,9 +23,9 @@ fn tool(id: &'static str, icon: &'static str, label: &'static str) -> Stateful<D
         .justify_center()
         .rounded_sm()
         .cursor_pointer()
-        .hover(|d| d.bg(rgb(theme::BORDER)))
+        .hover(move |d| d.bg(rgb(colors.border)))
         .tooltip(move |_, cx| cx.new(|_| element::ModeTooltip(label)).into())
-        .child(glyph(icon, 16., theme::MUTED))
+        .child(glyph(icon, 16., colors.muted))
 }
 impl SidebarState {
     pub(super) fn folder_icon(&self, path: &Path, expanded: bool) -> &'static str {
@@ -71,6 +76,7 @@ impl SidebarState {
 }
 impl Editor {
     pub(super) fn sidebar_header(&self, pane: Pane, cx: &mut Context<Self>) -> Div {
+        let colors = theme::palette(cx);
         let lang = self.locale.language;
         let outline = pane == Pane::Outline;
         let files_pane = if self.sidebar.prefs.list {
@@ -81,12 +87,14 @@ impl Editor {
         let target = if outline { files_pane } else { Pane::Outline };
         let switch = if target == Pane::Outline {
             tool(
+                colors,
                 "outline-tab",
                 "icon:reading_list",
                 lang.text(Text::OutlineView),
             )
         } else {
             tool(
+                colors,
                 "directory-tab",
                 "icon:text_bullet_list_ltr",
                 lang.text(if target == Pane::List {
@@ -108,7 +116,7 @@ impl Editor {
             .child(
                 div()
                     .text_size(px(14.))
-                    .text_color(rgb(theme::INK))
+                    .text_color(rgb(colors.ink))
                     .child(lang.text(if outline {
                         Text::Outline
                     } else {
@@ -117,6 +125,7 @@ impl Editor {
             )
             .child(
                 tool(
+                    colors,
                     "sidebar-search",
                     "icon:sidebar_search",
                     lang.text(if outline {
@@ -143,6 +152,7 @@ impl Editor {
         cx.notify();
     }
     pub(super) fn sidebar_footer(&self, root: &Path, pane: Pane, cx: &mut Context<Self>) -> Div {
+        let colors = theme::palette(cx);
         let lang = self.locale.language;
         let name = root
             .file_name()
@@ -156,7 +166,7 @@ impl Editor {
             .flex_shrink_0()
             .h(px(30.))
             .border_t_1()
-            .border_color(rgb(theme::BORDER))
+            .border_color(rgb(colors.border))
             .child(
                 div()
                     .absolute()
@@ -169,7 +179,7 @@ impl Editor {
                         div()
                             .text_ellipsis()
                             .text_size(px(12.))
-                            .text_color(rgb(theme::MUTED))
+                            .text_color(rgb(colors.muted))
                             .child(name),
                     ),
             )
@@ -182,6 +192,7 @@ impl Editor {
                     .items_center()
                     .child(
                         tool(
+                            colors,
                             "footer-open-folder",
                             "icon:sidebar_plus",
                             lang.text(Text::OpenFolder),
@@ -193,6 +204,7 @@ impl Editor {
                             .flex()
                             .child(
                                 tool(
+                                    colors,
                                     "sidebar-more",
                                     "icon:more_vertical",
                                     lang.text(Text::FolderOptions),
@@ -208,6 +220,7 @@ impl Editor {
                             )
                             .child(
                                 tool(
+                                    colors,
                                     if list { "tree-view" } else { "list-view" },
                                     if list {
                                         "icon:sidebar_outline"
@@ -234,6 +247,7 @@ impl Editor {
             )
     }
     pub(super) fn folder_menu(&self, cx: &mut Context<Self>) -> Stateful<Div> {
+        let colors = theme::palette(cx);
         let lang = self.locale.language;
         let item = |id: &'static str, label: &'static str| {
             div()
@@ -242,7 +256,7 @@ impl Editor {
                 .py_1()
                 .rounded_sm()
                 .cursor_pointer()
-                .hover(|s| s.bg(rgb(theme::CODE_BG)))
+                .hover(move |s| s.bg(rgb(colors.code_bg)))
                 .child(label)
         };
         div()
@@ -254,9 +268,9 @@ impl Editor {
             .p_1()
             .rounded_md()
             .shadow_sm()
-            .bg(rgb(theme::PAPER))
+            .bg(rgb(colors.paper))
             .border_1()
-            .border_color(rgb(theme::BORDER))
+            .border_color(rgb(colors.border))
             .child(
                 item("menu-open-folder", lang.text(Text::OpenFolder)).on_click(cx.listener(
                     |s, _, w, cx| {

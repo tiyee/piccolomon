@@ -168,8 +168,18 @@ fn outline_jump_dock_and_overlay_preserve_editor_state(cx: &mut TestAppContext) 
             && format.right() <= mode.left()
     );
     assert_eq!(toggle.center().y, mode.center().y);
+    assert_eq!(cx.debug_bounds("document-titlebar").unwrap().left(), px(0.));
     cx.simulate_click(toggle.center(), Modifiers::default());
     cx.update(|w, cx| w.draw(cx).clear());
+    let cap = cx.debug_bounds("sidebar-titlebar").unwrap();
+    let panel = cx.debug_bounds("sidebar").unwrap();
+    assert_eq!(cap.top(), px(0.));
+    assert_eq!(cap.bottom(), panel.top());
+    assert_eq!(cap.right(), panel.right());
+    assert_eq!(
+        cx.debug_bounds("document-titlebar").unwrap().left(),
+        panel.right()
+    );
     editor.read_with(cx, |e, _| {
         assert!(!before.4.is_current(e));
         assert_eq!(e.sidebar.dock, 260.);
@@ -193,11 +203,17 @@ fn outline_jump_dock_and_overlay_preserve_editor_state(cx: &mut TestAppContext) 
     });
     cx.simulate_resize(size(px(520.), px(560.)));
     cx.update(|w, cx| w.draw(cx).clear());
+    let panel = cx.debug_bounds("sidebar").unwrap();
+    assert_eq!(
+        cx.debug_bounds("sidebar-titlebar").unwrap().right(),
+        panel.right()
+    );
     editor.read_with(cx, |e, _| {
         assert_eq!(e.viewport.geometry.as_ref().unwrap().bounds.left(), px(0.))
     });
     click(cx, "sidebar-row-0");
     cx.update(|w, cx| w.draw(cx).clear());
+    assert_eq!(cx.debug_bounds("document-titlebar").unwrap().left(), px(0.));
     editor.read_with(cx, |e, _| {
         assert!(!e.sidebar.prefs.visible);
         assert_eq!(e.document.selection(), before.1);
@@ -603,6 +619,10 @@ fn resizing_rejects_stale_geometry_and_ime_blocks_panel_navigation(cx: &mut Test
         Modifiers::default(),
     );
     cx.update(|w, cx| w.draw(cx).clear());
+    assert_eq!(
+        cx.debug_bounds("sidebar-titlebar").unwrap().right(),
+        px(310.)
+    );
     editor.read_with(cx, |e, _| {
         assert_eq!(e.sidebar.dock, 310.);
         assert!(!geometry.is_current(e));

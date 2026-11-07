@@ -7,6 +7,7 @@ impl EditorElement {
         window: &mut Window,
         cx: &mut App,
     ) {
+        let colors = frame.geometry.text_layout.key.colors;
         let _profile = profile::Scope::new("paint");
         let editor = self.editor.read(cx);
         let focus = editor.focus.clone();
@@ -42,13 +43,13 @@ impl EditorElement {
                 let panel = &frame.geometry.text_layout.quote_panels[i];
                 let mut background = panel.bounds;
                 background.origin += quote_origin;
-                window.paint_quad(fill(background, rgb(theme::QUOTE_BG)).corner_radii(px(6.)));
+                window.paint_quad(fill(background, rgb(colors.quote_bg)).corner_radii(px(6.)));
             }
             for quad in &frame.table_quads {
                 window.paint_quad(quad.clone());
             }
             for panel in &frame.code_panels {
-                window.paint_quad(fill(panel.bounds, rgb(theme::CODE_BG)).corner_radii(px(6.)));
+                window.paint_quad(fill(panel.bounds, rgb(colors.code_bg)).corner_radii(px(6.)));
                 if let Some(label) = &panel.label
                     && panel.bounds.top() + px(6.) < bounds.bottom()
                     && panel.bounds.top() + px(26.) > bounds.top()
@@ -78,7 +79,7 @@ impl EditorElement {
                     icon,
                     "icon:quoter".into(),
                     TransformationMatrix::default(),
-                    rgb(theme::MUTED).into(),
+                    rgb(colors.muted).into(),
                     cx,
                 );
             }
@@ -98,7 +99,7 @@ impl EditorElement {
                             icon,
                             "icon:image_failed".into(),
                             TransformationMatrix::default(),
-                            rgb(theme::MUTED).into(),
+                            rgb(colors.muted).into(),
                             cx,
                         )
                         .is_ok()
@@ -189,7 +190,7 @@ impl EditorElement {
                                     ),
                                     formula.path.clone().into(),
                                     TransformationMatrix::default(),
-                                    rgb(0x282b30).into(),
+                                    rgb(colors.ink).into(),
                                     cx,
                                 ) {
                                     Ok(()) => frame.geometry.math_painted += 1,
@@ -222,14 +223,14 @@ impl EditorElement {
             if let Some(marked) = marked {
                 for quad in frame
                     .geometry
-                    .selection_quads(marked, rgb(theme::LINK).into())
+                    .selection_quads(marked, rgb(colors.link).into())
                 {
                     window.paint_quad(fill(
                         Bounds::new(
                             quad.bounds.origin + point(px(0.), quad.bounds.size.height - px(3.)),
                             size(quad.bounds.size.width, px(1.)),
                         ),
-                        rgb(theme::LINK),
+                        rgb(colors.link),
                     ));
                 }
             }

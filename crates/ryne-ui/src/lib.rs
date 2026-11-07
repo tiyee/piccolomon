@@ -35,6 +35,8 @@ mod windows_activation;
 pub use smoke::smoke_features;
 mod text_layout;
 mod theme;
+#[cfg(test)]
+mod theme_tests;
 mod visibility;
 mod welcome;
 #[cfg(test)]
@@ -386,6 +388,9 @@ impl Editor {
         locale: Localization,
         cx: &mut Context<Self>,
     ) -> Self {
+        if cx.try_global::<theme::Settings>().is_none() {
+            cx.set_global(theme::Settings::load(None, cx.window_appearance()));
+        }
         document.normalize_heading_caret();
         let display = document
             .cached_project_batch(&document, Some(highlighter.as_mut()), &[])
@@ -1432,6 +1437,16 @@ pub fn run(
         }
     });
     application.run(move |cx: &mut App| {
+        let theme_storage = if smoke {
+            Some(std::env::temp_dir().join(format!("ryne-theme-smoke-{}", std::process::id())))
+        } else {
+            i18n::preference_path().map(|p| p.with_file_name("theme"))
+        };
+        let mut appearance = theme::Settings::load(theme_storage, cx.window_appearance());
+        if smoke {
+            appearance.mode = theme::Mode::Light;
+        }
+        cx.set_global(appearance);
         bind_window_keys(cx);
         let bounds = Bounds::centered(None, size(px(920.), px(680.)), cx);
         let opened = cx.open_window(

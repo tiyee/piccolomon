@@ -1,6 +1,7 @@
 use super::*;
 
-const MACOS_TITLEBAR_HEIGHT: f32 = 22.;
+// GPUI tests exercise the custom caption and its native event targets on every host.
+const NATIVE_MAC_TITLEBAR: bool = cfg!(all(target_os = "macos", not(test)));
 
 pub(super) struct EditorElement {
     pub(super) editor: Entity<Editor>,
@@ -9,15 +10,16 @@ pub(super) struct EditorElement {
 pub(super) struct ModeTooltip(pub(super) &'static str);
 
 impl Render for ModeTooltip {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let colors = theme::palette(cx);
         div()
             .px_2()
             .py_1()
             .rounded_md()
-            .bg(rgb(theme::PAPER))
+            .bg(rgb(colors.paper))
             .border_1()
-            .border_color(rgb(theme::BORDER))
-            .text_color(rgb(theme::INK))
+            .border_color(rgb(colors.border))
+            .text_color(rgb(colors.ink))
             .font_family(".SystemUIFont")
             .text_size(px(12.))
             .child(self.0)
@@ -25,6 +27,7 @@ impl Render for ModeTooltip {
 }
 
 fn window_control_button(
+    colors: theme::Palette,
     id: &'static str,
     area: WindowControlArea,
     icon: &'static str,
@@ -41,7 +44,7 @@ fn window_control_button(
         .flex()
         .items_center()
         .justify_center()
-        .hover(move |style| style.bg(rgb(if close { 0xc42b1c } else { 0xecebe7 })))
+        .hover(move |style| style.bg(rgb(if close { 0xc42b1c } else { colors.hover })))
         .tooltip(move |_, cx| cx.new(|_| ModeTooltip(label)).into())
         // Let GPUI's Windows non-client handlers perform the operation. In
         // particular Max toggles restore (zoom_window only maximizes on Windows),
@@ -52,31 +55,56 @@ fn window_control_button(
             svg()
                 .path(icon)
                 .size(px(16.))
-                .text_color(rgb(theme::INK))
+                .text_color(rgb(colors.ink))
                 .group_hover("window-control", move |style| {
-                    style.text_color(rgb(if close { 0xffffff } else { theme::INK }))
+                    style.text_color(rgb(if close { 0xffffff } else { colors.ink }))
                 }),
         )
 }
 
 impl Editor {
     fn window_header(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let colors = theme::palette(cx);
+        // Paint the two pane backgrounds behind the native controls and drag targets.
+        let background = div()
+            .absolute()
+            .inset_0()
+            .flex()
+            .children(
+                self.sidebar
+                    .surface(colors)
+                    .map(|pane| pane.debug_selector(|| "sidebar-titlebar".into())),
+            )
+            .child(
+                div()
+                    .debug_selector(|| "document-titlebar".into())
+                    .flex_1()
+                    .when(!NATIVE_MAC_TITLEBAR, |pane| {
+                        pane.border_b_1().border_color(rgb(colors.border))
+                    }),
+            );
         div()
+            .relative()
             .w_full()
-            .h(px(30.))
+            .h(px(if NATIVE_MAC_TITLEBAR { 22. } else { 30. }))
             .flex_shrink_0()
             .flex()
             .items_center()
-            .border_b_1()
-            .border_color(rgb(theme::BORDER))
-            .child(self.window_menu(window, cx))
+            .child(background)
+            .when(!NATIVE_MAC_TITLEBAR, |row| {
+                row.pb(px(1.)).child(self.window_menu(window, cx))
+            })
             .when(
                 cfg!(any(target_os = "windows", test)) && !window.is_fullscreen(),
-                |row| row.child(self.windows_caption_controls(window)),
+                |row| row.child(self.windows_caption_controls(window, colors)),
             )
     }
 
-    fn windows_caption_controls(&self, window: &Window) -> impl IntoElement {
+    fn windows_caption_controls(
+        &self,
+        window: &Window,
+        colors: theme::Palette,
+    ) -> impl IntoElement {
         let maximized = window.is_maximized();
         div()
             .flex_1()
@@ -91,12 +119,14 @@ impl Editor {
                     .window_control_area(WindowControlArea::Drag),
             )
             .child(window_control_button(
+                colors,
                 "window-minimize",
                 WindowControlArea::Min,
                 "icon:window_minimize",
                 self.locale.language.text(Text::MinimizeWindow),
             ))
             .child(window_control_button(
+                colors,
                 "window-maximize",
                 WindowControlArea::Max,
                 if maximized {
@@ -111,6 +141,7 @@ impl Editor {
                 }),
             ))
             .child(window_control_button(
+                colors,
                 "window-close",
                 WindowControlArea::Close,
                 "icon:window_close",
@@ -136,7 +167,11 @@ pub(super) struct CodePanel {
 
 pub(super) use ryne_extensions::BlockCommand as BlockAction;
 
-pub(super) fn block_type_icon(block: &ryne_extensions::BlockMetadata, color: u32) -> AnyElement {
+pub(super) fn block_type_icon(
+    colors: theme::Palette,
+    block: &ryne_extensions::BlockMetadata,
+    color: u32,
+) -> AnyElement {
     match block.icon {
         Some(name) => svg()
             .path(format!("icon:{name}"))
@@ -145,7 +180,9 @@ pub(super) fn block_type_icon(block: &ryne_extensions::BlockMetadata, color: u32
             .flex_shrink_0()
             // GPUI Svg paints only when its own style has a color.
             .text_color(rgb(color))
-            .group_hover("block-control", |style| style.text_color(rgb(0x454b53)))
+            .group_hover("block-control", move |style| {
+                style.text_color(rgb(colors.ink))
+            })
             .into_any_element(),
         None => div()
             .text_size(px(11.))
@@ -157,6 +194,7 @@ pub(super) fn block_type_icon(block: &ryne_extensions::BlockMetadata, color: u32
 }
 
 pub(super) fn block_menu_item(
+    colors: theme::Palette,
     label: &'static str,
     action: BlockAction,
     editor: Entity<Editor>,
@@ -176,7 +214,7 @@ pub(super) fn block_menu_item(
         .text_size(px(13.))
         .cursor_pointer()
         .rounded_md()
-        .hover(|style| style.bg(rgb(0xeeede8)))
+        .hover(move |style| style.bg(rgb(colors.hover)))
         .child(label)
         .on_mouse_down(MouseButton::Left, move |_, _, cx| {
             cx.stop_propagation();
@@ -189,6 +227,7 @@ pub(super) fn block_menu_item(
 
 /// Shared type picker for the document tail and adjacent-block insertion.
 pub(super) fn insert_type_picker(
+    colors: theme::Palette,
     editor: Entity<Editor>,
     snapshot: SnapshotId,
     target: Option<(crate::block::Block, bool)>,
@@ -211,7 +250,7 @@ pub(super) fn insert_type_picker(
                     .text_size(px(13.))
                     .rounded_md()
                     .cursor_pointer()
-                    .hover(|style| style.bg(rgb(theme::CODE_BG)))
+                    .hover(move |style| style.bg(rgb(colors.code_bg)))
                     .child(language.insert_label(kind))
                     .on_mouse_down(MouseButton::Left, move |_, window, cx| {
                         cx.stop_propagation();
@@ -244,7 +283,7 @@ pub(super) fn menu_text_width(text: &str, size: f32, window: &Window) -> Pixels 
             &[TextRun {
                 len: text.len(),
                 font: font(".SystemUIFont"),
-                color: rgb(theme::INK).into(),
+                color: rgb(theme::Palette::LIGHT.ink).into(),
                 background_color: None,
                 underline: None,
                 strikethrough: None,
@@ -313,6 +352,13 @@ impl Render for Editor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         if !self.caret_state.focus_observed {
             self.caret_state.focus_observed = true;
+            cx.observe_window_appearance(window, |_, window, cx| {
+                cx.update_global::<theme::Settings, _>(|settings, _| {
+                    settings.system = window.appearance();
+                });
+                cx.refresh_windows();
+            })
+            .detach();
             cx.on_focus(&self.focus, window, |editor, _, cx| {
                 editor.reset_caret_blink();
                 cx.notify();
@@ -339,6 +385,7 @@ impl Render for Editor {
             })
             .detach();
         }
+        let colors = theme::palette(cx);
         self.sync_caret_blink(window, cx);
         let name = self
             .document
@@ -383,8 +430,8 @@ impl Render for Editor {
             .size_full()
             .flex()
             .flex_col()
-            .bg(rgb(theme::PAPER))
-            .text_color(rgb(theme::INK))
+            .bg(rgb(colors.paper))
+            .text_color(rgb(colors.ink))
             .font_family(".SystemUIFont")
             .text_size(px(13.))
             .key_context("RyneWindow")
@@ -414,6 +461,7 @@ impl Render for Editor {
             .on_action(cx.listener(Self::about))
             .on_action(cx.listener(Self::change_language))
             .on_action(cx.listener(Self::change_math_font))
+            .on_action(cx.listener(Self::change_theme))
             .on_action(cx.listener(Self::check_updates))
             .on_action(cx.listener(Self::hide))
             .on_action(cx.listener(Self::new_document))
@@ -426,16 +474,7 @@ impl Render for Editor {
             .on_action(cx.listener(Self::save))
             .on_action(cx.listener(Self::save_as))
             .on_action(cx.listener(Self::quit))
-            .when(
-                cfg!(target_os = "macos") && !window.is_fullscreen() && !cfg!(test),
-                |view| {
-                    // The transparent native titlebar hides its text and lets PAPER
-                    // show through. Keep a compact strip for the native traffic lights
-                    // and window dragging above the toolbar.
-                    view.child(div().h(px(MACOS_TITLEBAR_HEIGHT)).flex_shrink_0())
-                },
-            )
-            .when(cfg!(any(not(target_os = "macos"), test)), |view| {
+            .when(!NATIVE_MAC_TITLEBAR || !window.is_fullscreen(), |view| {
                 view.child(self.window_header(window, cx))
             });
         let right = div()
@@ -464,7 +503,7 @@ impl Render for Editor {
                                     .path("icon:clip")
                                     .size(px(18.))
                                     .flex_shrink_0()
-                                    .text_color(rgb(theme::INK)),
+                                    .text_color(rgb(colors.ink)),
                             )
                             .child(
                                 div()
@@ -477,7 +516,7 @@ impl Render for Editor {
                                             .line_height(stem_line_height)
                                             .pb(baseline_depth - stem_depth)
                                             .font_weight(FontWeight::BOLD)
-                                            .text_color(rgb(0x000000))
+                                            .text_color(rgb(colors.heading_ink))
                                             .text_ellipsis()
                                             .child(stem.to_owned()),
                                     )
@@ -487,7 +526,7 @@ impl Render for Editor {
                                                 .text_size(px(12.))
                                                 .line_height(extension_line_height)
                                                 .pb(baseline_depth - extension_depth)
-                                                .text_color(rgb(0x888888))
+                                                .text_color(rgb(colors.muted))
                                                 .flex_shrink_0()
                                                 .child(format!(".{extension}")),
                                         )
@@ -521,7 +560,7 @@ impl Render for Editor {
                                                 "icon:panel_right_expand"
                                             })
                                             .size(px(18.))
-                                            .text_color(rgb(theme::INK)),
+                                            .text_color(rgb(colors.ink)),
                                     )
                                     .on_mouse_down(
                                         MouseButton::Left,
@@ -549,7 +588,7 @@ impl Render for Editor {
                                         svg()
                                             .path("icon:format")
                                             .size(px(18.))
-                                            .text_color(rgb(theme::INK)),
+                                            .text_color(rgb(colors.ink)),
                                     )
                                     .on_mouse_down(
                                         MouseButton::Left,
@@ -591,7 +630,7 @@ impl Render for Editor {
                                                 "icon:eye"
                                             })
                                             .size(px(18.))
-                                            .text_color(rgb(theme::INK)),
+                                            .text_color(rgb(colors.ink)),
                                     )
                                     .on_mouse_down(
                                         MouseButton::Left,
@@ -669,9 +708,9 @@ impl Render for Editor {
                     .px_5()
                     .py_2()
                     .border_t_1()
-                    .border_color(rgb(theme::BORDER))
+                    .border_color(rgb(colors.border))
                     .text_size(px(12.))
-                    .text_color(rgb(0x818181))
+                    .text_color(rgb(colors.muted))
                     .child(self.status.render(self.locale.language))
                     .child(if self.document.source_mode {
                         self.locale.language.text(Text::SourceMode)

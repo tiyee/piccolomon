@@ -134,7 +134,10 @@ impl Editor {
             let third_batch_only=std::env::var_os("RYNE_SMOKE_THIRD_BATCH_ONLY").is_some();
             let low_risk_only=std::env::var_os("RYNE_SMOKE_LOW_RISK_ONLY").is_some();
             let image_only = std::env::var_os("RYNE_SMOKE_IMAGES_ONLY").is_some();
-            let stages: Vec<u16> = if image_only {
+            let theme_only = std::env::var_os("RYNE_SMOKE_THEME_ONLY").is_some();
+            let stages: Vec<u16> = if theme_only {
+                std::iter::once(0).chain(386..391).collect()
+            } else if image_only {
                 std::iter::once(0).chain(374..386).collect()
             } else if low_risk_only {
                 std::iter::once(0).chain(372..374).collect()
@@ -151,7 +154,7 @@ impl Editor {
             } else if code_language_only {
                 std::iter::once(0).chain(259..267).collect()
             } else {
-                (0..387).collect()
+                (0..391).collect()
             };
             for stage in stages {
                 cx.background_executor()
@@ -1558,7 +1561,7 @@ impl Editor {
                         }
                         107 => {
                             let runs = geometry.display.spans.iter().map(|span| TextRun {
-                                len: span.display.len(), font: editor.fonts.body.clone(), color: rgb(theme::INK).into(),
+                                len: span.display.len(), font: editor.fonts.body.clone(), color: rgb(theme::Palette::LIGHT.ink).into(),
                                 background_color: None, underline: None, strikethrough: None,
                             }).collect::<Vec<_>>();
                             let range = 0..geometry.display.text.len();
@@ -2932,6 +2935,53 @@ impl Editor {
                         373..=384 => {
                             crate::image_smoke::step(stage - 1, editor, &geometry, window, cx)?;
                             if stage == 385 && image_only { cx.quit(); return Ok(()); }
+                        }
+                        385 => {
+                            cached_layout = Some(geometry.text_layout.clone());
+                            cached_projection = Some(editor.viewport.display.clone());
+                            third_source = Some(editor.document.source.clone());
+                            let selection = editor.document.selection();
+                            let history = editor.document.history_len(false);
+                            let dirty = editor.document.dirty();
+                            let native_menus = cx.get_menus().ok_or("missing native menus")?;
+                            let action = native_menus.iter().flat_map(|menu| &menu.items).find_map(|item| match item {
+                                OwnedMenuItem::Submenu(menu) if menu.name.as_ref() == editor.locale.language.text(Text::Theme) => menu.items.iter().find_map(|item| match item {
+                                    OwnedMenuItem::Action { action, .. } => action.as_any().downcast_ref::<menus::SelectTheme>().filter(|action| action.mode == theme::Mode::Dark).cloned(),
+                                    _ => None,
+                                }),
+                                _ => None,
+                            }).ok_or("missing native dark theme action")?;
+                            editor.change_theme(&action, window, cx);
+                            check_eq!(editor.document.selection(), selection);
+                            check_eq!(editor.document.history_len(false), history);
+                            check_eq!(editor.document.dirty(), dirty);
+                        }
+                        386 => {
+                            check_eq!(theme::selected(cx), theme::Mode::Dark);
+                            check_eq!(geometry.text_layout.key.colors, theme::Palette::DARK);
+                            check!(cached_projection.as_ref().is_some_and(|p| std::sync::Arc::ptr_eq(p, &editor.viewport.display)));
+                            let before = cached_layout.as_ref().ok_or("missing theme layout")?;
+                            check!(!std::sync::Arc::ptr_eq(before, &geometry.text_layout));
+                            check_eq!(geometry.lines.len(), before.lines.len());
+                            for (line, old) in geometry.lines.iter().zip(before.lines.iter()) {
+                                check_eq!((line.start, line.top, line.line_height), (old.start, old.top, old.line_height));
+                            }
+                            check_eq!(third_source.as_ref().map(|s| s.id()), Some(editor.document.source.id()));
+                            editor.change_theme(&menus::SelectTheme { mode: theme::Mode::Light }, window, cx);
+                        }
+                        387 => {
+                            check_eq!(geometry.text_layout.key.colors, theme::Palette::LIGHT);
+                            editor.change_theme(&menus::SelectTheme { mode: theme::Mode::System }, window, cx);
+                        }
+                        388 => {
+                            check_eq!(theme::selected(cx), theme::Mode::System);
+                            check_eq!(geometry.text_layout.key.colors, theme::Mode::System.palette(window.appearance()));
+                            check_eq!(third_source.as_ref().map(|s| s.id()), Some(editor.document.source.id()));
+                            let path = std::env::temp_dir().join(format!("ryne-theme-smoke-{}", std::process::id()));
+                            check_eq!(theme::Settings::load(Some(path.clone()), window.appearance()).mode, theme::Mode::System);
+                            let _ = std::fs::remove_file(path);
+                            println!("Theme GUI checks passed: native menu action, dark/light/system repaint, unchanged source/projection/geometry, isolated preference persistence");
+                            if theme_only { cx.quit(); return Ok(()); }
                         }
                         _ => {
                             if performance_only {
