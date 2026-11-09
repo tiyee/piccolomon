@@ -4,13 +4,24 @@
 可选使用微软官方 `microsoft-store-apppublisher` / `msstore` 提交商店更新。
 普通推送、PR 和多平台打包不会提交商店。
 
+## 手动生成三架构商店包
+
+在 Actions 选择 **Build unsigned MSIX bundle for Store → Run workflow**，填入四段
+`version` 和 Partner Center **Product identity** 中的 `identity_name`、`publisher`、
+`publisher_display_name`。工作流并行构建 x86、x64（AMD64）和 ARM64 的原生 MSIX，
+共用同一包身份和版本。三份子包齐全后，`MakeAppx` 生成并检查 `.msixbundle`。
+
+下载 `Ryne-<version>-windows-unsigned-msixbundle` Artifact，取出 `Ryne-<version>.msixbundle`
+上传到 Partner Center，随附的 `.sha256` 可用于校验下载。商店负责分发签名，Windows
+安装时会选择适合设备架构的子包。
+
 ## 首次准备
 
 1. 在 Partner Center 注册开发者账户、预留应用名称，创建 **MSIX** 类型的产品。
    使用 **Product identity** 中的真实标识，不自行编造包名或发布者。
 2. 在 Partner Center 完成首次发布，包括商店介绍、截图、隐私政策、年龄分级、
    市场及定价。此工作流用于之后的包更新，不创建产品或补齐商店资料。
-   首次可使用工作流的纯打包模式，将下载的 MSIX 手动上传 Partner Center。
+   首次可将上面生成的 `.msixbundle` 手动上传 Partner Center。
 3. 为 Partner Center 关联 Microsoft Entra 租户，注册应用并创建客户端密钥，
    将该应用加入 Partner Center 并授予管理目标应用提交的权限。
 4. GitHub 仓库 **Settings → Secrets and variables → Actions → Variables** 配置：
@@ -77,7 +88,10 @@ pwsh -File scripts/bundle-windows-store.ps1 `
   -PublisherDisplayName 'Your Publisher Name'
 ```
 
-产物为 `dist/store/Ryne-1.0.1.0-x64.msix`。SDK `MakeAppx` 保持语义验证开启，
+默认产物为 `dist/store/Ryne-1.0.1.0-x64.msix`。可通过 `-Architecture x86` 或
+`-Architecture arm64` 生成其他架构的单包，需安装相应的 Rust MSVC 目标、Visual Studio
+C++ 工具集，ARM64 还需在 PATH 中提供 LLVM `clang` 以编译 `ring`。
+SDK `MakeAppx` 保持语义验证开启，
 不会使用 `/nv` 跳过验证；同一 SDK 的 `MakePri` 生成图标资源索引 `resources.pri`，
 SDK 安装时需包含 UWP 工具。MSIX 面向商店上传，不包含本地签名；Microsoft Store
 会处理分发签名，因此无需 PFX Secret。直接侧载测试需要另行为测试包签名并信任
@@ -91,3 +105,4 @@ SDK 安装时需包含 UWP 工具。MSIX 面向商店上传，不包含本地签
 - [MSIX 签名](https://learn.microsoft.com/en-us/windows/msix/package/sign-msix-package-guide)
 - [版本编号规则](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/package-version-numbering?pivots=store-installer-msix)
 - [MakeAppx 工具](https://learn.microsoft.com/en-us/windows/msix/package/create-app-package-with-makeappx-tool)
+- [上传 MSIX 商店包](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/device-families)

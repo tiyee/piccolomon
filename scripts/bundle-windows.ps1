@@ -4,7 +4,9 @@ param(
     [ValidateSet('debug', 'release')]
     [string]$Profile = 'release',
     [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._-]*$')]
-    [string]$PackageName = 'Ryne-windows-x64'
+    [string]$PackageName,
+    [ValidateSet('x86', 'x64', 'arm64')]
+    [string]$Architecture = 'x64'
 )
 
 Set-StrictMode -Version Latest
@@ -15,7 +17,13 @@ if (-not $IsWindows) {
 }
 
 $root = Split-Path $PSScriptRoot -Parent
-$target = 'x86_64-pc-windows-msvc'
+$Architecture = $Architecture.ToLowerInvariant()
+$target = @{
+    x86 = 'i686-pc-windows-msvc'
+    x64 = 'x86_64-pc-windows-msvc'
+    arm64 = 'aarch64-pc-windows-msvc'
+}[$Architecture]
+if (-not $PackageName) { $PackageName = "Ryne-windows-$Architecture" }
 $cargoCommand = if ($env:CARGO) { $env:CARGO } else { 'cargo' }
 
 # GPUI 0.2.2 compiles release shaders with fxc.exe. Discover the installed
@@ -45,9 +53,14 @@ if (-not [System.IO.Path]::IsPathRooted($targetDir)) {
 $buildArgs = @('build', '--locked', '--manifest-path', (Join-Path $root 'Cargo.toml'),
     '--package', 'ryne-app', '--bin', 'ryne', '--target', $target)
 if ($Profile -eq 'release') { $buildArgs += '--release' }
-$previousFlags = $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS
+$flagsVariable = 'CARGO_TARGET_' + $target.ToUpperInvariant().Replace('-', '_') + '_RUSTFLAGS'
+$flagsPath = "Env:$flagsVariable"
+$previousFlags = [Environment]::GetEnvironmentVariable($flagsVariable)
+$staticCrt = '-C target-feature=+crt-static'
 try {
-    $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS = "$previousFlags -C target-feature=+crt-static".Trim()
+    if ($previousFlags -ne $staticCrt) {
+        Set-Item -LiteralPath $flagsPath -Value ("$previousFlags $staticCrt".Trim())
+    }
     Push-Location $root
     try {
         & $cargoCommand @buildArgs
@@ -56,7 +69,7 @@ try {
         Pop-Location
     }
 } finally {
-    $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS = $previousFlags
+    Set-Item -LiteralPath $flagsPath -Value $previousFlags
 }
 
 $binary = Join-Path $targetDir "$target/$Profile/ryne.exe"

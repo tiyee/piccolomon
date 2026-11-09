@@ -11,7 +11,9 @@ param(
     [string]$Publisher,
     [Parameter(Mandatory)]
     [ValidateNotNullOrEmpty()]
-    [string]$PublisherDisplayName
+    [string]$PublisherDisplayName,
+    [ValidateSet('x86', 'x64', 'arm64')]
+    [string]$Architecture = 'x64'
 )
 
 Set-StrictMode -Version Latest
@@ -37,18 +39,22 @@ if (-not (Test-Path -LiteralPath $makePri -PathType Leaf)) {
 }
 
 # Reuse the portable build, static CRT settings and original font notices.
-& (Join-Path $PSScriptRoot 'bundle-windows.ps1') -Profile release -PackageName 'Ryne-store-input'
+$Architecture = $Architecture.ToLowerInvariant()
+$portableName = "Ryne-store-input-$Architecture"
+& (Join-Path $PSScriptRoot 'bundle-windows.ps1') -Profile release `
+    -Architecture $Architecture -PackageName $portableName
 $work = Join-Path ([System.IO.Path]::GetTempPath()) ('ryne-msix-' + [guid]::NewGuid())
 $output = Join-Path $root 'dist/store'
-$packageName = "Ryne-$Version-x64.msix"
+$packageName = "Ryne-$Version-$Architecture.msix"
 try {
-    Expand-Archive -LiteralPath (Join-Path $root 'dist/Ryne-store-input.zip') -DestinationPath $work
+    Expand-Archive -LiteralPath (Join-Path $root "dist/$portableName.zip") -DestinationPath $work
     $payload = Join-Path $work 'Ryne'
     $assets = Join-Path $payload 'Assets'
     $binary = Join-Path $payload 'Ryne.exe'
     if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) { throw 'MSIX payload is missing Ryne.exe.' }
     Push-Location $root
     try {
+        # The logo generator runs on the x64 packaging host for every target.
         & $cargoCommand run --locked --package ryne-app --example store-assets --release `
             --target x86_64-pc-windows-msvc -- `
             (Join-Path $root 'assets/logo.svg') $assets
@@ -65,6 +71,7 @@ try {
     $identity.SetAttribute('Name', $IdentityName)
     $identity.SetAttribute('Publisher', $Publisher)
     $identity.SetAttribute('Version', $Version)
+    $identity.SetAttribute('ProcessorArchitecture', $Architecture)
     $manifest.SelectSingleNode('/p:Package/p:Properties/p:PublisherDisplayName', $namespaces).InnerText = $PublisherDisplayName
     $manifest.Save((Join-Path $payload 'AppxManifest.xml'))
 

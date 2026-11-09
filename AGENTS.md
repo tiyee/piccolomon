@@ -356,10 +356,11 @@
   绘制（`paint.rs`）、字体（`theme.rs`）、资源上传（`assets.rs`）、文件交互（`files.rs`）
   和真实窗口冒烟（`smoke.rs`）。视图不导入具体渲染器；旧帧不能解释新源码或预编辑投影。
 - `src/main.rs`：装配内置功能和服务、启动原生窗口；`scripts/bundle-macos.sh`：macOS 打包。
-  `scripts/bundle-windows.ps1`：Windows x64 便携 ZIP、静态 MSVC 运行库及字体许可。
+  `scripts/bundle-windows.ps1`：Windows 便携 ZIP（默认 x64，可指定 x86 或 ARM64）、静态 MSVC 运行库及字体许可。
   `.github/workflows/package.yml`：macOS 15/26 的 Apple Silicon/Intel、Windows Server
   2022/2025 x64 发布构建与产物上传，不包含 Linux；构建环境不等同桌面 GUI 兼容性验收。
-  `.github/workflows/windows-store.yml`：手动构建 MSIX，可选提交 Microsoft Store；
+  `.github/workflows/build-msix.yml`：并行构建 x86、x64、ARM64 子包，合并为可手动上传商店的未签名 MSIXBundle；
+  `.github/workflows/windows-store.yml`：手动构建 x64 MSIX，可选提交 Microsoft Store；
   `scripts/bundle-windows-store.ps1`、`packaging/windows/AppxManifest.xml` 与
   `examples/store-assets.rs` 提供包、身份及图标；配置和首次发布要求见
   `docs/19_Windows_Store_Publishing.md`。商店签名不需要仓库 PFX。

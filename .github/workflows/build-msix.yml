@@ -1,5 +1,5 @@
-name: Build unsigned MSIX for Store
-run-name: Unsigned MSIX ${{ inputs.version }} (Windows x64)
+name: Build unsigned MSIX bundle for Store
+run-name: Unsigned MSIX bundle ${{ inputs.version }} (Windows x86, x64, arm64)
 
 on:
   workflow_dispatch:
@@ -26,8 +26,19 @@ permissions:
 
 jobs:
   build-msix:
+    name: Build MSIX (${{ matrix.architecture }})
     runs-on: windows-2025
     timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: x86
+            target: i686-pc-windows-msvc
+          - architecture: x64
+            target: x86_64-pc-windows-msvc
+          - architecture: arm64
+            target: aarch64-pc-windows-msvc
     defaults:
       run:
         shell: pwsh
@@ -35,20 +46,17 @@ jobs:
       CARGO_TERM_COLOR: always
       CARGO_INCREMENTAL: "0"
       CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: "-C target-feature=+crt-static"
+      # ring needs Clang on Windows ARM64. clang-cl uses the MSVC toolchain.
+      CC_aarch64_pc_windows_msvc: clang-cl
       STORE_VERSION: ${{ inputs.version }}
       STORE_IDENTITY_NAME: ${{ inputs.identity_name }}
       STORE_PUBLISHER: ${{ inputs.publisher }}
       STORE_PUBLISHER_DISPLAY_NAME: ${{ inputs.publisher_display_name }}
+      STORE_ARCHITECTURE: ${{ matrix.architecture }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: unsigned-msix-windows-x64
       - name: Validate Store inputs
         run: |
           if ($env:STORE_VERSION -notmatch '^\d{1,5}\.\d{1,5}\.\d{1,5}\.0$' -or
@@ -60,19 +68,90 @@ jobs:
               throw "Provide $key from Partner Center > Product identity."
             }
           }
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: unsigned-msix-windows-${{ matrix.architecture }}
       - name: Build and pack unsigned MSIX
         run: |
           ./scripts/bundle-windows-store.ps1 -Version $env:STORE_VERSION `
             -IdentityName $env:STORE_IDENTITY_NAME -Publisher $env:STORE_PUBLISHER `
-            -PublisherDisplayName $env:STORE_PUBLISHER_DISPLAY_NAME
-      - name: Upload unsigned MSIX
+            -PublisherDisplayName $env:STORE_PUBLISHER_DISPLAY_NAME -Architecture $env:STORE_ARCHITECTURE
+      - name: Upload bundle input
         uses: actions/upload-artifact@v7
         with:
-          name: Ryne-${{ inputs.version }}-windows-x64-unsigned-msix
-          path: |
-            dist/store/*.msix
-            dist/store/*.sha256
-            dist/store/AppxManifest.xml
+          name: ryne-msix-${{ matrix.architecture }}-input
+          path: dist/store/Ryne-${{ inputs.version }}-${{ matrix.architecture }}.msix
           if-no-files-found: error
           compression-level: 0
+          overwrite: true
+          retention-days: 7
+
+  bundle-msix:
+    name: Bundle all architectures
+    needs: build-msix
+    runs-on: windows-2025
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      STORE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: ryne-msix-*-input
+          path: bundle-input
+          merge-multiple: true
+      - name: Create unsigned MSIX bundle
+        run: |
+          $version = $env:STORE_VERSION
+          $architectures = @('arm64', 'x64', 'x86')
+          $expected = @($architectures | ForEach-Object { "Ryne-$version-$_.msix" })
+          $actual = @(Get-ChildItem -LiteralPath bundle-input -Name | Sort-Object)
+          if (($actual -join ',') -cne ($expected -join ',')) {
+            throw "Expected exactly the three architecture packages. Found: $($actual -join ', ')"
+          }
+          $sdkBin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/bin'
+          $makeAppx = Get-ChildItem -Path (Join-Path $sdkBin '*/x64/makeappx.exe') -File |
+            Sort-Object { [version]$_.Directory.Parent.Name } -Descending | Select-Object -First 1
+          if (-not $makeAppx) { throw 'Windows SDK MakeAppx.exe is required.' }
+
+          $bundleName = "Ryne-$version.msixbundle"
+          $bundle = Join-Path $PWD $bundleName
+          & $makeAppx.FullName bundle /d bundle-input /p $bundle /bv $version /o
+          if ($LASTEXITCODE -ne 0) { throw "MakeAppx bundle failed with exit code $LASTEXITCODE." }
+
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($bundle)
+          try {
+            $entry = $archive.GetEntry('AppxMetadata/AppxBundleManifest.xml')
+            if (-not $entry) { throw 'Bundle manifest is missing.' }
+            $stream = $entry.Open()
+            try {
+              $manifest = [System.Xml.XmlDocument]::new()
+              $manifest.Load($stream)
+            } finally {
+              $stream.Dispose()
+            }
+            $included = @($manifest.Bundle.Packages.Package | ForEach-Object { $_.Architecture } | Sort-Object)
+            if (($included -join ',') -cne ($architectures -join ',')) {
+              throw "Unexpected bundle architectures: $($included -join ', ')"
+            }
+          } finally {
+            $archive.Dispose()
+          }
+          $hash = (Get-FileHash -LiteralPath $bundle -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $bundleName" | Set-Content -LiteralPath "$bundle.sha256" -Encoding utf8NoBOM
+      - name: Upload unsigned MSIX bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: Ryne-${{ inputs.version }}-windows-unsigned-msixbundle
+          path: |
+            Ryne-${{ inputs.version }}.msixbundle
+            Ryne-${{ inputs.version }}.msixbundle.sha256
+          if-no-files-found: error
+          compression-level: 0
+          overwrite: true
           retention-days: 30
