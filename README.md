@@ -24,6 +24,8 @@ Editing reuses cached text layout when its content and formatting are unchanged.
 - **Windows 10 or 11 (64-bit x64).** Download the ZIP ending in `win-x86_64.zip`, extract it, and open `Ryne.exe` inside the `Ryne` folder. [Ryne downloads](https://github.com/tiyee/ryne/releases)
 - **macOS.** Choose the ZIP ending in `mac-arm_64.zip` for Apple Silicon or `mac-x86_64.zip` for Intel. Extract it, drag `Ryne.app` to Applications, and open it. You can also open a Markdown file from Finder with **Open With → Ryne**. [Ryne downloads](https://github.com/tiyee/ryne/releases)
 
+On Windows, double-click `Register-context-menu.cmd` in the extracted `Ryne` folder once to add **Open with Ryne** to the right-click menu for `.md`, `.markdown`, `.mdown` and `.mkd` files, and register Ryne under **Open with**. No administrator rights are needed, and your default editor stays unchanged. On Windows 11, the direct command may be under **Show more options**. Before moving or deleting the folder, run `Unregister-context-menu.cmd`; after moving it, run the registration script again. Microsoft Store packages register their file associations during installation; use **Open with → Ryne** without running these scripts.
+
 ## Write your first note
 
 1. Open Ryne and try editing the welcome guide. Choose **File → New** for a blank note, or **File → Open** to work on an existing one.

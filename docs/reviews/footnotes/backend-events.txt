@@ -1,0 +1,387 @@
+Backend: pulldown-cmark 0.13.6; byte ranges are half-open UTF-8.
+Options: base GFM subset + ENABLE_FOOTNOTES + ENABLE_MATH; no OLD_FOOTNOTES.
+
+CASE basic
+SOURCE "a[^x] b[^x]\n\n[^x]: note\n"
+BASE_LINK 1..5 Start(Link { link_type: Shortcut, dest_url: Borrowed("note"), title: Borrowed(""), id: Borrowed("^x") })
+BASE_LINK 7..11 Start(Link { link_type: Shortcut, dest_url: Borrowed("note"), title: Borrowed(""), id: Borrowed("^x") })
+0..12 Start(Paragraph) RAW "a[^x] b[^x]\n"
+0..1 Text(Borrowed("a")) RAW "a"
+1..5 FootnoteReference(Borrowed("x")) RAW "[^x]"
+5..7 Text(Borrowed(" b")) RAW " b"
+7..11 FootnoteReference(Borrowed("x")) RAW "[^x]"
+0..12 End(Paragraph) RAW "a[^x] b[^x]\n"
+13..24 Start(FootnoteDefinition(Borrowed("x"))) RAW "[^x]: note\n"
+19..24 Start(Paragraph) RAW "note\n"
+19..23 Text(Borrowed("note")) RAW "note"
+19..24 End(Paragraph) RAW "note\n"
+13..24 End(FootnoteDefinition) RAW "[^x]: note\n"
+COUNTS refs=2 definitions=1 baseline_footnotes=0
+
+CASE undefined
+SOURCE "a[^missing]\n"
+0..12 Start(Paragraph) RAW "a[^missing]\n"
+0..1 Text(Borrowed("a")) RAW "a"
+1..2 Text(Borrowed("[")) RAW "["
+2..10 Text(Borrowed("^missing")) RAW "^missing"
+10..11 Text(Borrowed("]")) RAW "]"
+0..12 End(Paragraph) RAW "a[^missing]\n"
+COUNTS refs=0 definitions=0 baseline_footnotes=0
+
+CASE unused
+SOURCE "[^x]: unused\n"
+0..13 Start(FootnoteDefinition(Borrowed("x"))) RAW "[^x]: unused\n"
+6..13 Start(Paragraph) RAW "unused\n"
+6..12 Text(Borrowed("unused")) RAW "unused"
+6..13 End(Paragraph) RAW "unused\n"
+0..13 End(FootnoteDefinition) RAW "[^x]: unused\n"
+COUNTS refs=0 definitions=1 baseline_footnotes=0
+
+CASE duplicate
+SOURCE "a[^x]\n\n[^x]: first\n\n[^x]: second\n"
+BASE_LINK 1..5 Start(Link { link_type: Shortcut, dest_url: Borrowed("first"), title: Borrowed(""), id: Borrowed("^x") })
+0..6 Start(Paragraph) RAW "a[^x]\n"
+0..1 Text(Borrowed("a")) RAW "a"
+1..5 FootnoteReference(Borrowed("x")) RAW "[^x]"
+0..6 End(Paragraph) RAW "a[^x]\n"
+7..20 Start(FootnoteDefinition(Borrowed("x"))) RAW "[^x]: first\n\n"
+13..19 Start(Paragraph) RAW "first\n"
+13..18 Text(Borrowed("first")) RAW "first"
+13..19 End(Paragraph) RAW "first\n"
+7..20 End(FootnoteDefinition) RAW "[^x]: first\n\n"
+20..33 Start(FootnoteDefinition(Borrowed("x"))) RAW "[^x]: second\n"
+26..33 Start(Paragraph) RAW "second\n"
+26..32 Text(Borrowed("second")) RAW "second"
+26..33 End(Paragraph) RAW "second\n"
+20..33 End(FootnoteDefinition) RAW "[^x]: second\n"
+COUNTS refs=1 definitions=2 baseline_footnotes=0
+
+CASE case
+SOURCE "a[^X] b[^x]\n\n[^x]: note\n"
+BASE_LINK 1..5 Start(Link { link_type: Shortcut, dest_url: Borrowed("note"), title: Borrowed(""), id: Borrowed("^X") })
+BASE_LINK 7..11 Start(Link { link_type: Shortcut, dest_url: Borrowed("note"), title: Borrowed(""), id: Borrowed("^x") })
+0..12 Start(Paragraph) RAW "a[^X] b[^x]\n"
+0..1 Text(Borrowed("a")) RAW "a"
+1..5 FootnoteReference(Borrowed("X")) RAW "[^X]"
+5..7 Text(Borrowed(" b")) RAW " b"
+7..11 FootnoteReference(Borrowed("x")) RAW "[^x]"
+0..12 End(Paragraph) RAW "a[^X] b[^x]\n"
+13..24 Start(FootnoteDefinition(Borrowed("x"))) RAW "[^x]: note\n"
+19..24 Start(Paragraph) RAW "note\n"
+19..23 Text(Borrowed("note")) RAW "note"
+19..24 End(Paragraph) RAW "note\n"
+13..24 End(FootnoteDefinition) RAW "[^x]: note\n"
+COUNTS refs=2 definitions=1 baseline_footnotes=0
+
+CASE unicode_case
+SOURCE "a[^STRASSE]\n\n[^straße]: note\n"
+BASE_LINK 1..11 Start(Link { link_type: Shortcut, dest_url: Borrowed("note"), title: Borrowed(""), id: Borrowed("^STRASSE") })
+0..12 Start(Paragraph) RAW "a[^STRASSE]\n"
+0..1 Text(Borrowed("a")) RAW "a"
+1..11 FootnoteReference(Borrowed("STRASSE")) RAW "[^STRASSE]"
+0..12 End(Paragraph) RAW "a[^STRASSE]\n"
+13..30 Start(FootnoteDefinition(Borrowed("straße"))) RAW "[^straße]: note\n"
+25..30 Start(Paragraph) RAW "note\n"
+25..29 Text(Borrowed("note")) RAW "note"
+25..30 End(Paragraph) RAW "note\n"
+13..30 End(FootnoteDefinition) RAW "[^straße]: note\n"
+COUNTS refs=1 definitions=1 baseline_footnotes=0
+
+CASE spaces
+SOURCE "a[^a  b]\n\n[^a b]: note\n"
+BASE_LINK 1..8 Start(Link { link_type: Shortcut, dest_url: Borrowed("note"), title: Borrowed(""), id: Inlined(InlineStr { inner: [94, 97, 32, 98, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], len: 4 }) })
+0..9 Start(Paragraph) RAW "a[^a  b]\n"
+0..1 Text(Borrowed("a")) RAW "a"
+1..8 FootnoteReference(Boxed("a b")) RAW "[^a  b]"
+0..9 End(Paragraph) RAW "a[^a  b]\n"
+10..23 Start(FootnoteDefinition(Borrowed("a b"))) RAW "[^a b]: note\n"
+18..23 Start(Paragraph) RAW "note\n"
+18..22 Text(Borrowed("note")) RAW "note"
+18..23 End(Paragraph) RAW "note\n"
+10..23 End(FootnoteDefinition) RAW "[^a b]: note\n"
+COUNTS refs=1 definitions=1 baseline_footnotes=0
+
+CASE escape
+SOURCE "a[^a\\*b]\n\n[^a\\*b]: note\n"
+BASE_LINK 1..8 Start(Link { link_type: Shortcut, dest_url: Borrowed("note"), title: Borrowed(""), id: Borrowed("^a\\*b") })
+0..9 Start(Paragraph) RAW "a[^a\\*b]\n"
+0..1 Text(Borrowed("a")) RAW "a"
+1..8 FootnoteReference(Borrowed("a\\*b")) RAW "[^a\\*b]"
+0..9 End(Paragraph) RAW "a[^a\\*b]\n"
+10..24 Start(FootnoteDefinition(Borrowed("a\\*b"))) RAW "[^a\\*b]: note\n"
+19..24 Start(Paragraph) RAW "note\n"
+19..23 Text(Borrowed("note")) RAW "note"
+19..24 End(Paragraph) RAW "note\n"
+10..24 End(FootnoteDefinition) RAW "[^a\\*b]: note\n"
+COUNTS refs=1 definitions=1 baseline_footnotes=0
+
+CASE multiline
+SOURCE "a[^x]\n\n[^x]: first\n\n    second\n\n    - item\n\n    ```rs\n    let x = 1;\n    ```\n"
+BASE_LINK 1..5 Start(Link { link_type: Shortcut, dest_url: Borrowed("first"), title: Borrowed(""), id: Borrowed("^x") })
+0..6 Start(Paragraph) RAW "a[^x]\n"
+0..1 Text(Borrowed("a")) RAW "a"
+1..5 FootnoteReference(Borrowed("x")) RAW "[^x]"
+0..6 End(Paragraph) RAW "a[^x]\n"
+7..77 Start(FootnoteDefinition(Borrowed("x"))) RAW "[^x]: first\n\n    second\n\n    - item\n\n    ```rs\n    let x = 1;\n    ```\n"
+13..19 Start(Paragraph) RAW "first\n"
+13..18 Text(Borrowed("first")) RAW "first"
+13..19 End(Paragraph) RAW "first\n"
+24..31 Start(Paragraph) RAW "second\n"
+24..30 Text(Borrowed("second")) RAW "second"
+24..31 End(Paragraph) RAW "second\n"
+36..44 Start(List(None)) RAW "- item\n\n"
+36..44 Start(Item) RAW "- item\n\n"
+38..42 Text(Borrowed("item")) RAW "item"
+36..44 End(Item) RAW "- item\n\n"
+36..44 End(List(false)) RAW "- item\n\n"
+48..76 Start(CodeBlock(Fenced(Borrowed("rs")))) RAW "```rs\n    let x = 1;\n    ```"
+58..69 Text(Borrowed("let x = 1;\n")) RAW "let x = 1;\n"
+48..76 End(CodeBlock) RAW "```rs\n    let x = 1;\n    ```"
+7..77 End(FootnoteDefinition) RAW "[^x]: first\n\n    second\n\n    - item\n\n    ```rs\n    let x = 1;\n    ```\n"
+COUNTS refs=1 definitions=1 baseline_footnotes=0
+
+CASE empty
+SOURCE "a[^x]\n\n[^x]:\n"
+0..6 Start(Paragraph) RAW "a[^x]\n"
+0..1 Text(Borrowed("a")) RAW "a"
+1..5 FootnoteReference(Borrowed("x")) RAW "[^x]"
+0..6 End(Paragraph) RAW "a[^x]\n"
+7..13 Start(FootnoteDefinition(Borrowed("x"))) RAW "[^x]:\n"
+7..13 End(FootnoteDefinition) RAW "[^x]:\n"
+COUNTS refs=1 definitions=1 baseline_footnotes=0
+
+CASE nested_quote
+SOURCE "a[^x]\n\n> [^x]: quote\n"
+BASE_LINK 1..5 Start(Link { link_type: Shortcut, dest_url: Borrowed("quote"), title: Borrowed(""), id: Borrowed("^x") })
+0..6 Start(Paragraph) RAW "a[^x]\n"
+0..1 Text(Borrowed("a")) RAW "a"
+1..5 FootnoteReference(Borrowed("x")) RAW "[^x]"
+0..6 End(Paragraph) RAW "a[^x]\n"
+7..21 Start(BlockQuote(None)) RAW "> [^x]: quote\n"
+9..21 Start(FootnoteDefinition(Borrowed("x"))) RAW "[^x]: quote\n"
+15..21 Start(Paragraph) RAW "quote\n"
+15..20 Text(Borrowed("quote")) RAW "quote"
+15..21 End(Paragraph) RAW "quote\n"
+9..21 End(FootnoteDefinition) RAW "[^x]: quote\n"
+7..21 End(BlockQuote(None)) RAW "> [^x]: quote\n"
+COUNTS refs=1 definitions=1 baseline_footnotes=0
+
+CASE nested_list
+SOURCE "a[^x]\n\n- [^x]: list\n"
+BASE_LINK 1..5 Start(Link { link_type: Shortcut, dest_url: Borrowed("list"), title: Borrowed(""), id: Borrowed("^x") })
+0..6 Start(Paragraph) RAW "a[^x]\n"
+0..1 Text(Borrowed("a")) RAW "a"
+1..5 FootnoteReference(Borrowed("x")) RAW "[^x]"
+0..6 End(Paragraph) RAW "a[^x]\n"
+7..20 Start(List(None)) RAW "- [^x]: list\n"
+7..20 Start(Item) RAW "- [^x]: list\n"
+9..20 Start(FootnoteDefinition(Borrowed("x"))) RAW "[^x]: list\n"
+15..20 Start(Paragraph) RAW "list\n"
+15..19 Text(Borrowed("list")) RAW "list"
+15..20 End(Paragraph) RAW "list\n"
+9..20 End(FootnoteDefinition) RAW "[^x]: list\n"
+7..20 End(Item) RAW "- [^x]: list\n"
+7..20 End(List(false)) RAW "- [^x]: list\n"
+COUNTS refs=1 definitions=1 baseline_footnotes=0
+
+CASE recursive
+SOURCE "a[^x]\n\n[^x]: b[^y]\n\n[^y]: c[^x]\n"
+BASE_LINK 1..5 Start(Link { link_type: Shortcut, dest_url: Borrowed("b[^y]"), title: Borrowed(""), id: Borrowed("^x") })
+0..6 Start(Paragraph) RAW "a[^x]\n"
+0..1 Text(Borrowed("a")) RAW "a"
+1..5 FootnoteReference(Borrowed("x")) RAW "[^x]"
+0..6 End(Paragraph) RAW "a[^x]\n"
+7..20 Start(FootnoteDefinition(Borrowed("x"))) RAW "[^x]: b[^y]\n\n"
+13..19 Start(Paragraph) RAW "b[^y]\n"
+13..14 Text(Borrowed("b")) RAW "b"
+14..18 FootnoteReference(Borrowed("y")) RAW "[^y]"
+13..19 End(Paragraph) RAW "b[^y]\n"
+7..20 End(FootnoteDefinition) RAW "[^x]: b[^y]\n\n"
+20..32 Start(FootnoteDefinition(Borrowed("y"))) RAW "[^y]: c[^x]\n"
+26..32 Start(Paragraph) RAW "c[^x]\n"
+26..27 Text(Borrowed("c")) RAW "c"
+27..31 FootnoteReference(Borrowed("x")) RAW "[^x]"
+26..32 End(Paragraph) RAW "c[^x]\n"
+20..32 End(FootnoteDefinition) RAW "[^y]: c[^x]\n"
+COUNTS refs=3 definitions=2 baseline_footnotes=0
+
+CASE table_ref
+SOURCE "| a |\n| --- |\n| [^x] |\n\n[^x]: note\n"
+BASE_LINK 16..20 Start(Link { link_type: Shortcut, dest_url: Borrowed("note"), title: Borrowed(""), id: Borrowed("^x") })
+0..23 Start(Table([None])) RAW "| a |\n| --- |\n| [^x] |\n"
+0..6 Start(TableHead) RAW "| a |\n"
+1..4 Start(TableCell) RAW " a "
+2..3 Text(Borrowed("a")) RAW "a"
+1..4 End(TableCell) RAW " a "
+0..6 End(TableHead) RAW "| a |\n"
+14..23 Start(TableRow) RAW "| [^x] |\n"
+15..21 Start(TableCell) RAW " [^x] "
+16..20 FootnoteReference(Borrowed("x")) RAW "[^x]"
+15..21 End(TableCell) RAW " [^x] "
+14..23 End(TableRow) RAW "| [^x] |\n"
+0..23 End(Table) RAW "| a |\n| --- |\n| [^x] |\n"
+24..35 Start(FootnoteDefinition(Borrowed("x"))) RAW "[^x]: note\n"
+30..35 Start(Paragraph) RAW "note\n"
+30..34 Text(Borrowed("note")) RAW "note"
+30..35 End(Paragraph) RAW "note\n"
+24..35 End(FootnoteDefinition) RAW "[^x]: note\n"
+COUNTS refs=1 definitions=1 baseline_footnotes=0
+
+CASE literal
+SOURCE "`[^x]` \\[^x]\n\n```\n[^x]\n```\n\n<div>\n[^x]\n</div>\n\n[^x]: note\n"
+0..13 Start(Paragraph) RAW "`[^x]` \\[^x]\n"
+0..6 Code(Borrowed("[^x]")) RAW "`[^x]`"
+6..7 Text(Borrowed(" ")) RAW " "
+8..11 Text(Borrowed("[^x")) RAW "[^x"
+11..12 Text(Borrowed("]")) RAW "]"
+0..13 End(Paragraph) RAW "`[^x]` \\[^x]\n"
+14..26 Start(CodeBlock(Fenced(Borrowed("")))) RAW "```\n[^x]\n```"
+18..23 Text(Borrowed("[^x]\n")) RAW "[^x]\n"
+14..26 End(CodeBlock) RAW "```\n[^x]\n```"
+28..46 Start(HtmlBlock) RAW "<div>\n[^x]\n</div>\n"
+28..34 Html(Borrowed("<div>\n")) RAW "<div>\n"
+34..39 Html(Borrowed("[^x]\n")) RAW "[^x]\n"
+39..46 Html(Borrowed("</div>\n")) RAW "</div>\n"
+28..46 End(HtmlBlock) RAW "<div>\n[^x]\n</div>\n"
+47..58 Start(FootnoteDefinition(Borrowed("x"))) RAW "[^x]: note\n"
+53..58 Start(Paragraph) RAW "note\n"
+53..57 Text(Borrowed("note")) RAW "note"
+53..58 End(Paragraph) RAW "note\n"
+47..58 End(FootnoteDefinition) RAW "[^x]: note\n"
+COUNTS refs=0 definitions=1 baseline_footnotes=0
+
+CASE crlf
+SOURCE "a[^x]\r\n\r\n[^x]: first\r\n\r\n    second\r\n"
+BASE_LINK 1..5 Start(Link { link_type: Shortcut, dest_url: Borrowed("first"), title: Borrowed(""), id: Borrowed("^x") })
+0..7 Start(Paragraph) RAW "a[^x]\r\n"
+0..1 Text(Borrowed("a")) RAW "a"
+1..5 FootnoteReference(Borrowed("x")) RAW "[^x]"
+0..7 End(Paragraph) RAW "a[^x]\r\n"
+9..36 Start(FootnoteDefinition(Borrowed("x"))) RAW "[^x]: first\r\n\r\n    second\r\n"
+15..22 Start(Paragraph) RAW "first\r\n"
+15..20 Text(Borrowed("first")) RAW "first"
+15..22 End(Paragraph) RAW "first\r\n"
+28..36 Start(Paragraph) RAW "second\r\n"
+28..34 Text(Borrowed("second")) RAW "second"
+28..36 End(Paragraph) RAW "second\r\n"
+9..36 End(FootnoteDefinition) RAW "[^x]: first\r\n\r\n    second\r\n"
+COUNTS refs=1 definitions=1 baseline_footnotes=0
+
+CASE cr
+SOURCE "a[^x]\r\r[^x]: first\r\r    second\r"
+BASE_LINK 1..5 Start(Link { link_type: Shortcut, dest_url: Borrowed("first"), title: Borrowed(""), id: Borrowed("^x") })
+0..6 Start(Paragraph) RAW "a[^x]\r"
+0..1 Text(Borrowed("a")) RAW "a"
+1..5 FootnoteReference(Borrowed("x")) RAW "[^x]"
+0..6 End(Paragraph) RAW "a[^x]\r"
+7..31 Start(FootnoteDefinition(Borrowed("x"))) RAW "[^x]: first\r\r    second\r"
+13..19 Start(Paragraph) RAW "first\r"
+13..18 Text(Borrowed("first")) RAW "first"
+13..19 End(Paragraph) RAW "first\r"
+24..31 Start(Paragraph) RAW "second\r"
+24..30 Text(Borrowed("second")) RAW "second"
+24..31 End(Paragraph) RAW "second\r"
+7..31 End(FootnoteDefinition) RAW "[^x]: first\r\r    second\r"
+COUNTS refs=1 definitions=1 baseline_footnotes=0
+
+CASE lazy
+SOURCE "a[^x]\n\n[^x]: first\ncontinued\n\noutside\n"
+BASE_LINK 1..5 Start(Link { link_type: Shortcut, dest_url: Borrowed("first"), title: Borrowed(""), id: Borrowed("^x") })
+0..6 Start(Paragraph) RAW "a[^x]\n"
+0..1 Text(Borrowed("a")) RAW "a"
+1..5 FootnoteReference(Borrowed("x")) RAW "[^x]"
+0..6 End(Paragraph) RAW "a[^x]\n"
+7..30 Start(FootnoteDefinition(Borrowed("x"))) RAW "[^x]: first\ncontinued\n\n"
+13..29 Start(Paragraph) RAW "first\ncontinued\n"
+13..18 Text(Borrowed("first")) RAW "first"
+18..19 SoftBreak RAW "\n"
+19..28 Text(Borrowed("continued")) RAW "continued"
+13..29 End(Paragraph) RAW "first\ncontinued\n"
+7..30 End(FootnoteDefinition) RAW "[^x]: first\ncontinued\n\n"
+30..38 Start(Paragraph) RAW "outside\n"
+30..37 Text(Borrowed("outside")) RAW "outside"
+30..38 End(Paragraph) RAW "outside\n"
+COUNTS refs=1 definitions=1 baseline_footnotes=0
+
+CASE definition_order
+SOURCE "a[^y] b[^x]\n\n[^x]: X\n\n[^y]: Y\n"
+BASE_LINK 1..5 Start(Link { link_type: Shortcut, dest_url: Borrowed("Y"), title: Borrowed(""), id: Borrowed("^y") })
+BASE_LINK 7..11 Start(Link { link_type: Shortcut, dest_url: Borrowed("X"), title: Borrowed(""), id: Borrowed("^x") })
+0..12 Start(Paragraph) RAW "a[^y] b[^x]\n"
+0..1 Text(Borrowed("a")) RAW "a"
+1..5 FootnoteReference(Borrowed("y")) RAW "[^y]"
+5..7 Text(Borrowed(" b")) RAW " b"
+7..11 FootnoteReference(Borrowed("x")) RAW "[^x]"
+0..12 End(Paragraph) RAW "a[^y] b[^x]\n"
+13..22 Start(FootnoteDefinition(Borrowed("x"))) RAW "[^x]: X\n\n"
+19..21 Start(Paragraph) RAW "X\n"
+19..20 Text(Borrowed("X")) RAW "X"
+19..21 End(Paragraph) RAW "X\n"
+13..22 End(FootnoteDefinition) RAW "[^x]: X\n\n"
+22..30 Start(FootnoteDefinition(Borrowed("y"))) RAW "[^y]: Y\n"
+28..30 Start(Paragraph) RAW "Y\n"
+28..29 Text(Borrowed("Y")) RAW "Y"
+28..30 End(Paragraph) RAW "Y\n"
+22..30 End(FootnoteDefinition) RAW "[^y]: Y\n"
+COUNTS refs=2 definitions=2 baseline_footnotes=0
+
+CASE link_collision
+SOURCE "a[^x] b[x]\n\n[^x]: note\n[x]: /url\n"
+BASE_LINK 1..5 Start(Link { link_type: Shortcut, dest_url: Borrowed("note"), title: Borrowed(""), id: Borrowed("^x") })
+BASE_LINK 7..10 Start(Link { link_type: Shortcut, dest_url: Borrowed("/url"), title: Borrowed(""), id: Borrowed("x") })
+0..11 Start(Paragraph) RAW "a[^x] b[x]\n"
+0..1 Text(Borrowed("a")) RAW "a"
+1..5 FootnoteReference(Borrowed("x")) RAW "[^x]"
+5..7 Text(Borrowed(" b")) RAW " b"
+7..8 Text(Borrowed("[")) RAW "["
+8..9 Text(Borrowed("x")) RAW "x"
+9..10 Text(Borrowed("]")) RAW "]"
+0..11 End(Paragraph) RAW "a[^x] b[x]\n"
+12..33 Start(FootnoteDefinition(Borrowed("x"))) RAW "[^x]: note\n[x]: /url\n"
+18..33 Start(Paragraph) RAW "note\n[x]: /url\n"
+18..22 Text(Borrowed("note")) RAW "note"
+22..23 SoftBreak RAW "\n"
+23..24 Text(Borrowed("[")) RAW "["
+24..25 Text(Borrowed("x")) RAW "x"
+25..26 Text(Borrowed("]")) RAW "]"
+26..32 Text(Borrowed(": /url")) RAW ": /url"
+18..33 End(Paragraph) RAW "note\n[x]: /url\n"
+12..33 End(FootnoteDefinition) RAW "[^x]: note\n[x]: /url\n"
+COUNTS refs=1 definitions=1 baseline_footnotes=0
+
+CASE table_pipe
+SOURCE "| a |\n| --- |\n| [^a\\|b] |\n\n[^a|b]: note\n"
+BASE_LINK 16..23 Start(Link { link_type: Shortcut, dest_url: Borrowed("note"), title: Borrowed(""), id: Inlined(InlineStr { inner: [94, 97, 124, 98, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], len: 4 }) })
+0..26 Start(Table([None])) RAW "| a |\n| --- |\n| [^a\\|b] |\n"
+0..6 Start(TableHead) RAW "| a |\n"
+1..4 Start(TableCell) RAW " a "
+2..3 Text(Borrowed("a")) RAW "a"
+1..4 End(TableCell) RAW " a "
+0..6 End(TableHead) RAW "| a |\n"
+14..26 Start(TableRow) RAW "| [^a\\|b] |\n"
+15..24 Start(TableCell) RAW " [^a\\|b] "
+16..23 FootnoteReference(Boxed("a|b")) RAW "[^a\\|b]"
+15..24 End(TableCell) RAW " [^a\\|b] "
+14..26 End(TableRow) RAW "| [^a\\|b] |\n"
+0..26 End(Table) RAW "| a |\n| --- |\n| [^a\\|b] |\n"
+27..40 Start(FootnoteDefinition(Borrowed("a|b"))) RAW "[^a|b]: note\n"
+35..40 Start(Paragraph) RAW "note\n"
+35..39 Text(Borrowed("note")) RAW "note"
+35..40 End(Paragraph) RAW "note\n"
+27..40 End(FootnoteDefinition) RAW "[^a|b]: note\n"
+COUNTS refs=1 definitions=1 baseline_footnotes=0
+
+CASE inline_math
+SOURCE "$[^x]$\n\n[^x]: note\n"
+BASE_LINK 1..5 Start(Link { link_type: Shortcut, dest_url: Borrowed("note"), title: Borrowed(""), id: Borrowed("^x") })
+0..7 Start(Paragraph) RAW "$[^x]$\n"
+0..6 InlineMath(Borrowed("[^x]")) RAW "$[^x]$"
+0..7 End(Paragraph) RAW "$[^x]$\n"
+8..19 Start(FootnoteDefinition(Borrowed("x"))) RAW "[^x]: note\n"
+14..19 Start(Paragraph) RAW "note\n"
+14..18 Text(Borrowed("note")) RAW "note"
+14..19 End(Paragraph) RAW "note\n"
+8..19 End(FootnoteDefinition) RAW "[^x]: note\n"
+COUNTS refs=0 definitions=1 baseline_footnotes=0
+
+PASS: 22 cases match expected reference/definition counts; all event ranges are valid UTF-8 slices and baseline footnotes remain disabled.

@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
          xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+         xmlns:uap2="http://schemas.microsoft.com/appx/manifest/uap/windows10/2"
          xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
          xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-         IgnorableNamespaces="uap uap3 rescap">
+         IgnorableNamespaces="uap uap2 uap3 rescap">
   <!-- Replaced through XML APIs at packaging time with Partner Center identity. -->
   <Identity Name="Ryne.Placeholder" Publisher="CN=Placeholder" Version="1.0.0.0" ProcessorArchitecture="x64" />
   <Properties>
@@ -31,13 +32,16 @@
                           Square44x44Logo="Assets\Square44x44Logo.png" />
       <Extensions>
         <uap:Extension Category="windows.fileTypeAssociation">
-          <uap3:FileTypeAssociation Name="markdown" Parameters="&quot;%1&quot;">
+          <uap3:FileTypeAssociation Name="markdown" Parameters="&quot;%1&quot;" MultiSelectModel="Single">
             <uap:SupportedFileTypes>
               <uap:FileType>.md</uap:FileType>
               <uap:FileType>.markdown</uap:FileType>
               <uap:FileType>.mdown</uap:FileType>
               <uap:FileType>.mkd</uap:FileType>
             </uap:SupportedFileTypes>
+            <uap2:SupportedVerbs>
+              <uap3:Verb Id="Ryne.Open" Parameters="&quot;%1&quot;" MultiSelectModel="Single">Open with Ryne</uap3:Verb>
+            </uap2:SupportedVerbs>
           </uap3:FileTypeAssociation>
         </uap:Extension>
       </Extensions>

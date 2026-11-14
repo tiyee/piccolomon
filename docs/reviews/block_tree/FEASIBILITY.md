@@ -101,3 +101,19 @@
 | 是否改用分段源码存储 | 本阶段继续现有 Source | 消除派生热点后源码复制在端到端耗时中的占比 |
 
 这些是实现阶段的技术决策，不要求用户预先选择库、树阶数或时间常数。任何尚未通过原型的项都不计入已实现收益。
+
+## 6. 2026-11-15 屏外焦点与脚注联动复核
+
+本节基线 HEAD 为 `e361ebeeba1263a5c4a20533569fa73c2012f379`，工作区另含本轮规划文档；不覆盖上文历史核查记录。结论：在现有源码驱动架构上可分阶段实现，但屏外焦点生命周期、平台候选几何和按需布局必须分别验收；不能只保持句柄、返回空矩形或裁剪绘制就宣称完成 B3。
+
+| 证据 | 已发现的缺口 | 修正后的实施约束 |
+| --- | --- | --- |
+| [element.rs](../../../crates/ryne-ui/src/element.rs) 的 `track_focus`， [paint.rs](../../../crates/ryne-ui/src/paint.rs) 的 `window.handle_input` | 焦点对象与每帧输入注册不是同一件事 | 全占位/无可见文字帧也注册唯一输入宿主，不为屏外块创建第二个 InputHandler |
+| [input.rs](../../../crates/ryne-ui/src/input.rs) 的 `bounds_for_range`；GPUI 0.2.2 `platform/mac/window.rs::first_rect_for_character_range` 与 `platform/windows/events.rs::retrieve_caret_position` | macOS 将 `None` 变为原点零矩形；Windows 跳过候选定位更新，不能依赖异步重试自动恢复 | 活动临时范围预先精排；暂缺走当前安全布局路径；不把 `None` 当正常调度协议，平台未验证时预编辑滚动保留候选在视口内 |
+| [layout_frame.rs](../../../crates/ryne-ui/src/layout_frame.rs) 的 `row_for` / `ensure_caret`， [layout.rs](../../../crates/ryne-ui/src/layout.rs) 的行几何 | 当前路径依赖完整几何，焦点保留不等于已局部化 | B2 先完成单元/高度查询；B3 再迁移真实几何查询、远跳、命中和滚动意图，完整布局作差分对照 |
+| [lib.rs](../../../crates/ryne-ui/src/lib.rs) 的 `mouse_down` | 普通鼠标路径首先提交 IME，再处理命中；直接复用会违反“IME 时禁用脚注导航” | 导航预检在普通点击/组合输入提交之前；禁用时消费导航意图，不修改选区、不排队；普通编辑点击沿现有策略 |
+| [session/lib.rs](../../../crates/ryne-session/src/lib.rs) 的 `publish_plan_inner` / `try_undo`； [extensions/lib.rs](../../../crates/ryne-extensions/src/lib.rs) 的 `SessionEvent` | 事务有 PositionMap，但发布后通知没有变换，UI 不能仅凭通知安全更新历史导航锚点 | FN3 先加会话拥有的有界跟踪锚点注册/查询机制，在候选发布及历史恢复时原子映射；UI 仅保存句柄与视口偏移，避免长期保留 PositionMap 与旧 Source |
+
+屏外焦点按一个活动编辑上下文和当前 IME 必需单元保留，导航请求只保留最新目标；短块压力下精排工作量不能随两者间距离增长。对多单元组合输入、超长段落、整行超高表格，依赖工作集本身仍可能很大，保留正确慢路径并单列测量，不设会截断用户输入的硬单元数上限。
+
+脚注首版需要新增解析配置贯通、容器前缀、编号原子映射/基线混排、只读导航请求与跟踪锚点，不是添加一个目录就能完成。完整证据、已运行的 22 例锁定后端探针和未验证项见[脚注可行性报告](../footnotes/README.md)。该探针不验证 Ryne 新节点、GUI、IME 或 B3 性能，FN0 仍未整体放行。

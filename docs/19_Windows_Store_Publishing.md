@@ -97,6 +97,29 @@ SDK 安装时需包含 UWP 工具。MSIX 面向商店上传，不包含本地签
 会处理分发签名，因此无需 PFX Secret。直接侧载测试需要另行为测试包签名并信任
 测试证书，或使用商店的包航班分发。
 
+## Markdown 右键打开
+
+清单为 `.md`、`.markdown`、`.mdown`、`.mkd` 声明文件关联及 `Ryne.Open` 静态动作，
+标签为 `Open with Ryne`，文件参数使用带引号的 `"%1"`。关联及动作均使用
+`MultiSelectModel="Single"`，与当前单文件窗口保持一致。安装后可从资源管理器的
+“打开方式 → Ryne”打开；静态动作的直接菜单展示受系统版本和当前文件关联影响，
+Windows 11 可能需进入“显示更多选项”，本次未增加现代菜单 COM 扩展。
+沿用现有命令行文件打开和 Windows 实例投递，已有文档有未保存内容时沿用确认流程。
+
+便携 ZIP 随附 `Register-context-menu.cmd`、`Unregister-context-menu.cmd` 和
+`register-context-menu.ps1`，兼容系统自带 Windows PowerShell 5.1。注册仅写当前用户的
+`Software\Classes\Applications\Ryne.exe` 和四个扩展名的
+`SystemFileAssociations\<extension>\shell\Ryne.Open`，通知 Shell 刷新关联；不修改默认
+ProgID 或 UserChoice。命令直接调用带引号的 EXE 和文件路径，支持空格及中文路径。
+重复注册更新当前目录；移除时核对命令归属，旧目录的移除脚本不会删掉新目录的注册。
+移动或删除便携目录前先移除，移动后重新注册。MSIX 打包会排除这些便携脚本，
+关联随包安装和卸载管理。
+
+本地已完成 XML/打包路径及脚本静态检查；当前主机为 macOS，未执行 Windows 注册表或
+MakeAppx 验证。Windows 实机验收应覆盖：四种扩展名、中文/空格路径、已打开窗口和
+未保存确认、重复注册、换目录注册后从旧目录移除、移除后其他编辑器的默认关联不变，
+以及 MSIX 安装/卸载和 Windows 11 的“打开方式”/“显示更多选项”。
+
 ## 官方资料
 
 - [GitHub Actions 商店更新](https://learn.microsoft.com/en-us/windows/apps/publish/msstore-dev-cli/github-actions)
@@ -106,3 +129,6 @@ SDK 安装时需包含 UWP 工具。MSIX 面向商店上传，不包含本地签
 - [版本编号规则](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/package-version-numbering?pivots=store-installer-msix)
 - [MakeAppx 工具](https://learn.microsoft.com/en-us/windows/msix/package/create-app-package-with-makeappx-tool)
 - [上传 MSIX 商店包](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/device-families)
+- [文件关联与静态菜单动作](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/desktop-to-uwp-extensions)
+- [应用与 SystemFileAssociations 注册](https://learn.microsoft.com/en-us/windows/win32/shell/app-registration)
+- [Windows 11 菜单扩展边界](https://learn.microsoft.com/en-us/windows/apps/desktop/modernize/integrate-packaged-app-with-file-explorer)

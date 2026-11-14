@@ -1,0 +1,10 @@
+[package]
+name = "ryne-footnote-feasibility-probe"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+pulldown-cmark = { version = "=0.13.6", default-features = false, features = ["html"] }

@@ -49,6 +49,10 @@ $packageName = "Ryne-$Version-$Architecture.msix"
 try {
     Expand-Archive -LiteralPath (Join-Path $root "dist/$portableName.zip") -DestinationPath $work
     $payload = Join-Path $work 'Ryne'
+    # MSIX owns its associations through the manifest, not portable registry scripts.
+    foreach ($script in @('register-context-menu.ps1', 'Register-context-menu.cmd', 'Unregister-context-menu.cmd')) {
+        Remove-Item -LiteralPath (Join-Path $payload $script)
+    }
     $assets = Join-Path $payload 'Assets'
     $binary = Join-Path $payload 'Ryne.exe'
     if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) { throw 'MSIX payload is missing Ryne.exe.' }

@@ -86,6 +86,9 @@ try {
     $notices = Join-Path $bundle 'licenses/stix-two-math'
     New-Item -ItemType Directory -Path $notices, $dist -Force | Out-Null
     Copy-Item -LiteralPath $binary -Destination (Join-Path $bundle 'Ryne.exe')
+    foreach ($script in @('register-context-menu.ps1', 'Register-context-menu.cmd', 'Unregister-context-menu.cmd')) {
+        Copy-Item -LiteralPath (Join-Path $root "packaging/windows/$script") -Destination $bundle
+    }
     foreach ($notice in @('OFL.txt', 'FONTLOG.txt')) {
         Copy-Item -LiteralPath (Join-Path $root "assets/fonts/stix-two-math/$notice") -Destination $notices
     }

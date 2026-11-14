@@ -26,6 +26,8 @@
 - **Windows 10 或 11（x64）。** 下载文件名以 `win-x86_64.zip` 结尾的压缩包，解压后打开 `Ryne` 文件夹，双击 `Ryne.exe`。[下载如言](https://github.com/tiyee/ryne/releases)
 - **macOS。** Apple 芯片选择以 `mac-arm_64.zip` 结尾的压缩包，Intel 芯片选择 `mac-x86_64.zip`。解压后将 `Ryne.app` 拖入“应用程序”文件夹并打开。也可以在访达中右键点按 Markdown 文件，选择**打开方式 → Ryne**。[下载如言](https://github.com/tiyee/ryne/releases)
 
+Windows 便携版在解压后的 `Ryne` 文件夹中双击一次 `Register-context-menu.cmd`，即可为 `.md`、`.markdown`、`.mdown`、`.mkd` 文件添加右键 **Open with Ryne** 入口，并将 Ryne 加入**打开方式**。无需管理员权限，也不会更改当前默认编辑器。Windows 11 的直接入口可能位于**显示更多选项**中。移动或删除文件夹前运行 `Unregister-context-menu.cmd`；移动后重新运行注册脚本。Microsoft Store 包在安装时注册文件关联，可直接选择**打开方式 → Ryne**，无需运行这些脚本。
+
 ## 写第一篇笔记
 
 1. 打开如言，先在欢迎指南上试着改几个字。想从空白页开始，选**文件 → 新建**；想接着写已有的笔记，选**文件 → 打开**。

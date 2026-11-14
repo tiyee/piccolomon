@@ -358,6 +358,14 @@
 
 ## 代码与资料
 
+- 2026-11-15 规划补充，尚未实现：区块树 B3 明确正文输入宿主持续挂载、屏外光标/IME 必需布局单元
+  独立保留并与视口去重，阅读滚动不强制回到光标；不得精排焦点到视口之间的全部内容。
+  设计与验收见 `docs/reviews/block_tree/DESIGN.md`、`IMPLEMENTATION.md`；这不是阶段 D 的焦点覆盖。
+  脚注规划见 `docs/49_Footnotes_Design_And_Plan.md`：先扩展可选解析能力，再接只读目录、编号映射、
+  定义正文编辑、精确返回实际引用位置及 PDF 原位呈现/源码回退。FN0 已有 22 例独立后端事件探针，
+  但字段来源/源码往返未放行；FN1–FN5 未实现。可行性证据见 `docs/reviews/footnotes/README.md`，
+  明确解析配置、容器前缀、原子编号/上标混排、会话跟踪锚点及只读导航的前置改造，不把探针算作应用已支持。
+
 - 区块树方案首批接入见 `docs/reviews/block_tree/EXECUTION.md`：会话按需建立带快照身份的
   `BlockDirectory`，使用事务未改区间保留块身份，已建立的目录与源码及历史一起原子更新；
   删除后恢复分配新 ID，移动中被替换范围保守分配新 ID，语义依赖仍保守全文失效。
@@ -393,6 +401,10 @@
   和真实窗口冒烟（`smoke.rs`）。视图不导入具体渲染器；旧帧不能解释新源码或预编辑投影。
 - `src/main.rs`：装配内置功能和服务、启动原生窗口；`scripts/bundle-macos.sh`：macOS 打包。
   `scripts/bundle-windows.ps1`：Windows 便携 ZIP（默认 x64，可指定 x86 或 ARM64）、静态 MSVC 运行库及字体许可。
+  便携包附带当前用户级 Markdown 右键注册/移除脚本，覆盖 `.md`、`.markdown`、`.mdown`、`.mkd`，
+  添加 `Open with Ryne` 与打开方式入口，不改默认编辑器；移除前核对所属 EXE 路径。
+  MSIX 清单声明同名静态动作及单文件激活，不携带便携脚本；沿用已有实例投递与未保存确认。
+  Windows 11 直接动作可能位于“显示更多选项”；注册、SDK 打包及实机打开仍待 Windows 验收。
   `.github/workflows/package.yml`：macOS 15/26 的 Apple Silicon/Intel、Windows Server
   2022/2025 x64 发布构建与产物上传，不包含 Linux；构建环境不等同桌面 GUI 兼容性验收。
   `.github/workflows/build-msix.yml`：并行构建 x86、x64、ARM64 子包，合并为可手动上传商店的未签名 MSIXBundle；
