@@ -62,14 +62,14 @@ mod tests {
             id: "custom",
             label: "export.custom",
             fallback: "Custom PDF",
-            file_suffix: "-v2",
+            file_suffix: "-custom",
             exporter: Arc::new(Fake),
         };
         assert!(ExportRegistry::new(vec![format.clone(), format.clone()]).is_err());
         let registry = ExportRegistry::new(vec![format]).unwrap();
         assert!(registry.get("missing").is_none());
         let selected = registry.get("custom").unwrap();
-        assert_eq!(selected.file_name("报告"), "报告-v2.pdf");
+        assert_eq!(selected.file_name("报告"), "报告-custom.pdf");
         assert_eq!(
             selected.exporter.export(&Default::default()).unwrap(),
             b"fake backend"

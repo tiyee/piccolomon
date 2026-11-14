@@ -18,6 +18,7 @@ pub const ITEMS: &[(&str, InsertBlock)] = &[
     ("▦  表格", InsertBlock::Table),
     ("IMG  图片", InsertBlock::Image),
     ("ƒ  行内公式", InsertBlock::Formula),
+    ("ƒ  块级公式", InsertBlock::BlockFormula),
     ("—  分隔线", InsertBlock::Rule),
 ];
 
@@ -71,6 +72,7 @@ impl MarkdownTemplate for InsertBlock {
                 labels.image_url.to_owned(),
             ),
             Self::Formula => ("$x$".into(), "x".into()),
+            Self::BlockFormula => ("$$\nx^2\n$$".into(), "x^2".into()),
             Self::Rule => ("---\n\n".into(), String::new()),
         };
         let text = raw.replace('\n', newline);
@@ -88,7 +90,9 @@ impl MarkdownTemplate for InsertBlock {
 
     fn matches_root(self, kind: &NodeKind) -> bool {
         match self {
-            Self::Paragraph | Self::Image | Self::Formula => *kind == NodeKind::Paragraph,
+            Self::Paragraph | Self::Image | Self::Formula | Self::BlockFormula => {
+                *kind == NodeKind::Paragraph
+            }
             Self::Heading(level) => *kind == NodeKind::Heading(level),
             Self::UnorderedList | Self::OrderedList | Self::TaskList => {
                 matches!(kind, NodeKind::List(_))

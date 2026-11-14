@@ -30,6 +30,8 @@ fn adjacent_templates_keep_neighbor_bytes_newlines_selection_and_single_undo() {
             "```mermaid\nflowchart LR\n target-->B\n```",
             "| target | B |\n|---|---|\n| c | d |",
             "![target](img.png)",
+            "$$\ntarget\n$$",
+            "  $$target$$  ",
             "---",
             "<div>target</div>",
         ] {

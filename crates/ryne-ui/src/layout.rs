@@ -62,6 +62,7 @@ impl Line {
     }
 }
 
+#[derive(Clone)]
 pub(super) struct TypesetLine {
     pub(super) shaped: WrappedLine,
     pub(super) start: usize,
@@ -272,6 +273,7 @@ pub(super) struct Geometry {
     pub(super) sidebar_layout: u64,
     pub(super) snapshot: SnapshotId,
     pub(super) frame_epoch: u64,
+    pub(super) control_generation: u64,
     pub(super) display: std::sync::Arc<ryne_projection::IndexedDisplay>,
     pub(super) rows: std::sync::Arc<Vec<VisualRow>>,
     pub(super) text_layout: std::sync::Arc<text_layout::TextLayout>,
@@ -374,11 +376,23 @@ impl Geometry {
         })
     }
     pub(super) fn is_current(&self, editor: &Editor) -> bool {
+        if !self
+            .text_layout
+            .key
+            .controls_match(&editor.viewport.control_index)
+        {
+            return false;
+        }
         self.sidebar_layout==editor.sidebar.layout_generation && !self.rows.is_empty() && self.snapshot == editor.document.source.id()
             // A cancelled preedit can return to the exact same projection before
             // another draw. Its original geometry is safe to reuse in that case.
             && (self.frame_epoch == editor.viewport.frame_epoch || self.display == editor.viewport.display)
             && self.source_mode == editor.document.source_mode
+    }
+
+    pub(super) fn controls_current(&self, editor: &Editor) -> bool {
+        self.is_current(editor)
+            && self.control_generation == editor.viewport.control_index.generation
     }
 
     pub(super) fn block_origin(&self, block: &crate::block::Block) -> Option<Point<Pixels>> {
@@ -403,13 +417,22 @@ impl Geometry {
         if self.display.image_failure_at(row.range.start).is_some() {
             origin.x -= px(theme::IMAGE_FAILURE_INSET);
         }
-        if block.kind == BlockKind::Quote
+        if block.kind == BlockKind::Formula {
+            // The block control belongs to the content gutter, independently
+            // of the formula's centered (or scaled) presentation.
+            origin.x = self.bounds.left() + px(self.page.left);
+        } else if matches!(block.kind, BlockKind::Quote | BlockKind::Alert(_))
             && let Some(quote) = self.display.quotes.iter().find(|quote| {
                 quote.source.start == block.anchor && quote.source.end == block.range.end
             })
         {
             // The type menu sits outside the quote panel, clear of its body icon.
-            origin.x = self.bounds.left() + px(self.page.left + quote.inset as f32 - 32.);
+            origin.x = self.bounds.left()
+                + px(self.page.left + quote.inset as f32
+                    - if quote.alert.is_some() { 20. } else { 32. });
+            if quote.alert.as_ref().is_some_and(|a| a.folded) {
+                first_line_height = px(theme::BODY.1);
+            }
         } else if matches!(block.kind, BlockKind::Code | BlockKind::Mermaid)
             && let Some(index) = self
                 .display

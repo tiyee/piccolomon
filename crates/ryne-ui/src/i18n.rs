@@ -61,7 +61,6 @@ impl Language {
     pub fn render_label(self, key: &'static str, fallback: &'static str) -> &'static str {
         let text = match key {
             "export.pdf" => Text::ExportPdf,
-            "export.pdf-v2" => Text::ExportPdfV2,
             "table.alignment" => Text::Alignment,
             "table.align-left" => Text::AlignLeft,
             "table.align-center" => Text::AlignCenter,
@@ -165,7 +164,6 @@ pub(crate) enum Text {
     ClearRecent,
     Reload,
     ExportPdf,
-    ExportPdfV2,
     SaveAs,
     Ok,
     AboutDetail,
@@ -284,6 +282,7 @@ pub(crate) enum Text {
     Table,
     Image,
     Formula,
+    BlockFormula,
     Rule,
     Raw,
     Body,
@@ -333,7 +332,6 @@ impl Text {
         Self::ClearRecent,
         Self::Reload,
         Self::ExportPdf,
-        Self::ExportPdfV2,
         Self::SaveAs,
         Self::Ok,
         Self::AboutDetail,
@@ -444,6 +442,7 @@ impl Text {
         Self::Table,
         Self::Image,
         Self::Formula,
+        Self::BlockFormula,
         Self::Rule,
         Self::Raw,
         Self::Body,
@@ -580,15 +579,6 @@ impl Text {
                 "PDF 내보내기…",
                 "Exporter en PDF…",
                 "Exportar PDF…",
-            ],
-            Self::ExportPdfV2 => [
-                "导出 PDF v2…",
-                "匯出 PDF v2…",
-                "Export PDF v2…",
-                "PDF v2 を書き出す…",
-                "PDF v2 내보내기…",
-                "Exporter en PDF v2…",
-                "Exportar PDF v2…",
             ],
             Self::SaveAs => [
                 "另存为…",
@@ -1559,6 +1549,9 @@ impl Text {
             ],
             Self::Table => ["表格", "表格", "Table", "表", "표", "Tableau", "Tabla"],
             Self::Image => ["图片", "圖片", "Image", "画像", "이미지", "Image", "Imagen"],
+            Self::BlockFormula => [
+                "块级公式", "區塊公式", "Block equation", "ブロック数式", "블록 수식", "Équation en bloc", "Ecuación en bloque",
+            ],
             Self::Formula => [
                 "行内公式",
                 "行內公式",
@@ -1768,8 +1761,46 @@ impl Language {
             Some(List { task: true, .. }) => Text::Task,
             Some(List { ordered: true, .. }) => Text::Ordered,
             Some(List { .. }) => Text::Unordered,
+            Some(Alert(kind)) => {
+                return match kind {
+                    ryne_syntax::alert::Kind::Note => {
+                        ["备注", "備註", "Note", "補足", "참고", "Note", "Nota"]
+                    }
+                    ryne_syntax::alert::Kind::Tip => {
+                        ["提示", "提示", "Tip", "ヒント", "팁", "Conseil", "Consejo"]
+                    }
+                    ryne_syntax::alert::Kind::Important => [
+                        "重要",
+                        "重要",
+                        "Important",
+                        "重要",
+                        "중요",
+                        "Important",
+                        "Importante",
+                    ],
+                    ryne_syntax::alert::Kind::Warning => [
+                        "警告",
+                        "警告",
+                        "Warning",
+                        "警告",
+                        "경고",
+                        "Avertissement",
+                        "Advertencia",
+                    ],
+                    ryne_syntax::alert::Kind::Caution => [
+                        "谨慎",
+                        "注意",
+                        "Caution",
+                        "注意",
+                        "주의",
+                        "Mise en garde",
+                        "Precaución",
+                    ],
+                }[self as usize]
+            }
             Some(Quote) => Text::Quote,
             Some(Code) => Text::Code,
+            Some(Formula) => Text::BlockFormula,
             Some(Raw) => Text::Raw,
             Some(Table) => Text::Table,
             Some(Image) => Text::Image,
@@ -1792,6 +1823,7 @@ impl Language {
             B::Table => ("▦", Text::Table),
             B::Image => ("IMG", Text::Image),
             B::Formula => ("ƒ", Text::Formula),
+            B::BlockFormula => ("ƒ", Text::BlockFormula),
             B::Rule => ("—", Text::Rule),
         };
         format!("{symbol}  {}", self.text(key))

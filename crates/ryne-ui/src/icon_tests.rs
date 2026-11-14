@@ -17,6 +17,7 @@ fn embedded_block_icons_render_at_control_size() {
         "<div>raw</div>",
         "| a | b |\n|---|---|\n| c | d |",
         "> quote",
+        "> [!NOTE]\n> body",
         "```mermaid\ngraph LR\n```",
         "---",
     ] {
@@ -30,6 +31,7 @@ fn embedded_block_icons_render_at_control_size() {
 fn render_menu_svg_assets_are_embedded_and_nonempty() {
     for name in [
         "format",
+        "math_format_professional",
         "image_failed",
         "eye",
         "code",
@@ -45,6 +47,13 @@ fn render_menu_svg_assets_are_embedded_and_nonempty() {
         "arrow_turn_right",
         "quote_bubble",
         "quoter",
+        "alert",
+        "alert_note",
+        "alert_tip",
+        "alert_important",
+        "alert_warning",
+        "alert_caution",
+
         "window_minimize",
         "window_maximize",
         "window_restore",

@@ -103,7 +103,18 @@ impl Display {
             }
         }
         for quote in &self.quotes {
-            if !sr(&quote.source)
+            if quote.alert.as_ref().is_some_and(|a| {
+                a.source.source != quote.source
+                    || quote.depth != 1
+                    || !sr(&a.source.header)
+                    || !sr(&a.source.marker)
+                    || a.source.header.start < quote.source.start
+                    || a.source.header.end >= quote.source.end
+                    || a.source.marker.start < a.source.header.start
+                    || a.source.marker.end > a.source.header.end
+                    || a.source.marker.is_empty()
+                    || (a.folded && self.text.as_bytes().get(quote.display.start) != Some(&b'\n'))
+            }) || !sr(&quote.source)
                 || !dr(&quote.display)
                 || quote.depth == 0
                 || quote.inset > 32768
@@ -278,6 +289,11 @@ impl Display {
         for view in &self.formulas {
             let f = &view.formula;
             if view.display.start < end
+                || (view.block
+                    && (view.display.start > 0
+                        && self.text.as_bytes().get(view.display.start - 1) != Some(&b'\n')
+                        || view.display.end < self.text.len()
+                            && self.text.as_bytes().get(view.display.end) != Some(&b'\n')))
                 || self.text.get(view.display.clone()) != Some(OBJECT)
                 || !metric(f.width)
                 || !metric(f.ascent)

@@ -1,5 +1,35 @@
 use super::*;
 impl Planner<'_> {
+    pub fn reveal_alert_boundary(&mut self, forward: bool) -> bool {
+        if forward
+            || self.state.source_mode
+            || !self.selection().is_empty()
+            || self.in_block_source(self.state.head)
+        {
+            return false;
+        }
+        let parse = self.state.parse.semantic();
+        let at = self.state.head;
+        let header = ryne_syntax::alert::cached(parse)
+            .iter()
+            .find(|a| {
+                let Some(line) = parse.index().line(a.header.end) else {
+                    return false;
+                };
+                let Some(row) = ryne_syntax::quote::at(parse, line.end) else {
+                    return false;
+                };
+                row.content.start == at && row.owner == a.owner
+            })
+            .cloned();
+        if let Some(header) = header {
+            self.state.block_source = Session::new(&self.state.source, header.source).ok();
+            self.select(header.marker.end, false, false);
+            return true;
+        }
+        false
+    }
+
     pub fn quote_line_break(&mut self, hard: bool) -> Result<bool, Error> {
         let selection = self.selection();
         if self.state.source_mode || self.in_block_source(selection.start) {

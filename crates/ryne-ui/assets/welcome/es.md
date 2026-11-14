@@ -107,7 +107,26 @@ Sal de un bloque `mermaid` cerrado para ver el diagrama. Haz clic en la vista pr
 
 Energía: $E = mc^2$. Fracciones y subíndices: $\frac{a_1}{\sqrt{b}}$.
 
-Coloca un solo `$` a cada lado del LaTeX de una línea. Haz clic o entra con las flechas para editar el código; sal para ver la fórmula. También funciona en listas y celdas de tabla. Las fórmulas independientes (`$$...$$`), de varias líneas, con glifos ausentes o no compatibles conservan su código.
+Coloca un solo `$` a cada lado del LaTeX de una línea. Haz clic o entra con las flechas para editar el código; sal para ver la fórmula. También funciona en listas y celdas de tabla. Las fórmulas con glifos ausentes o no compatibles conservan su código.
+
+## Ecuaciones en bloque
+
+Una sumatoria:
+
+$$
+\sum_{i=1}^{n} i = \frac{n(n+1)}{2}
+$$
+
+Una matriz escrita en varias líneas:
+
+$$
+\begin{pmatrix}
+1 & 2 \\
+3 & 4
+\end{pmatrix}
+$$
+
+Rodea el LaTeX con `$$` en un párrafo independiente para mostrar una ecuación centrada. Haz clic o usa las flechas para editar todo su código. Intro después de un `$$` aislado completa el delimitador de cierre; dentro del cuerpo inserta un salto de línea. Se admiten listas, citas y exportación PDF. El modo de código conserva la entrada literal. Las ecuaciones vacías o no reconocidas y algunos entornos de alineación conservan su código.
 
 ## Tablas
 
@@ -120,6 +139,25 @@ Coloca un solo `$` a cada lado del LaTeX de una línea. Haz clic o entra con las
 Haz clic en una celda para editarla. Tab / Mayús+Tab cambian de celda; Intro baja por la misma columna. Avanzar más allá de la última fila puede añadir otra. Mayús+Intro añade `<br>` dentro de la celda. Las barras verticales escritas o pegadas se escapan automáticamente.
 
 El menú de tres puntos de la celda cambia la alineación e inserta, mueve o elimina filas y columnas. Alt+Intro abre el menú activo; las flechas, Intro y Esc permiten navegar. Edita los separadores desde el código del bloque. Las tablas con distinto número de columnas conservan el código. Aún no se admite ajustar el ancho de columnas ni pegar TSV en varias celdas.
+
+## Alertas
+
+Estos ejemplos muestran los cinco tipos de alertas. Mantén los marcadores de tipo en inglés y edita el contenido según necesites. Separa las alertas con una línea en blanco.
+
+> [!NOTE]
+> Una nota destaca información que conviene conocer incluso al leer por encima.
+
+> [!TIP]
+> Un consejo ofrece recomendaciones o trucos útiles para facilitar una tarea.
+
+> [!IMPORTANT]
+> Una alerta importante señala la información clave para alcanzar un objetivo.
+
+> [!WARNING]
+> Una advertencia requiere atención inmediata para evitar problemas.
+
+> [!CAUTION]
+> Una precaución explica los riesgos o las consecuencias negativas de una acción.
 
 ## Citas, imágenes, separadores y texto sin procesar
 

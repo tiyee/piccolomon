@@ -2,6 +2,7 @@
 pub use ryne_parser::{Affinity, SnapshotId as DocumentKey};
 use ryne_parser::{Applied, Edit, Error, Source, Transaction};
 use std::ops::Range;
+use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SourceByte(pub usize);
@@ -51,6 +52,8 @@ pub fn utf16_to_source(text: &str, offset: Utf16Offset) -> Result<SourceByte, Er
 pub struct PreparedEdit {
     base: DocumentKey,
     applied: Applied,
+    // Only the history stack that prepared this candidate may publish it.
+    history: Option<(bool, Arc<()>)>,
 }
 impl PreparedEdit {
     pub fn prepare_plan(source: &Source, edits: Vec<SourceEdit>) -> Result<Self, Error> {
@@ -69,6 +72,7 @@ impl PreparedEdit {
         Ok(Self {
             base: source.id(),
             applied: source.apply(source.id(), edits)?,
+            history: None,
         })
     }
     pub fn base(&self) -> DocumentKey {
@@ -81,8 +85,9 @@ impl PreparedEdit {
 struct History<C> {
     transaction: Transaction,
     checkpoint: C,
+    identity: Arc<()>,
 }
-/// Owned history allocations, excluding allocator metadata and shared source snapshots.
+/// Owned history allocations, excluding allocator metadata, identity tokens and shared source snapshots.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct HistoryMemory {
     pub undo_entries: usize,
@@ -159,9 +164,13 @@ impl<C: Clone> DocumentCore<C> {
     }
     pub fn publish(&mut self, edit: PreparedEdit, checkpoint: C) -> Result<(), Error> {
         self.source.check(edit.base)?;
+        if edit.history.is_some() {
+            return Err(Error::StaleSnapshot);
+        }
         self.undo.push(History {
             transaction: edit.applied.inverse,
             checkpoint,
+            identity: Arc::new(()),
         });
         self.redo.clear();
         self.source = edit.applied.source;
@@ -173,10 +182,9 @@ impl<C: Clone> DocumentCore<C> {
         let Some(entry) = (if redo { &self.redo } else { &self.undo }).last() else {
             return Ok(None);
         };
-        Ok(Some((
-            PreparedEdit::prepare(&self.source, entry.transaction.edits.clone())?,
-            entry.checkpoint.clone(),
-        )))
+        let mut prepared = PreparedEdit::prepare(&self.source, entry.transaction.edits.clone())?;
+        prepared.history = Some((redo, Arc::clone(&entry.identity)));
+        Ok(Some((prepared, entry.checkpoint.clone())))
     }
     pub fn publish_history(
         &mut self,
@@ -186,13 +194,18 @@ impl<C: Clone> DocumentCore<C> {
     ) -> Result<(), Error> {
         self.source.check(edit.base)?;
         let stack = if redo { &mut self.redo } else { &mut self.undo };
-        if stack.is_empty() {
+        if !stack.last().is_some_and(|entry| {
+            edit.history.as_ref().is_some_and(|(direction, identity)| {
+                *direction == redo && Arc::ptr_eq(identity, &entry.identity)
+            })
+        }) {
             return Err(Error::StaleSnapshot);
         }
         stack.pop();
         (if redo { &mut self.undo } else { &mut self.redo }).push(History {
             transaction: edit.applied.inverse,
             checkpoint,
+            identity: Arc::new(()),
         });
         self.source = edit.applied.source;
         self.update_dirty();

@@ -27,6 +27,39 @@ fn invalid_and_stale_candidates_never_publish_or_change_history() {
     let other = Source::new(core.source().text());
     assert_eq!(core.mark_saved(&other), Err(Error::StaleSnapshot));
 }
+
+#[test]
+fn history_publication_requires_the_prepared_entry_and_direction() {
+    let mut core = DocumentCore::new("中\r\n");
+    for text in ["a", "b"] {
+        let prepared = PreparedEdit::prepare(core.source(), vec![edit(0..0, text)]).unwrap();
+        core.publish(prepared, ()).unwrap();
+    }
+    let (undo, ()) = core.prepare_history(false).unwrap().unwrap();
+    core.publish_history(undo, false, ()).unwrap();
+    let source = core.source().clone();
+    let lengths = (core.history_len(false), core.history_len(true));
+
+    let arbitrary = PreparedEdit::prepare(core.source(), vec![edit(0..1, "x")]).unwrap();
+    assert_eq!(
+        core.publish_history(arbitrary, false, ()),
+        Err(Error::StaleSnapshot)
+    );
+    let (undo, ()) = core.prepare_history(false).unwrap().unwrap();
+    assert_eq!(
+        core.publish_history(undo, true, ()),
+        Err(Error::StaleSnapshot)
+    );
+    let (redo, ()) = core.prepare_history(true).unwrap().unwrap();
+    assert_eq!(core.publish(redo, ()), Err(Error::StaleSnapshot));
+    assert_eq!(core.source().id(), source.id());
+    assert_eq!((core.history_len(false), core.history_len(true)), lengths);
+    assert!(core.dirty());
+
+    let (redo, ()) = core.prepare_history(true).unwrap().unwrap();
+    core.publish_history(redo, true, ()).unwrap();
+    assert_eq!(core.source().text(), "ba中\r\n");
+}
 #[test]
 fn multi_edit_history_and_written_snapshot_baseline_are_atomic() {
     let mut core = DocumentCore::new("a\r\nb\r\nc");

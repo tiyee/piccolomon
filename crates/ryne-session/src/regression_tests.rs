@@ -1550,6 +1550,102 @@ mod math_tests {
     use super::*;
 
     #[test]
+    fn upgraded_math_in_containers_preserves_mapping_modes_history_and_export() {
+        use ryne_extensions::{FormulaRenderer, MathFont, PdfExporter};
+        for newline in ["\n", "\r\n", "\r"] {
+            for font in MathFont::ALL {
+                let renderer = Arc::new(ryne_services::math::FormularyRenderer::new(font));
+                let features =
+                    ryne_features::MarkdownFeatures::new(renderer.clone(), vec![]).unwrap();
+                let raw = concat!(
+                    "前😀 $\\sin x$ 后\n\n",
+                    "> - $\\log y$\n\n",
+                    "| Formula |\n| --- |\n| $\\lim_{x\\to 0} x$ |\n\n",
+                    "$\\eqref{missing}$ $\\textcolor{red}{x}$ $\\def\\a{\\a}\\a$\n"
+                )
+                .replace('\n', newline);
+                let mut document = EditorSession::new(
+                    &raw,
+                    SessionServices {
+                        features: Arc::new(features),
+                        files: Arc::new(ryne_services::files::AtomicFileStore),
+                    },
+                );
+                let id = document.source.id();
+                let display = document.display();
+                assert_eq!(display.formulas.len(), 3);
+                for literal in [
+                    r"$\eqref{missing}$",
+                    r"$\textcolor{red}{x}$",
+                    r"$\def\a{\a}\a$",
+                ] {
+                    assert!(display.text.contains(literal));
+                    let source = raw.find(literal).unwrap();
+                    let shown = display.text.find(literal).unwrap();
+                    for offset in 0..literal.len() {
+                        assert_eq!(display.position_at(source + offset), shown + offset);
+                        assert_eq!(
+                            display.source_at(shown + offset, Affinity::Downstream),
+                            source + offset
+                        );
+                    }
+                }
+                let at = raw.find(r"\log").unwrap();
+                document.select(at + 2, false, false);
+                assert_eq!(document.display().formulas.len(), 2);
+                assert!(document.display().text.contains(r"$\log y$"));
+                assert!(document.toggle_block_source());
+                assert!(document.display().text.contains(r"> - $\log y$"));
+                assert!(document.toggle_block_source());
+                document.set_source_mode(true);
+                assert!(document.display().formulas.is_empty());
+                document.set_source_mode(false);
+                document.select(0, false, false);
+                assert_eq!(document.source.id(), id);
+                assert_eq!(document.history_len(false), 0);
+                assert!(!document.dirty());
+
+                let frozen = document.export_snapshot();
+                renderer.set_font(if font == MathFont::LeteSans {
+                    MathFont::StixTwo
+                } else {
+                    MathFont::LeteSans
+                });
+                let export = frozen.render().unwrap();
+                assert_eq!(export.formulas.len(), 3);
+                assert!(export
+                    .formulas
+                    .iter()
+                    .all(|f| f.formula.path.starts_with(&format!("math:{}:", font.id()))));
+                assert!(export.text.contains(r"$\eqref{missing}$"));
+                let pdf = ryne_services::pdf::PdfExporter.export(&export).unwrap();
+                assert!(pdf.starts_with(b"%PDF-1.7") && pdf.ends_with(b"%%EOF"));
+                assert_eq!(document.source.id(), id);
+                assert_eq!(document.history_len(false), 0);
+                assert!(!document.dirty());
+
+                let bad = raw.find(r"\eqref{missing}").unwrap();
+                document
+                    .replace(bad..bad + r"\eqref{missing}".len(), r"\sin z")
+                    .unwrap();
+                document.select(0, false, false);
+                assert_eq!(document.display().formulas.len(), 4);
+                assert_eq!(document.history_len(false), 1);
+                document.undo(false);
+                assert_eq!(document.source.text(), raw);
+                assert!(!document.dirty());
+                document.undo(true);
+                document.select(0, false, false);
+                assert_eq!(document.display().formulas.len(), 4);
+                assert_eq!(
+                    document.source.text(),
+                    raw.replacen(r"\eqref{missing}", r"\sin z", 1)
+                );
+            }
+        }
+    }
+
+    #[test]
     fn reveal_edit_undo_redo_and_save_preserve_original_math_bytes() {
         let raw = "> - 中文 $\\frac{x_1}{y}$ 😀\r\n\r\n`$literal$`\r\n";
         let mut document = new_document(raw);
@@ -1844,4 +1940,190 @@ fn large_table_event_projection_keeps_empty_unicode_and_substitution_boundaries(
         assert_eq!(doc.source.text(), raw);
         assert!(!doc.dirty());
     }
+}
+
+#[test]
+fn block_math_projection_editing_nested_contexts_and_export() {
+    for newline in ["\n", "\r\n", "\r"] {
+        let raw = concat!(
+            "before 中😀\n\n$$\n\\sum_{i=1}^{n} i\n$$\n\n",
+            "> $$\n> \\frac{1}{2}\n> $$\n\n",
+            "- $$\n  \\sqrt{x}\n  $$\n\n",
+            "$$\\unknownCommand$$\n\nafter"
+        )
+        .replace('\n', newline);
+        let mut doc = new_document(&raw);
+        doc.select(0, false, false);
+        let display = doc.display();
+        display.validate(&raw).unwrap();
+        assert_eq!(display.formulas.len(), 3, "{newline:?}: {}", display.text);
+        assert!(display.formulas.iter().all(|f| f.block));
+        assert_eq!(
+            doc.blocks()
+                .entries(doc.source.id())
+                .unwrap()
+                .iter()
+                .filter(|e| e.role == ryne_syntax::directory::BlockRole::Formula)
+                .count(),
+            4
+        );
+        assert!(display.text.contains("$$\\unknownCommand$$"));
+        let first = display.formulas[0].clone();
+        assert_eq!(
+            display.source_at(first.display.start, Affinity::Downstream),
+            first.source.start
+        );
+        assert_eq!(
+            display.source_at(first.display.end, Affinity::Upstream),
+            first.source.end
+        );
+        let block = ryne_syntax::block::outermost_at(&doc.parse, first.source.start).unwrap();
+        assert_eq!(block.kind, ryne_syntax::block::BlockKind::Formula);
+        assert_eq!(
+            ryne_extensions::BlockMetadata::from(block.kind).icon,
+            Some("math_format_professional")
+        );
+        let id = doc.source.id();
+        for needle in ["\\sum", "\\frac", "\\sqrt"] {
+            let at = raw.find(needle).unwrap();
+            doc.select(at + 2, false, false);
+            let revealed = doc.display();
+            revealed.validate(&raw).unwrap();
+            assert_eq!(revealed.formulas.len(), 2);
+            assert!(revealed.text.contains(needle));
+            assert!(doc.toggle_block_source());
+            assert!(doc.display().text.contains(&raw[at..at + needle.len()]));
+            assert!(doc.toggle_block_source());
+            doc.select(0, false, false);
+        }
+        doc.set_source_mode(true);
+        assert!(doc.display().formulas.is_empty());
+        doc.set_source_mode(false);
+        assert_eq!(doc.source.id(), id);
+        assert_eq!(doc.history_len(false), 0);
+        assert!(!doc.dirty());
+        let export = doc.export_snapshot().render().unwrap();
+        assert_eq!(export.formulas.len(), 3);
+        let pdf = ryne_services::pdf::PdfExporter.export(&export).unwrap();
+        assert!(pdf.starts_with(b"%PDF") && pdf.ends_with(b"%%EOF"));
+        let at = raw.find("\\sqrt{x}").unwrap() + "\\sqrt{x}".len();
+        doc.select(at, false, false);
+        doc.line_break(false).unwrap();
+        assert_eq!(
+            doc.source.text(),
+            format!("{}{}  {}", &raw[..at], newline, &raw[at..])
+        );
+        assert_eq!(doc.history_len(false), 1);
+        doc.undo(false);
+        assert_eq!(doc.source.text(), raw);
+        doc.undo(true);
+        assert_eq!(doc.history_len(false), 1);
+    }
+}
+
+#[test]
+fn block_math_completion_and_literal_modes() {
+    for newline in ["\n", "\r\n", "\r"] {
+        for (prefix, continuation) in [("", ""), ("> ", "> "), ("- ", "  "), ("> - ", ">   ")] {
+            let raw = format!("{prefix}$${newline}");
+            let mut doc = new_document(&raw);
+            let at = prefix.len() + 2;
+            doc.select(at, false, false);
+            doc.line_break(false).unwrap();
+            let completed =
+                format!("{prefix}$${newline}{continuation}{newline}{continuation}$${newline}");
+            assert_eq!(doc.source.text(), completed);
+            assert_eq!(doc.head, at + newline.len() + continuation.len());
+            assert_eq!(doc.history_len(false), 1);
+            doc.insert_text(doc.selection(), "x_1").unwrap();
+            doc.select(doc.source.text().len(), false, false);
+            assert_eq!(doc.display().formulas.len(), 1, "{}", doc.source.text());
+            doc.undo(false);
+            doc.undo(false);
+            assert_eq!(doc.source.text(), raw);
+            doc.set_source_mode(true);
+            doc.select(at, false, false);
+            doc.line_break(false).unwrap();
+            assert_eq!(doc.source.text(), format!("{prefix}$${newline}{newline}"));
+        }
+    }
+    for raw in [
+        "text $$x$$ text",
+        "`$$x$$`",
+        "```\n$$\nx\n$$\n```",
+        "$$x",
+        "| a |\n|---|\n| $$x$$ |",
+    ] {
+        let doc = new_document(raw);
+        assert!(doc.display().formulas.iter().all(|f| !f.block), "{raw}");
+    }
+}
+
+#[test]
+fn block_math_template_and_cross_block_delete_are_atomic() {
+    let mut doc = new_document("before\n\nafter");
+    doc.append_block(ryne_extensions::InsertBlock::BlockFormula)
+        .unwrap();
+    assert_eq!(&doc.source.text()[doc.selection()], "x^2");
+    assert!(doc.display().text.contains("$$"));
+    doc.select(0, false, false);
+    let display = doc.display();
+    assert_eq!(display.formulas.len(), 1);
+    let source = doc.source.text().to_owned();
+    doc.replace(3..source.len() - 1, "replacement").unwrap();
+    doc.undo(false);
+    assert_eq!(doc.source.text(), source);
+    doc.undo(false);
+    assert_eq!(doc.source.text(), "before\n\nafter");
+}
+
+#[test]
+fn block_math_whitespace_nested_siblings_tabs_and_literal_paste() {
+    for raw in [
+        "  $$x$$  \n\nafter",
+        "- $$x$$\n  - child\n\nafter",
+        "-\t$$\n    x\n    $$\n\nafter",
+    ] {
+        let mut doc = new_document(raw);
+        doc.select(raw.len(), false, false);
+        let display = doc.display();
+        assert_eq!(display.formulas.len(), 1, "{raw}: {}", display.text);
+        display.validate(raw).unwrap();
+        display.validate_layout().unwrap();
+        doc.select(raw.find('x').unwrap() + 1, false, false);
+        doc.insert_text(doc.selection(), "_i\n\\frac{1}{2}")
+            .unwrap();
+        let expected = if raw.starts_with("-\t") {
+            "_i\n    \\frac"
+        } else {
+            "_i\n  \\frac"
+        };
+        assert!(
+            doc.source.text().contains(expected),
+            "{}",
+            doc.source.text()
+        );
+        doc.select(doc.source.text().len(), false, false);
+        assert_eq!(doc.display().formulas.len(), 1, "{}", doc.source.text());
+        doc.undo(false);
+        assert_eq!(doc.source.text(), raw);
+    }
+}
+
+#[test]
+fn block_math_empty_pair_does_not_duplicate_and_paste_keeps_quote_prefixes() {
+    let raw = "> $$\r\n> \r\n> $$\r\n";
+    let mut doc = new_document(raw);
+    doc.select(4, false, false);
+    doc.line_break(false).unwrap();
+    assert_eq!(doc.source.text().matches("$$").count(), 2);
+    doc.undo(false);
+    let caret = raw.find("\r\n> \r\n").unwrap() + 4;
+    doc.select(caret, false, false);
+    doc.insert_text(doc.selection(), "x\r\ny").unwrap();
+    assert_eq!(doc.source.text(), "> $$\r\n> x\r\n> y\r\n> $$\r\n");
+    doc.select(doc.source.text().len(), false, false);
+    assert_eq!(doc.display().formulas.len(), 1);
+    doc.undo(false);
+    assert_eq!(doc.source.text(), raw);
 }

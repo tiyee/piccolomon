@@ -5,7 +5,7 @@ use super::{
     SelectAll, SessionServices, Text,
 };
 use gpui::{
-    point, px, Context, KeyBinding, Modifiers, MouseButton, MouseDownEvent, MouseUpEvent,
+    point, px, size, Context, KeyBinding, Modifiers, MouseButton, MouseDownEvent, MouseUpEvent,
     TestAppContext,
 };
 use std::sync::Arc;
@@ -63,10 +63,36 @@ fn titlebar_preserves_native_mouse_handling_and_document_focus(cx: &mut TestAppC
     // row and hit targets without invoking native Win32 operations.
     let drag = cx.debug_bounds("window-drag").expect("caption drag area");
     assert!(drag.size.width > px(0.));
+    let header = cx.debug_bounds("window-header").expect("window header");
+    let menu_bar = cx
+        .debug_bounds("window-menu-bar")
+        .expect("Windows menu bar");
+    assert_eq!(menu_bar.top(), header.bottom());
+    let name = cx.debug_bounds("document-name").expect("document name");
+    assert!(name.left() >= drag.left() && name.right() <= drag.right());
+    assert!(name.top() >= header.top() && name.bottom() <= header.bottom());
+    let mut previous_right = cx.debug_bounds("app-menu-1").unwrap().right();
+    for selector in ["toggle-sidebar", "format-source", "toggle-source"] {
+        let button = cx.debug_bounds(selector).expect("menu bar shortcut");
+        assert!(button.left() >= previous_right);
+        assert_eq!(
+            button.center().y,
+            cx.debug_bounds("app-menu-0").unwrap().center().y
+        );
+        assert!(button.top() >= menu_bar.top() && button.bottom() <= menu_bar.bottom());
+        previous_right = button.right();
+    }
+    assert_eq!(previous_right, menu_bar.right() - px(12.));
+    editor.read_with(cx, |editor, _| {
+        assert_eq!(
+            editor.viewport.geometry.as_ref().unwrap().bounds.top(),
+            menu_bar.bottom()
+        );
+    });
     for (index, selector) in ["app-menu-0", "app-menu-1"].into_iter().enumerate() {
         let menu = cx.debug_bounds(selector).expect("menu button");
-        assert_eq!(menu.center().y, drag.center().y);
-        assert!(menu.right() <= drag.left());
+        assert!(menu.top() >= header.bottom());
+        assert!(menu.bottom() <= menu_bar.bottom());
         cx.simulate_click(menu.center(), Modifiers::default());
         assert_eq!(editor.read_with(cx, |e, _| e.menus.top_menu), Some(index));
         cx.update(|window, cx| window.draw(cx).clear());
@@ -119,6 +145,33 @@ fn titlebar_preserves_native_mouse_handling_and_document_focus(cx: &mut TestAppC
         );
     });
     assert!(cx.update(|window, cx| editor.read(cx).focus.is_focused(window)));
+    // The menu row must keep its shortcuts reachable at the minimum window width,
+    // independently of the caption controls above it.
+    for width in [520., 920.] {
+        cx.simulate_resize(size(px(width), px(680.)));
+        cx.update(|window, cx| window.draw(cx).clear());
+        let mode = cx.debug_bounds("toggle-source").unwrap();
+        let sidebar = cx.debug_bounds("toggle-sidebar").unwrap();
+        let menu = cx.debug_bounds("app-menu-1").unwrap();
+        let caption = cx.debug_bounds("window-header").unwrap();
+        assert!(menu.right() <= sidebar.left());
+        assert!(mode.right() <= px(width));
+        assert!(mode.top() >= caption.bottom());
+        for expected in [true, false] {
+            cx.simulate_click(mode.center(), Modifiers::default());
+            cx.update(|window, cx| window.draw(cx).clear());
+            assert_eq!(
+                editor.read_with(cx, |e, _| e.document.source_mode),
+                expected
+            );
+        }
+    }
+    editor.read_with(cx, |editor, _| {
+        assert_eq!(editor.document.source.id(), before.0);
+        assert_eq!(editor.document.selection(), before.1);
+        assert_eq!(editor.document.history_len(false), before.2);
+        assert_eq!(editor.document.dirty(), before.3);
+    });
     // The document must still acquire focus on click, and its ancestor action
     // handlers / key context must remain on the focused node's dispatch path.
     let position = editor.read_with(cx, |editor, _| {

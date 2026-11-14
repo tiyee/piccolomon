@@ -1,6 +1,8 @@
 //! Parser-backed semantic indexes. No rendering or editor state.
+pub mod alert;
 pub mod block;
 pub mod code_block;
+pub mod directory;
 pub mod image;
 pub mod list;
 pub mod math;

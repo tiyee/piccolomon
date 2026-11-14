@@ -7,7 +7,6 @@ pub mod language;
 pub mod math;
 pub mod mermaid;
 pub mod pdf;
-pub mod pdf_v2;
 pub mod updates;
 
 mod print_layout;

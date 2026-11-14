@@ -45,6 +45,7 @@ pub use files::{FileSession, SaveCompletion, SaveIntent, SaveReceipt, SaveReques
 pub struct EditorSession {
     presentation_cache: std::cell::RefCell<presentation_cache::PresentationCache>,
     core: DocumentCore<Checkpoint>,
+    blocks: std::sync::OnceLock<ryne_syntax::directory::BlockDirectory>,
     composition: Option<Composition>,
     state: EditingState,
     services: SessionServices,
@@ -86,6 +87,7 @@ impl EditorSession {
         let jobs = jobs::JobHost::new(diagnostics.clone());
         Self {
             presentation_cache: Default::default(),
+            blocks: Default::default(),
             core,
             composition: None,
             state,
@@ -135,6 +137,11 @@ impl EditorSession {
     }
     pub fn dirty(&self) -> bool {
         self.core.dirty()
+    }
+    /// Committed source only; IME projections have a separate temporary identity.
+    pub fn blocks(&self) -> &ryne_syntax::directory::BlockDirectory {
+        self.blocks
+            .get_or_init(|| ryne_syntax::directory::BlockDirectory::new(&self.state.parse))
     }
     pub fn history_len(&self, redo: bool) -> usize {
         self.core.history_len(redo)
@@ -225,10 +232,17 @@ impl EditorSession {
                 state,
                 handled,
             } => {
+                let blocks = self
+                    .blocks
+                    .get()
+                    .map(|blocks| blocks.updated(&state.parse, &prepared.applied().positions))
+                    .transpose()
+                    .map_err(|e| format!("block directory: {e:?}"))?;
                 self.core
                     .publish(prepared, Checkpoint::from(&self.state))
                     .map_err(|e| format!("{e:?}"))?;
                 self.state = state;
+                self.blocks = blocks.map_or_else(Default::default, std::sync::OnceLock::from);
                 (handled, EventKind::DocumentChanged)
             }
             CommandPlan::Select { state, handled, .. } => {
@@ -257,6 +271,7 @@ impl EditorSession {
         plan: &CommandPlan,
         history: Option<HistoryDirection>,
     ) -> Result<(), String> {
+        let _profile = ryne_parser::profile::Scope::new("candidate_validation");
         let (base, state) = match plan {
             CommandPlan::Edit {
                 prepared, state, ..
@@ -565,10 +580,17 @@ impl EditorSession {
         else {
             return Err("invalid history plan".into());
         };
+        let blocks = self
+            .blocks
+            .get()
+            .map(|blocks| blocks.updated(&state.parse, &prepared.applied().positions))
+            .transpose()
+            .map_err(|e| format!("block directory: {e:?}"))?;
         self.core
             .publish_history(prepared, redo, Checkpoint::from(&self.state))
             .map_err(|e| format!("{e:?}"))?;
         self.state = state;
+        self.blocks = blocks.map_or_else(Default::default, std::sync::OnceLock::from);
         self.notify(
             EventKind::DocumentChanged,
             if redo { "redo" } else { "undo" },
@@ -682,6 +704,8 @@ impl EditorSession {
 }
 
 #[cfg(test)]
+mod alert_tests;
+#[cfg(test)]
 mod quote_tests;
 #[cfg(test)]
 mod regression_tests;
@@ -718,6 +742,8 @@ mod third_batch_tests;
 #[cfg(test)]
 mod p1_tests;
 
+#[cfg(test)]
+mod block_directory_tests;
 #[cfg(test)]
 mod file_binding_tests;
 #[cfg(test)]

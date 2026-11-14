@@ -47,6 +47,7 @@ fn same_diagrams(a: &[DiagramViewInput], b: &[DiagramViewInput]) -> bool {
 }
 impl EditorSession {
     pub(super) fn cached_preview_inputs(&self) -> Vec<PreviewInput> {
+        let _profile = ryne_parser::profile::Scope::new("preview_candidates");
         if self.composition.is_some() {
             return self.features.preview_inputs(&self.state);
         }
@@ -97,6 +98,7 @@ impl EditorSession {
                 diagnostics: Vec::new(),
             };
         }
+        let _profile = ryne_parser::profile::Scope::new("projection_build");
         let batch = match highlighter.as_mut() {
             Some(h) => self.project_batch(state, Some(&mut **h), diagrams),
             None => self.project_batch(state, None, diagrams),

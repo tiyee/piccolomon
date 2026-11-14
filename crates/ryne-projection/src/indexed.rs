@@ -446,6 +446,7 @@ mod tests {
             range: 0..6,
         });
         display.quotes.push(QuoteView {
+            alert: None,
             source: 0..6,
             display: 0..2,
             depth: 1,

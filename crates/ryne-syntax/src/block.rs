@@ -10,8 +10,10 @@ pub enum BlockKind {
     Heading(u8),
     List { ordered: bool, task: bool },
     Quote,
+    Alert(crate::alert::Kind),
     Code,
     Mermaid,
+    Formula,
     Table,
     Raw,
     Rule,
@@ -41,8 +43,10 @@ pub fn insertion_context(parse: &ParseSnapshot, block: &Block) -> Option<(Range<
         return insertion_context(view, block);
     }
     // The first editable position in a container can belong to a child panel.
-    if matches!(block.kind, BlockKind::List { .. } | BlockKind::Quote)
-        && outermost_at(parse, block.range.start).as_ref() == Some(block)
+    if matches!(
+        block.kind,
+        BlockKind::List { .. } | BlockKind::Quote | BlockKind::Alert(_)
+    ) && outermost_at(parse, block.range.start).as_ref() == Some(block)
     {
         return Some((block.range.clone(), String::new()));
     }
@@ -143,6 +147,15 @@ pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
             },
         });
     }
+    let formulas = crate::math::cached(parse);
+    if let Some(formula) = formulas
+        .get(formulas.partition_point(|f| before(f.range.end)))
+        .filter(|f| f.block && contains(&f.range))
+    {
+        let mut block = block_from_node(parse, formula.node);
+        block.anchor = formula.content.start;
+        return Some(block);
+    }
     let tables = table::cached(parse);
     if let Some(table) = tables
         .get(tables.partition_point(|t| before(t.range.end)))
@@ -238,11 +251,18 @@ fn block_from_node(parse: &ParseSnapshot, id: usize) -> Block {
             }
         }
         NodeKind::Heading(level) => BlockKind::Heading(level),
-        NodeKind::BlockQuote => BlockKind::Quote,
+        NodeKind::BlockQuote => crate::alert::for_owner(parse, id)
+            .map_or(BlockKind::Quote, |a| BlockKind::Alert(a.kind)),
         NodeKind::CodeBlock(_) => BlockKind::Code,
         NodeKind::Table(_) => BlockKind::Table,
+        NodeKind::DisplayMath(_) => BlockKind::Formula,
         NodeKind::HtmlBlock | NodeKind::SourceBlock => BlockKind::Raw,
         NodeKind::Rule => BlockKind::Rule,
+        _ if node.children.len() == 1
+            && matches!(parse.nodes[node.children[0]].kind, NodeKind::DisplayMath(_)) =>
+        {
+            BlockKind::Formula
+        }
         _ if node.children.len() == 1
             && matches!(parse.nodes[node.children[0]].kind, NodeKind::Image { .. }) =>
         {
@@ -256,7 +276,21 @@ fn block_from_node(parse: &ParseSnapshot, id: usize) -> Block {
             .line(position)
             .map_or(position, |line| line.start)
     };
-    let range = line_start(node.envelope.start)..node.envelope.end;
+    let end = if kind == BlockKind::Formula {
+        let formula = if matches!(node.kind, NodeKind::DisplayMath(_)) {
+            node
+        } else {
+            &parse.nodes[node.children[0]]
+        };
+        anchor = formula.envelope.start + 2;
+        parse
+            .index()
+            .line(formula.envelope.end.saturating_sub(1))
+            .map_or(node.envelope.end, |line| line.end)
+    } else {
+        node.envelope.end
+    };
+    let range = line_start(node.envelope.start)..end;
     let mut scope = range.clone();
     let mut parent = node.parent;
     while let Some(p) = parent {
@@ -394,8 +428,10 @@ mod indexed_tests {
                     if let Some(block) = expected {
                         // The menu now allows insertion beside the whole container
                         // even when its first editable anchor is inside a child.
-                        if matches!(block.kind, BlockKind::List { .. } | BlockKind::Quote)
-                            && outermost_at(&parse, caret).as_ref() == Some(&block)
+                        if matches!(
+                            block.kind,
+                            BlockKind::List { .. } | BlockKind::Quote | BlockKind::Alert(_)
+                        ) && outermost_at(&parse, caret).as_ref() == Some(&block)
                         {
                             assert_eq!(
                                 insertion_context(&parse, &block),

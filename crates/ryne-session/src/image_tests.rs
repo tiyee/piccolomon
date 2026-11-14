@@ -78,12 +78,8 @@ fn real_file_and_embedded_svg_previews_survive_editing_and_pdf_export() {
     assert_eq!(doc.source.text(), raw);
     let exported = doc.export_snapshot().render().unwrap();
     assert_eq!(exported.diagrams.len(), 2);
-    for exporter in [
-        &ryne_services::pdf::PdfExporter as &dyn ryne_extensions::PdfExporter,
-        &ryne_services::pdf_v2::KrillaPdfExporter as &dyn ryne_extensions::PdfExporter,
-    ] {
-        assert!(exporter.export(&exported).unwrap().starts_with(b"%PDF-"));
-    }
+    let exporter = &ryne_services::pdf::PdfExporter as &dyn ryne_extensions::PdfExporter;
+    assert!(exporter.export(&exported).unwrap().starts_with(b"%PDF-"));
     assert_eq!(doc.source.text(), raw);
     assert!(!doc.dirty());
 }
@@ -236,12 +232,8 @@ fn image_jobs_respect_frozen_selection_stale_results_and_detached_export() {
     assert!(render(&mut doc).diagrams.is_empty());
     let exported = snapshot.render().unwrap();
     assert_eq!(exported.diagrams.len(), 1);
-    for exporter in [
-        &ryne_services::pdf::PdfExporter as &dyn ryne_extensions::PdfExporter,
-        &ryne_services::pdf_v2::KrillaPdfExporter as &dyn ryne_extensions::PdfExporter,
-    ] {
-        assert!(exporter.export(&exported).unwrap().starts_with(b"%PDF-"));
-    }
+    let exporter = &ryne_services::pdf::PdfExporter as &dyn ryne_extensions::PdfExporter;
+    assert!(exporter.export(&exported).unwrap().starts_with(b"%PDF-"));
     assert_eq!(doc.source.text(), "replacement");
     assert_eq!(doc.history_len(false), 1);
 }

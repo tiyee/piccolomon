@@ -5,7 +5,7 @@ use std::{
     sync::{Arc, Weak},
 };
 
-type Key = (FontChoice, String);
+type Key = (FontChoice, String, bool);
 struct Entry {
     value: Option<Arc<Formula>>,
     bytes: usize,
@@ -101,7 +101,7 @@ mod tests {
         })
     }
     fn key(s: &str) -> Key {
-        (FontChoice::LeteSans, s.into())
+        (FontChoice::LeteSans, s.into(), false)
     }
     #[test]
     fn evicted_live_formulas_remain_reusable_but_are_not_kept_alive() {

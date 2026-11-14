@@ -1,8 +1,8 @@
 //! Bounded, disposable Mermaid views; the document owns every editable byte.
 use merman::svg::{RenderResourcePolicy, ResourceLimitId, SvgPipeline};
 use merman::{
-    Engine, MermaidConfig, OperationControl, ParseOptions, RenderOutput, RenderTarget, Renderer,
-    SvgEnvironment, SvgRequest,
+    MermaidConfig, MermaidEngine, OperationControl, ParseOptions, RenderOutput, RenderTarget,
+    Renderer, SourcePresentationConfig, SvgEnvironment, SvgRequest,
 };
 pub use ryne_projection::Diagram;
 #[cfg(test)]
@@ -125,9 +125,11 @@ fn render_inner(source: &str, control: Control) -> Outcome {
     }
     // Select the former presentation choices without compiling ELK or a second math engine.
     let renderer = Renderer::new()
-        .with_engine(Engine::new().with_site_config(MermaidConfig::from_value(
-            serde_json::json!({ "layout": "dagre", "theme": "default", "look": "classic" }),
-        )))
+        .with_presentation_engine(MermaidEngine::new().with_site_config(
+            SourcePresentationConfig::from_config(MermaidConfig::from_value(
+                serde_json::json!({ "layout": "dagre", "theme": "default", "look": "classic" }),
+            )),
+        ))
         .with_parse_options(ParseOptions::strict())
         .with_resource_policy(*resources.input_policy());
     let operation =
@@ -135,7 +137,7 @@ fn render_inner(source: &str, control: Control) -> Outcome {
     let cancelled_operation = operation.clone();
     let _cancellation = control.on_cancel(move || cancelled_operation.cancel());
     let parsed = renderer
-        .prepare_semantic(source, operation)
+        .prepare_presentation(source, operation)
         .map_err(|e| e.to_string())?
         .ok_or("未识别图表，保留源码")?;
     let model = parsed.compatibility_json().map_err(|e| e.to_string())?;
@@ -238,7 +240,7 @@ impl ryne_extensions::DiagramRenderer for MermanRenderer {
         render(source, control)
     }
     fn generation(&self) -> u64 {
-        902
+        1000
     }
 }
 
@@ -294,6 +296,7 @@ mod tests {
             .iter()
             .any(|p| p[2] > 240 && p[0] < 20 && p[1] < 20));
         assert!(render("flowchart LR\nA[Unclosed --> B", control()).is_err());
+        assert!(render("classDiagram", control()).is_err());
         assert!(render("unknown\nA-->B", control()).is_err());
         assert!(render(&"x".repeat(MAX_SOURCE + 1), control()).is_err());
         let cancelled = control();
@@ -317,7 +320,14 @@ mod tests {
             "flowchart TB\nsubgraph Outer[Outer]\nsubgraph Inner[Inner]\nA[One] --> B[Two]\nend\nB --> C[Three]\nend",
             "flowchart LR\nA[\"first<br/>second\"] --> B[Done]",
         ] {
-            assert!(render(source, control()).is_ok(), "{source}");
+            let diagram =
+                render(source, control()).unwrap_or_else(|error| panic!("{source}: {error}"));
+            assert!(diagram.width > 0. && diagram.height > 0., "{source}");
+            assert_eq!(diagram.pixels.len(), diagram.bytes, "{source}");
+            assert!(
+                diagram.pixels.as_chunks::<4>().0.iter().any(|p| p[3] > 0),
+                "empty raster: {source}"
+            );
         }
         assert!(render(
             &format!("flowchart LR\n{}", "subgraph X\n".repeat(300)),
@@ -329,6 +339,28 @@ mod tests {
             control()
         )
         .is_err());
+    }
+
+    #[test]
+    fn presentation_preserves_source_configuration_over_host_defaults() {
+        // Both configuration paths must survive full presentation preparation;
+        // canonical semantic parsing alone is insufficient for graphical output.
+        for config in [
+            "%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#00ff00'}}}%%\n",
+            "---\nconfig:\n  theme: base\n  themeVariables:\n    primaryColor: '#00ff00'\n---\n",
+        ] {
+            let source = format!("{config}flowchart LR\nA[Source theme] --> B[Preview]");
+            let diagram = render(&source, control()).expect("source configuration renders");
+            assert!(
+                diagram
+                    .pixels
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .any(|p| p[1] > 240 && p[0] < 20 && p[2] < 20 && p[3] > 240),
+                "source theme was lost: {config}"
+            );
+        }
     }
 
     #[test]

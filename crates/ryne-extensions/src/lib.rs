@@ -215,6 +215,10 @@ pub trait FormulaRenderer: Send + Sync {
         self.render(path.strip_prefix("math:")?)
     }
     fn render(&self, latex: &str) -> Option<Arc<Formula>>;
+    /// Unsupported services keep display math editable as source.
+    fn render_block(&self, _latex: &str) -> Option<Arc<Formula>> {
+        None
+    }
 }
 pub struct HighlightSpan {
     pub range: Range<usize>,

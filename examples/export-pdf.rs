@@ -19,36 +19,22 @@ fn document(text: &str) -> Result<ryne_session::EditorSession, String> {
 fn desktop_services() -> Result<ryne_ui::DesktopServices, String> {
     Ok(ryne_ui::DesktopServices {
         directories: Arc::new(ryne_services::directory::LocalDirectory),
-        exports: ryne_ui::ExportRegistry::new(vec![
-            ryne_ui::ExportDescriptor {
-                id: "pdf",
-                label: "export.pdf",
-                fallback: "Export PDF",
-                file_suffix: "",
-                exporter: Arc::new(ryne_services::pdf::PdfExporter),
-            },
-            ryne_ui::ExportDescriptor {
-                id: "pdf-v2",
-                label: "export.pdf-v2",
-                fallback: "Export PDF v2",
-                file_suffix: "-v2",
-                exporter: Arc::new(ryne_services::pdf_v2::KrillaPdfExporter),
-            },
-        ])?,
+        exports: ryne_ui::ExportRegistry::new(vec![ryne_ui::ExportDescriptor {
+            id: "pdf",
+            label: "export.pdf",
+            fallback: "Export PDF",
+            file_suffix: "",
+            exporter: Arc::new(ryne_services::pdf::PdfExporter),
+        }])?,
         artifacts: Arc::new(ryne_services::files::AtomicArtifactStore),
         updates: Arc::new(ryne_services::updates::GithubUpdates),
     })
 }
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    const USAGE: &str = "Usage: export-pdf INPUT.md OUTPUT.pdf [--v2]";
+    const USAGE: &str = "Usage: export-pdf INPUT.md OUTPUT.pdf";
     let mut args = std::env::args_os().skip(1);
     let input = args.next().ok_or(USAGE)?;
     let output = args.next().ok_or(USAGE)?;
-    let v2 = match args.next() {
-        None => false,
-        Some(option) if option == "--v2" => true,
-        Some(_) => return Err(USAGE.into()),
-    };
     if args.next().is_some() {
         return Err(USAGE.into());
     }
@@ -57,7 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let services = desktop_services()?;
     let format = services
         .exports
-        .get(if v2 { "pdf-v2" } else { "pdf" })
+        .get("pdf")
         .ok_or("Export backend missing")?;
     services.artifacts.write(
         std::path::Path::new(&output),
@@ -96,17 +82,20 @@ mod tests {
             assert_eq!(display.formulas.len(), 1);
             assert_eq!(display.diagrams.len(), 1);
             let services = desktop_services().unwrap();
-            for id in ["pdf", "pdf-v2"] {
-                let bytes = services
-                    .exports
-                    .get(id)
-                    .unwrap()
-                    .exporter
-                    .export(&display)
-                    .unwrap();
-                assert!(bytes.starts_with(b"%PDF-1.7"));
-                assert!(bytes.ends_with(b"%%EOF"));
-            }
+            assert_eq!(services.exports.formats().len(), 1);
+            assert_eq!(
+                services.exports.get("pdf").unwrap().file_name("document"),
+                "document.pdf"
+            );
+            let bytes = services
+                .exports
+                .get("pdf")
+                .unwrap()
+                .exporter
+                .export(&display)
+                .unwrap();
+            assert!(bytes.starts_with(b"%PDF-1.7"));
+            assert!(bytes.ends_with(b"%%EOF"));
             assert_eq!(session.source.id(), snapshot);
             assert_eq!(session.source.text(), source);
             assert_eq!(session.selection(), selection);
@@ -128,23 +117,17 @@ mod tests {
         let session = document(&source).unwrap();
         let display = session.export_snapshot().render().unwrap();
         let services = desktop_services().unwrap();
-        let mut page_counts = Vec::new();
-        for id in ["pdf", "pdf-v2"] {
-            let bytes = services
-                .exports
-                .get(id)
-                .unwrap()
-                .exporter
-                .export(&display)
-                .unwrap();
-            let structure = String::from_utf8_lossy(&bytes)
-                .split_ascii_whitespace()
-                .collect::<String>();
-            let count = structure.matches("/Type/Page/").count();
-            assert!(count > 3, "{id}");
-            page_counts.push(count);
-        }
-        assert_eq!(page_counts[0], page_counts[1]);
+        let bytes = services
+            .exports
+            .get("pdf")
+            .unwrap()
+            .exporter
+            .export(&display)
+            .unwrap();
+        let structure = String::from_utf8_lossy(&bytes)
+            .split_ascii_whitespace()
+            .collect::<String>();
+        assert!(structure.matches("/Type/Page/").count() > 3);
         assert!(display.text.contains("FINAL-TOKEN"));
         assert_eq!(session.source.text(), source);
     }

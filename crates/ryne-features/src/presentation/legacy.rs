@@ -189,6 +189,9 @@ impl LegacyPresentationBuilder<'_> {
                 style.marker = false;
             }
         }
+        if !quote::alert_headers(parse, &quotes, window).apply(text, &mut hidden, &mut styles) {
+            return Display::plain_source(text);
+        }
         let mut display = Display {
             tables: tables
                 .into_iter()
@@ -315,6 +318,7 @@ impl LegacyPresentationBuilder<'_> {
                     },
                 });
                 display.formulas.push(MathView {
+                    block: false,
                     source: source.clone(),
                     display: range,
                     formula: formula.clone(),
@@ -425,7 +429,7 @@ impl LegacyPresentationBuilder<'_> {
             .collect();
         display.quotes = quotes
             .into_iter()
-            .filter_map(|(_, source, depth, inset)| {
+            .filter_map(|(id, source, depth, inset)| {
                 let range = display.position_at(source.start)..display.position_at(source.end);
                 let empty_tail = ryne_syntax::quote::at(parse, source.end)
                     .filter(|row| {
@@ -433,6 +437,7 @@ impl LegacyPresentationBuilder<'_> {
                     })
                     .map(|row| row.content.end);
                 (!range.is_empty()).then_some(QuoteView {
+                    alert: quote::alert_view(parse, id, window),
                     source,
                     display: range,
                     depth,

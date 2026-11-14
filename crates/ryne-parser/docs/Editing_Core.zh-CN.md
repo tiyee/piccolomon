@@ -50,10 +50,14 @@ Planner 接受带版本意图，返回：
 
 ## HTML 验证
 
-当前仓库将 `pulldown-cmark` 精确锁定到 0.13.5，该版本[回移了解析器安全性与正确性修复](https://github.com/pulldown-cmark/pulldown-cmark/releases/tag/v0.13.5)。默认选项仍仅显式启用表格、删除线和任务列表；数学扩展仍需主动开启。升级后保留全部 677 例源码往返、原生 HTML 的 629/677 基线及完全相同的 48 个逐例差异，自有 renderer 的 677 例门禁也保持通过。新增回归检查引用定义后仅含空格或制表符的空行、LF/CRLF、Unicode 源码范围，以及 HTML 不产生多余的开头换行标签。历史可行性证据保留在 0.13.4，未重新测量性能或 GUI 行为。
+当前仓库将 `pulldown-cmark` 精确锁定到 0.13.6，该版本[修复了嵌套图片 wikilink 的平方级解析耗时](https://github.com/pulldown-cmark/pulldown-cmark/releases/tag/v0.13.6)。默认选项仍仅显式启用表格、删除线和任务列表；数学扩展仍需主动开启，wikilink 保持禁用。回归门禁覆盖全部 677 例源码往返、原生 HTML 的 629/677 基线及完全相同的 48 个逐例差异，以及自有 renderer 的 677 例。保留 0.13.5 升级时添加的引用定义后空白行回归。
+
+`tests/backend_upgrade.rs` 锁定扩展开关，并检查嵌套 wikilink 形式的输入在 HTML、投影及 Unicode 可逆编辑中保持字面内容，覆盖 LF/CRLF/CR 和数学开关两种配置。仅后端测试显式启用 wikilink，检查嵌套深度 2 和 4096 时最内层图片优先的行为；该用例已在 0.13.5 上复现旧行为，不使用依赖机器性能的耗时阈值。这不会在编辑器中启用 wikilink，也不构成端到端性能上限保证。历史可行性测量保留在 0.13.4。
 
 自有 renderer 分类处理原有 48 个原生差异：双引号转义、表格布局/对齐属性、任务 HTML、块换行、扩展自动链接、旧行内注释语法及 tagfilter。`backend_html()` 保持原诊断后端；`tests/fixtures/backend-differences.json` 按 example 和章节锁定每个已知差异的实际输出。其余示例必须继续精确匹配，不能通过总数相等掩盖差异互换。
 
 自有 renderer 对 677 个固定示例逐字节比较，不做规范化。章节使用明确配置：基础自动链接（`6.8`）通过 CommonMark029 关闭扩展；GFM 扩展使用 Gfm029；原始 HTML 仅在禁止 HTML 章节启用过滤。生产 `html()` 使用 Gfm029 和全局 tagfilter。这一区分遵循[固定 GFM 规范](https://github.github.com/gfm/)。tagfilter 保留源码字节，不能代替 HTML sanitization。通过此测试集不能证明所有输入都兼容。
 
-执行[开发指南](README.zh-CN.md)中的标准检查。回归覆盖新 CRLF 的逆事务、4,000 组确定性多补丁、分支/跨文档拒绝、过期投影命中、最终字素、双向映射、ownership、引用依赖、会话转变及 Planner 命令。历史基准未重跑，不代表本次实现性能。真实 GUI/IME/剪贴板及跨平台运行尚未在本地验证。
+执行[开发指南](README.zh-CN.md)中的标准检查。回归覆盖新 CRLF 的逆事务、4,000 组确定性多补丁、分支/跨文档拒绝、过期投影命中、最终字素、双向映射、ownership、引用依赖、会话转变及 Planner 命令。历史基准未重跑，不代表本次实现性能。
+
+2026-11-14 升级验证（macOS、Rust 1.99.1）：`cargo test --locked` 为 447 通过、2 项原有忽略（外网图片下载和大侧栏测量）；三项 GFM 样例门禁均保持通过。架构检查、`cargo fmt --check` 及带 `--locked --all-targets -- -D warnings` 的 Clippy 通过。应用完整 396 阶段 `--smoke-test` 通过，使用真实窗口几何调用编辑回调，覆盖嵌套块、源码模式、撤销/重做、公式、Mermaid 和 IME 保护；不等同人工输入法候选窗口或 Windows 实机验收。独立区块树原型同步锁定 0.13.6，五项测试通过。

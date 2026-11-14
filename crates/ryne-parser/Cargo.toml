@@ -7,7 +7,7 @@ license.workspace = true
 description = "Source-preserving Markdown parsing and editing primitives for Ryne"
 
 [dependencies]
-pulldown-cmark = { version = "=0.13.5", default-features = false, features = ["html"] }
+pulldown-cmark = { version = "=0.13.6", default-features = false, features = ["html"] }
 unicode-segmentation.workspace = true
 
 [dev-dependencies]

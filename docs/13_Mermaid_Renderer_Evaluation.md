@@ -2,13 +2,13 @@
 
 评估日期：2026-10-12。对象是 Ryne 的 Rust / GPUI 0.2.2 桌面编辑器。
 本文保留最初的 0.8.0 选型实验与记录；编辑器最初接入 Merman 0.7.0，
-2026-10-26 升级至 **Merman 0.9.2**。
+2026-10-26 升级至 Merman 0.9.2，2026-11-14 升级至 **Merman 0.10.0**。
 以下“候选对比”和“可复现实测”仍是原始独立实验，不将其结果冒充为正式应用新版的测试。
 
 ## 当前接入
 
-主应用锁定 `merman = 0.9.2`，关闭默认 features，仅启用 `all-diagrams`、`svg` 和
-`layout-cytoscape`。使用严格解析、语义模型检查、
+主应用锁定 `merman = 0.10.0`，关闭默认 features，仅启用 `all-diagrams`、`svg`、
+`layout-cytoscape` 和 `compat-json`。使用严格解析、语义模型检查、
 resvg-safe SVG 和 `resvg 0.45.1`，转换为 GPUI 所需的 BGRA 彩色 `RenderImage`。
 没有引入浏览器、Node.js、外部图表服务或第二份可编辑正文。
 
@@ -17,8 +17,8 @@ resvg-safe SVG 和 `resvg 0.45.1`，转换为 GPUI 所需的 BGRA 彩色 `Render
 `=1.12.0`，当时 Cargo 无法在同一依赖图中满足它们，因此使用 0.7.0。
 2026-10-26 主应用升级为解析库 0.0.5、`unicode-segmentation =1.13.3` 和
 `pulldown-cmark =0.13.5`，原 Unicode 依赖冲突已解除，GPUI 仍为 0.2.2。
-正式应用通过 `Renderer::prepare_semantic` 保留一次操作的受控解析与语义检查，
-使用 `ManagedSemanticJson::as_value()` 检查兼容 JSON 后，再消费为类型化 SVG 请求。
+正式应用通过 `Renderer::prepare_presentation` 保留一次操作的受控解析与完整呈现，
+使用 `ManagedJson::as_value()` 检查兼容 JSON 后，再消费为类型化 SVG 请求。
 宿主默认选择 `layout: dagre`、`theme: default` 和 `look: classic`，源码显式配置仍可覆盖；
 没有编译 ELK 或第二个数学引擎。新版修复与 Unicode 换行仍可能改变布局，不保证旧版像素一致。
 数学渲染已独立切换为 Formulary（见 `docs/15_Formulary_Renderer_Prototype.md`）。
@@ -47,6 +47,42 @@ resvg-safe SVG 和 `resvg 0.45.1`，转换为 GPUI 所需的 BGRA 彩色 `Render
 IME 临时范围与撤销、跨块替换、嵌套局部源码、错误回退及 CRLF 保存；
 `--smoke-test-failure` 按预期以退出码 1 正常结束。这不等同于完整人工鼠标、
 键盘及各输入法候选窗口验收。已通过打包脚本更新本地 debug 应用包。
+
+## 2026-11-14 升级至 0.10.0
+
+按上游 [0.10.0 发布记录](https://github.com/Latias94/merman/releases/tag/v0.10.0) 和
+[稳定版迁移说明](https://github.com/Latias94/merman/blob/v0.10.0/docs/release/V093_TO_V0100_UPGRADE_GUIDE.md)
+从 0.9.2 直接升级到最新稳定版 0.10.0（Mermaid 12.3.0）。独立候选评估工具继续
+锁定其历史版本 0.8.0，避免改变原始实验的可复现性。
+
+0.10 将语义解析和完整呈现分开：适配器改用 `MermaidEngine`、
+`SourcePresentationConfig::from_config`、`with_presentation_engine` 和
+`prepare_presentation`。启用 `compat-json`，保留在布局前对兼容 JSON 的值数量、
+深度与文本总量检查；它同时启用 `presentation`。宿主的严格解析、Dagre/default/classic
+默认配置、源码显式配置优先级、同一次操作的取消/截止时间和 resvg 栅格化预算不变。
+渲染器代次从 902 更新为 1000，导出继续冻结同一渲染服务。
+
+锁文件仅更新此次升级所需的 Merman 家族和传递依赖；GPUI 0.2.2、
+unicode-segmentation 1.13.3、pulldown-cmark 0.13.6、math-core 0.9.0、Formulary 0.3.0
+及两套 usvg/resvg 保持工作区原有版本。未启用 ELK、Merman math 或 Merman 二进制导出。
+
+补充回归验证 init 指令和 YAML front matter 的显式主题配置均影响实际像素，
+以及仅含标题的 `classDiagram` 按新版规则返回错误、交由宿主保留源码。
+常见图表测试同时检查非空尺寸、像素字节一致性和非透明内容，不以返回 `Ok` 作为唯一依据。
+
+macOS、Rust 1.99.1 下，架构检查、`cargo fmt --check`、Mermaid 专项 5 项测试及
+`cargo test --locked` 均通过；全工作区共 452 项通过、0 失败、2 项既有忽略测试
+（显式外网图片集成和 10,000 文档目录测量）。包含七类图表、中文/颜色、嵌套与换行、
+错误/超限/取消/截止时间、展示映射、缓存及 PDF 冻结导出回归。
+`/usr/local/opt/rust/bin/cargo-clippy clippy --locked --all-targets -- -D warnings` 通过；
+Cargo 仍提示既有传递依赖 `block 0.1.6` 和 `proc-macro-error2 2.0.1` 的未来 Rust 兼容性报告。
+完整 `cargo run --locked -- --smoke-test` 通过全部 396 个阶段，覆盖 Mermaid 彩色预览、
+点击/方向键进入字面源码、IME、跨块选择、嵌套局部源码、错误回退和 CRLF 保存，
+以及列表/表格、主题、图片、区块目录与缓存等现有回归。
+`--smoke-test-failure` 按预期报告检查失败并以退出码 1 正常结束，无 panic 穿过原生事件循环。
+
+这些检查不代表 Windows 实机、完整人工鼠标键盘/输入法候选窗口验收，也不保证与
+旧版像素一致或覆盖全部 Mermaid 语法；上游文字度量和布局修复可能改变图表几何。
 
 ## 2026-10-26 升级验收
 

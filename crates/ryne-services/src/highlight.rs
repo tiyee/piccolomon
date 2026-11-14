@@ -37,6 +37,13 @@ enum Language {
     Tsx,
     Json,
     Bash,
+    Java,
+    Go,
+    C,
+    Cpp,
+    Html,
+    Css,
+    Yaml,
 }
 
 impl Language {
@@ -54,6 +61,13 @@ impl Language {
             "tsx" => Some(Self::Tsx),
             "json" | "jsonc" => Some(Self::Json),
             "bash" | "sh" | "shell" => Some(Self::Bash),
+            "java" => Some(Self::Java),
+            "go" | "golang" => Some(Self::Go),
+            "c" | "h" => Some(Self::C),
+            "cpp" | "c++" | "cc" | "cxx" | "hpp" | "hh" | "hxx" => Some(Self::Cpp),
+            "html" | "htm" | "xhtml" => Some(Self::Html),
+            "css" => Some(Self::Css),
+            "yaml" | "yml" => Some(Self::Yaml),
             _ => None,
         }
     }
@@ -107,6 +121,41 @@ impl Language {
             Self::Bash => (
                 tree_sitter_bash::LANGUAGE,
                 tree_sitter_bash::HIGHLIGHT_QUERY.to_owned(),
+                "",
+            ),
+            Self::Java => (
+                tree_sitter_java::LANGUAGE,
+                tree_sitter_java::HIGHLIGHTS_QUERY.to_owned(),
+                "",
+            ),
+            Self::Go => (
+                tree_sitter_go::LANGUAGE,
+                tree_sitter_go::HIGHLIGHTS_QUERY.to_owned(),
+                "",
+            ),
+            Self::C => (
+                tree_sitter_c::LANGUAGE,
+                tree_sitter_c::HIGHLIGHT_QUERY.to_owned(),
+                "",
+            ),
+            Self::Cpp => (
+                tree_sitter_cpp::LANGUAGE,
+                tree_sitter_cpp::HIGHLIGHT_QUERY.to_owned(),
+                "",
+            ),
+            Self::Html => (
+                tree_sitter_html::LANGUAGE,
+                tree_sitter_html::HIGHLIGHTS_QUERY.to_owned(),
+                "",
+            ),
+            Self::Css => (
+                tree_sitter_css::LANGUAGE,
+                tree_sitter_css::HIGHLIGHTS_QUERY.to_owned(),
+                "",
+            ),
+            Self::Yaml => (
+                tree_sitter_yaml::LANGUAGE,
+                tree_sitter_yaml::HIGHLIGHTS_QUERY.to_owned(),
                 "",
             ),
         };

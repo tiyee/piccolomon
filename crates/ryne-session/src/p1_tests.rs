@@ -132,12 +132,8 @@ fn malformed_objects_fall_back_without_state_changes_and_recover_without_poisoni
             let source = doc.source.id();
             let selection = doc.selection();
             let invalid = doc.services.features.display(&doc, None, &[]);
-            for pdf in [
-                &ryne_services::pdf::PdfExporter as &dyn PdfExporter,
-                &ryne_services::pdf_v2::KrillaPdfExporter,
-            ] {
-                assert!(pdf.export(&invalid).is_err(), "unvalidated PDF mode {mode}");
-            }
+            let pdf = &ryne_services::pdf::PdfExporter as &dyn PdfExporter;
+            assert!(pdf.export(&invalid).is_err(), "unvalidated PDF mode {mode}");
             let first = doc.cached_project_batch(&doc, None, &[]);
             assert!(!first.diagnostics.is_empty(), "mode {mode}, {newline:?}");
             assert_eq!(*first.display, Display::plain_source(&raw));
@@ -157,12 +153,7 @@ fn malformed_objects_fall_back_without_state_changes_and_recover_without_poisoni
             if mode == 1 {
                 let display = doc.export_snapshot().render().unwrap();
                 assert_eq!(display, Display::plain_source(&raw));
-                for pdf in [
-                    &ryne_services::pdf::PdfExporter as &dyn PdfExporter,
-                    &ryne_services::pdf_v2::KrillaPdfExporter,
-                ] {
-                    assert!(pdf.export(&display).unwrap().starts_with(b"%PDF-"));
-                }
+                assert!(pdf.export(&display).unwrap().starts_with(b"%PDF-"));
             }
             fault.store(0, Ordering::SeqCst);
             let healthy = doc.cached_project_batch(&doc, None, &[]);

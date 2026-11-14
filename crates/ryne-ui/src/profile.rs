@@ -29,6 +29,12 @@ fn enabled() -> bool {
     static ENABLED: OnceLock<bool> = OnceLock::new();
     *ENABLED.get_or_init(|| std::env::var_os("RYNE_PROFILE").is_some())
 }
+pub(super) fn shape_work(work: crate::inline_layout_cache::ShapeWork) {
+    if enabled() {
+        eprintln!("RYNE_PROFILE {{\"metric\":\"shape_work\",\"hits\":{},\"misses\":{},\"shaped_bytes\":{}}}",
+            work.hits, work.misses, work.shaped_bytes);
+    }
+}
 /// Counters are per process; IDs distinguish successive documents in a window.
 pub(super) fn layout(reused: bool) {
     if !enabled() {

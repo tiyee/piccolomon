@@ -81,3 +81,6 @@ Lete 可以渲染本语料中的 `\mathcal{F}`，STIX 在现有转换结果下�
   自动回调冒烟不等同于完整人工鼠标、键盘或输入法候选窗口验收。
 
 未调整 GPUI、解析器、grapheme、Formulary、math-core 或其他依赖锁定版本。
+
+后续 math-core 已从 0.5.5 升级至 0.9.0；Formulary 和字体版本不变。API 适配、
+保守回退及升级回归记录见 [math-core 升级](45_Math_Core_Upgrade.md)。

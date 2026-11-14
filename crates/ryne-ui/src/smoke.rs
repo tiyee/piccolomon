@@ -135,7 +135,19 @@ impl Editor {
             let low_risk_only=std::env::var_os("RYNE_SMOKE_LOW_RISK_ONLY").is_some();
             let image_only = std::env::var_os("RYNE_SMOKE_IMAGES_ONLY").is_some();
             let theme_only = std::env::var_os("RYNE_SMOKE_THEME_ONLY").is_some();
-            let stages: Vec<u16> = if theme_only {
+            let export_menu_only = std::env::var_os("RYNE_SMOKE_EXPORT_MENU_ONLY").is_some();
+            let block_tree_only = std::env::var_os("RYNE_SMOKE_BLOCK_TREE_ONLY").is_some();
+            let math_only = std::env::var_os("RYNE_SMOKE_BLOCK_MATH_ONLY").is_some();
+            let alerts_only = std::env::var_os("RYNE_SMOKE_ALERTS_ONLY").is_some();
+            let stages: Vec<u16> = if alerts_only {
+                std::iter::once(0).chain(403..411).collect()
+            } else if math_only {
+                std::iter::once(0).chain(395..404).collect()
+            } else if export_menu_only {
+                vec![0, 205]
+            } else if block_tree_only {
+                std::iter::once(0).chain(390..395).collect()
+            } else if theme_only {
                 std::iter::once(0).chain(386..391).collect()
             } else if image_only {
                 std::iter::once(0).chain(374..386).collect()
@@ -154,7 +166,7 @@ impl Editor {
             } else if code_language_only {
                 std::iter::once(0).chain(259..267).collect()
             } else {
-                (0..391).collect()
+                (0..411).collect()
             };
             for stage in stages {
                 cx.background_executor()
@@ -2066,10 +2078,14 @@ impl Editor {
                                 OwnedMenuItem::Action { name, action, .. }
                                     if name.as_str() == editor.locale.language.text(Text::ExportPdf)
                                         && action.as_any().downcast_ref::<menus::ExportRegistered>().is_some_and(|a| a.id == "pdf"))));
-                            check!(menus[1].items.iter().any(|item| matches!(item,
-                                OwnedMenuItem::Action { name, action, .. }
-                                    if name.as_str() == editor.locale.language.text(Text::ExportPdfV2)
-                                        && action.as_any().downcast_ref::<menus::ExportRegistered>().is_some_and(|a| a.id == "pdf-v2"))));
+                            check_eq!(menus[1].items.iter().filter(|item| matches!(item,
+                                OwnedMenuItem::Action { action, .. }
+                                    if action.as_any().is::<menus::ExportRegistered>())).count(), 1);
+                            if export_menu_only {
+                                println!("Export menu GUI passed: one localized PDF entry");
+                                cx.quit();
+                                return Ok(());
+                            }
                             editor.escape(&Escape, window, cx);
                             editor.install_document(editor.document.fork("clean document"), Text::Opened, window, cx);
                             editor.new_document(&New, window, cx);
@@ -2982,6 +2998,134 @@ impl Editor {
                             let _ = std::fs::remove_file(path);
                             println!("Theme GUI checks passed: native menu action, dark/light/system repaint, unchanged source/projection/geometry, isolated preference persistence");
                             if theme_only { cx.quit(); return Ok(()); }
+                        }
+                        389 => {
+                            editor.document = editor.document.fork(&crate::block_tree_smoke::sample());
+                            editor.viewport.scroll = px(0.);
+                            editor.move_to(2, false, cx);
+                        }
+                        390 => {
+                            crate::block_tree_smoke::verify(editor, &geometry, window)?;
+                            cached_layout = Some(geometry.text_layout.clone());
+                            let controls = std::sync::Arc::make_mut(&mut editor.viewport.render_controls);
+                            let action = controls.iter_mut().flat_map(|c| &mut c.actions).next().ok_or("missing cache probe action")?;
+                            action.enabled = !action.enabled;
+                            editor.viewport.control_index = text_layout::ControlIndex::new(controls);
+                            check!(!geometry.controls_current(editor), "old controls remained interactive");
+                            check!(geometry.is_current(editor), "action-only update invalidated text geometry");
+                            cx.notify();
+                        }
+                        391 => {
+                            check!(cached_layout.as_ref().is_some_and(|old| std::sync::Arc::ptr_eq(old, &geometry.text_layout)), "action state rebuilt text layout");
+                            check!(geometry.controls_current(editor));
+                            editor.insert(2..2, "x", cx);
+                        }
+                        392 => {
+                            let work = editor.viewport.inline_layouts.borrow().work;
+                            check!(work.hits >= 100, "unchanged paragraphs were not reused");
+                            check_eq!(work.misses, 1);
+                            crate::block_tree_smoke::verify(editor, &geometry, window)?;
+                            editor.undo(&Undo, window, cx);
+                        }
+                        393 => {
+                            crate::block_tree_smoke::verify(editor, &geometry, window)?;
+                            check!(!editor.document.dirty());
+                            println!("Block directory/cache GUI passed: cross-version shaping reuse, full glyph/geometry differential for Unicode, nested quote/list/code/table/formula, atomic undo, action-only layout reuse and stale-control rejection");
+                            if block_tree_only { cx.quit(); return Ok(()); }
+                        }
+                        394 => {
+                            editor.document = editor.document.fork(crate::block_math_smoke::SAMPLE);
+                            editor.viewport.scroll = px(0.);
+                            editor.move_to(0, false, cx);
+                        }
+                        395 => {
+                            crate::block_math_smoke::verify(editor, &geometry, window)?;
+                            third_source = Some(editor.document.source.clone());
+                            let formula = geometry.display.formulas.first().ok_or("missing block formula")?;
+                            let a = geometry.position_with_affinity(formula.display.start, Affinity::Downstream);
+                            let b = geometry.position_with_affinity(formula.display.end, Affinity::Upstream);
+                            editor.mouse_down(&MouseDownEvent { button: MouseButton::Left, position: point((a.x+b.x)/2., a.y+px(10.)), modifiers: Modifiers::default(), click_count: 1, first_mouse: false }, window, cx);
+                            editor.viewport.dragging = false;
+                            editor.refresh(cx);
+                        }
+                        396 => {
+                            check_eq!(editor.viewport.display.formulas.len(), 2);
+                            check!(editor.viewport.display.text.contains("$$"));
+                            check_eq!(editor.document.history_len(false), 0);
+                            check_eq!(third_source.as_ref().map(|s|s.id()), Some(editor.document.source.id()));
+                            editor.replace_and_mark_text_in_range(None, "中", Some(1..1), window, cx);
+                            editor.refresh(cx);
+                        }
+                        397 => {
+                            check!(editor.document.composition().is_some());
+                            editor.document.cancel_composition();
+                            editor.move_to(0, false, cx);
+                        }
+                        398 => {
+                            crate::block_math_smoke::verify(editor, &geometry, window)?;
+                            let formula = geometry.display.formulas.first().ok_or("missing restored formula")?;
+                            editor.move_to(formula.source.start, false, cx);
+                            editor.horizontal(true, false, cx);
+                        }
+                        399 => {
+                            check!(editor.viewport.display.text.contains("$$"));
+                            check_eq!(editor.document.history_len(false), 0);
+                            editor.document.set_source_mode(true);
+                            editor.refresh(cx);
+                        }
+                        400 => {
+                            check!(editor.viewport.display.formulas.is_empty());
+                            editor.document.set_source_mode(false);
+                            editor.move_to(0, false, cx);
+                        }
+                        401 => {
+                            crate::block_math_smoke::verify(editor, &geometry, window)?;
+                            check_eq!(third_source.as_ref().map(|s|s.id()), Some(editor.document.source.id()));
+                            println!("Block math GUI passed: centered vector geometry, SVG icon, click and arrow reveal, source mode, IME cancellation and unchanged history");
+                            if math_only { cx.quit(); return Ok(()); }
+                        }
+                        402 => {
+                            editor.document = editor.document.fork(crate::alert_smoke::SAMPLE);
+                            editor.viewport.scroll = px(0.);
+                            editor.move_to(0, false, cx);
+                        }
+                        403 => {
+                            crate::alert_smoke::verify(editor, &geometry, window)?;
+                            let panel=geometry.text_layout.quote_panels.iter().find(|p|p.alert.is_some()).ok_or("missing alert")?;
+                            let position=geometry.bounds.origin + point(px(geometry.page.left),px(geometry.page.top)-geometry.scroll)+panel.header_bounds.origin+point(px(40.),px(10.));
+                            editor.mouse_down(&MouseDownEvent { button: MouseButton::Left, position, modifiers: Modifiers::default(), click_count: 1, first_mouse: false },window,cx);
+                        }
+                        404 => {
+                            check!(editor.viewport.display.text.contains("[!NOTE]"));
+                            check!(editor.document.block_source.is_some());
+                            check!(!editor.document.dirty());
+                            editor.document.set_block_source(None);
+                            editor.move_to(crate::alert_smoke::SAMPLE.find("这是").ok_or("missing body")?,false,cx);
+                        }
+                        405 => {
+                            crate::alert_smoke::verify(editor, &geometry, window)?;
+                            let at=editor.document.head;
+                            editor.insert(at..at,"测试",cx);
+                        }
+                        406 => {
+                            check!(editor.document.dirty());
+                            editor.undo(&Undo,window,cx);
+                        }
+                        407 => {
+                            crate::alert_smoke::verify(editor, &geometry, window)?;
+                            editor.document.set_source_mode(true);
+                            editor.refresh(cx);
+                        }
+                        408 => {
+                            check!(editor.viewport.display.quotes.is_empty());
+                            check!(editor.viewport.display.text.contains("[!NOTE]"));
+                            editor.document.set_source_mode(false);
+                            editor.move_to(0,false,cx);
+                        }
+                        409 => {
+                            crate::alert_smoke::verify(editor, &geometry, window)?;
+                            println!("Alerts GUI passed: five titles and tinted panels, both themes, ordinary quote isolation, header click/source reveal, body editing and undo, source mode and unchanged bytes");
+                            if alerts_only { cx.quit(); return Ok(()); }
                         }
                         _ => {
                             if performance_only {

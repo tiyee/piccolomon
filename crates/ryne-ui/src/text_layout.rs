@@ -35,7 +35,8 @@ fn control_index(
 pub(super) struct ControlIndex {
     pub cells: BTreeMap<ControlKey, Vec<ryne_extensions::RenderControl>>,
     reserved: Arc<Vec<(ControlKey, u32)>>,
-    generation: u64,
+    pub generation: u64,
+    leading_geometry: Arc<Vec<(usize, Range<usize>)>>,
     pub headers: BTreeMap<(usize, usize), ryne_extensions::RenderControl>,
     pub leading: BTreeMap<(usize, usize), Vec<ryne_extensions::RenderControl>>,
     pub markers: BTreeMap<(usize, usize), Vec<ryne_extensions::RenderControl>>,
@@ -78,6 +79,14 @@ impl ControlIndex {
         }
         static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
         index.generation = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        index.leading_geometry = Arc::new(
+            controls
+                .iter()
+                .enumerate()
+                .filter(|(_, c)| c.placement == RenderControlPlacement::Leading)
+                .map(|(i, c)| (i, c.focus.clone()))
+                .collect(),
+        );
         index.reserved = Arc::new(
             index
                 .cells
@@ -100,7 +109,7 @@ impl ControlIndex {
 #[derive(Clone, PartialEq)]
 pub(super) struct LayoutKey {
     snapshot: SnapshotId,
-    control_generation: u64,
+    leading_geometry: Arc<Vec<(usize, Range<usize>)>>,
     epoch: u64,
     page: theme::Page,
     source_mode: bool,
@@ -110,6 +119,9 @@ pub(super) struct LayoutKey {
     reserved: Arc<Vec<(ControlKey, u32)>>,
 }
 impl LayoutKey {
+    pub(super) fn controls_match(&self, controls: &ControlIndex) -> bool {
+        self.reserved == controls.reserved && self.leading_geometry == controls.leading_geometry
+    }
     pub(super) fn new(
         colors: theme::Palette,
         editor: &Editor,
@@ -119,7 +131,7 @@ impl LayoutKey {
     ) -> Self {
         Self {
             snapshot: editor.document.source.id(),
-            control_generation: editor.viewport.control_index.generation,
+            leading_geometry: editor.viewport.control_index.leading_geometry.clone(),
             epoch: editor.viewport.frame_epoch,
             page,
             source_mode: editor.document.source_mode,
@@ -145,6 +157,10 @@ pub(super) struct TextLayout {
     pub quote_panels: Vec<QuotePanel>,
 }
 pub(super) struct QuotePanel {
+    pub alert: Option<ryne_projection::AlertView>,
+    pub title: Option<ShapedLine>,
+    pub title_origin: Point<Pixels>,
+    pub header_bounds: Bounds<Pixels>,
     pub bounds: Bounds<Pixels>,
     pub icon: Bounds<Pixels>,
 }
@@ -159,6 +175,8 @@ impl TextLayout {
         profile::layout(false);
         let display = &editor.viewport.display;
         display.validate_layout()?;
+        let mut inline_layouts = editor.viewport.inline_layouts.borrow_mut();
+        inline_layouts.begin(editor.document.source.id().document_id, key.scale);
         let page = key.page;
         let mut header_ranges: Vec<_> = display
             .tables
@@ -239,6 +257,14 @@ impl TextLayout {
                 top += px(12.);
             }
             top += px(spacing.enter_indexed(display, start));
+            if display
+                .quotes
+                .binary_search_by_key(&start, |q| q.display.start)
+                .ok()
+                .is_some_and(|i| display.quotes[i].alert.is_some())
+            {
+                top += px(8.);
+            }
             if code.is_some() && code != previous_code {
                 top += px(32.);
             }
@@ -347,7 +373,7 @@ impl TextLayout {
                         let mut used = px(0.);
                         for segment in display.text[cell.clone()].split('\n') {
                             let segment_end = segment_start + segment.len();
-                            for layout in shape_inline(
+                            for layout in inline_layouts.shape(
                                 display,
                                 &runs,
                                 segment_start..segment_end,
@@ -415,7 +441,7 @@ impl TextLayout {
                             .flatten()
                     })
                     .is_some_and(|span| span.style.source && span.display.start <= start);
-            let (font_size, mut line_height) = if raw || code.is_some() {
+            let (mut font_size, mut line_height) = if raw || code.is_some() {
                 theme::CODE
             } else {
                 heading_metrics(heading)
@@ -425,6 +451,12 @@ impl TextLayout {
             }
             let list = display.list_row(start);
             let quote = display.quote_at(start);
+            if quote.is_some_and(|q| {
+                q.display.start == start && q.alert.as_ref().is_some_and(|a| a.folded)
+            }) {
+                // A real source newline anchors the generated title; do not insert synthetic text.
+                line_height = theme::BODY.1 + 8.;
+            }
             let inset = code
                 .map_or(
                     list.map_or(px(0.), |row| {
@@ -446,7 +478,26 @@ impl TextLayout {
                 } else {
                     px(0.)
                 };
-            for layout in shape_inline(
+            let block_formula = display
+                .formulas
+                .get(
+                    display
+                        .formulas
+                        .partition_point(|f| f.display.start < start),
+                )
+                .filter(|f| f.block && f.display == (start..end));
+            let mut inset = inset;
+            if let Some(formula) = block_formula {
+                let right = (page.width - if quote.is_some() { 12. } else { 0. }).max(1.);
+                inset = inset.min(px((right - 1.).max(0.)));
+                let available = (right - f32::from(inset)).max(1.);
+                font_size = font_size.min(available / formula.formula.width);
+                inset += px((available - formula.formula.width * font_size).max(0.) / 2.);
+                line_height = ((formula.formula.ascent + formula.formula.descent) * font_size
+                    + 24.)
+                    .max(line_height);
+            }
+            for layout in inline_layouts.shape(
                 display,
                 &runs,
                 start..end,
@@ -484,6 +535,7 @@ impl TextLayout {
         if previous_code.is_some() {
             top += px(12.);
         }
+        profile::shape_work(inline_layouts.work);
         let mut rows = Vec::new();
         for (line_index, line) in lines.iter().enumerate() {
             let mut starts = vec![0];
@@ -537,7 +589,7 @@ impl TextLayout {
                 let content = lines.get(first..last)?;
                 let first = content.first()?;
                 let last = content.last()?;
-                let left = px(quote.inset as f32 - 32.);
+                let left = px(quote.inset as f32 - if quote.alert.is_some() { 20. } else { 32. });
                 let top = first.cell.map_or(first.top, |cell| cell.top())
                     - if first.code.is_some() {
                         px(32.)
@@ -548,16 +600,51 @@ impl TextLayout {
                     + last.shaped.size(last.line_height).height
                     + if last.code.is_some() { px(12.) } else { px(0.) })
                 .max(last.cell.map_or(px(0.), |cell| cell.bottom()));
+                let alert = quote.alert.clone();
+                let title = alert.as_ref().filter(|a| a.folded).map(|a| {
+                    let label = a.source.kind.label();
+                    let mut font = editor.fonts.body.clone();
+                    font.weight = FontWeight::SEMIBOLD;
+                    window.text_system().shape_line(
+                        label.into(),
+                        px(theme::BODY.0),
+                        &[TextRun {
+                            len: label.len(),
+                            font,
+                            color: rgb(ryne_projection::alert::color(
+                                a.source.kind,
+                                colors == theme::Palette::DARK,
+                            ))
+                            .into(),
+                            background_color: None,
+                            underline: None,
+                            strikethrough: None,
+                        }],
+                        None,
+                    )
+                });
+                let is_alert = alert.is_some();
+                let top = top - if is_alert { px(8.) } else { px(0.) };
+                let bottom = bottom + if is_alert { px(8.) } else { px(0.) };
                 Some(QuotePanel {
+                    alert,
+                    title,
+                    title_origin: point(left + px(46.), first.top),
+                    header_bounds: Bounds::new(
+                        point(left, first.top),
+                        size((px(page.width) - left).max(px(1.)), first.line_height),
+                    ),
                     bounds: Bounds::new(
                         point(left, top),
-                        size((px(page.width) - left).max(px(40.)), bottom - top),
+                        size((px(page.width) - left).max(px(1.)), bottom - top),
                     ),
                     icon: Bounds::new(
                         point(
-                            left + px(8.),
+                            left + if is_alert { px(20.) } else { px(8.) },
                             first.top
-                                + (if first.diagram.is_some() {
+                                + (if is_alert {
+                                    px(theme::BODY.1)
+                                } else if first.diagram.is_some() {
                                     px(30.)
                                 } else {
                                     first.line_height

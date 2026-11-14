@@ -23,10 +23,12 @@ pub(super) fn regions(
             {
                 return None;
             }
+            let mut in_alert = ryne_syntax::alert::for_owner(parse, id).is_some();
             let mut depth = 1;
             let mut inset = 0;
             let mut parent = node.parent;
             while let Some(p) = parent {
+                in_alert |= ryne_syntax::alert::for_owner(parse, p).is_some();
                 if parse.nodes[p].kind == NodeKind::BlockQuote {
                     depth += 1;
                 }
@@ -39,7 +41,12 @@ pub(super) fn regions(
                 }
                 parent = parse.nodes[p].parent;
             }
-            Some((id, node.envelope.clone(), depth, inset + depth * 32))
+            Some((
+                id,
+                node.envelope.clone(),
+                depth,
+                inset + depth * 32 - if in_alert { 12 } else { 0 },
+            ))
         })
         .collect::<Vec<_>>()
 }
@@ -50,6 +57,32 @@ pub(super) fn prefixes(parse: &ParseSnapshot, quotes: &[QuoteRegion]) -> BlockCo
     for token in &parse.syntax.tokens {
         if token.kind == TokenKind::ContainerPrefix && owners.contains(&token.owner) {
             patch.hide(token.range.clone(), true);
+        }
+    }
+    patch
+}
+
+pub(super) fn alert_view(
+    parse: &ParseSnapshot,
+    owner: usize,
+    window: Option<&Range<usize>>,
+) -> Option<AlertView> {
+    let source = ryne_syntax::alert::for_owner(parse, owner)?.clone();
+    let folded =
+        !window.is_some_and(|w| w.start < source.header.end && source.header.start < w.end);
+    Some(AlertView { source, folded })
+}
+pub(super) fn alert_headers(
+    parse: &ParseSnapshot,
+    quotes: &[QuoteRegion],
+    window: Option<&Range<usize>>,
+) -> BlockContribution {
+    let mut patch = BlockContribution::default();
+    for (id, _, _, _) in quotes {
+        if let Some(alert) = alert_view(parse, *id, window)
+            && alert.folded
+        {
+            patch.hide(alert.source.header, true);
         }
     }
     patch

@@ -11,12 +11,14 @@ pub(crate) enum BuiltinCommand {
     List,
     Quote,
     Code,
+    Math,
     Templates,
 }
 impl BuiltinCommand {
     pub fn priority(self) -> i32 {
         match self {
             Self::Table => 300,
+            Self::Math => 250,
             Self::Code => 200,
             Self::Quote => 150,
             Self::List => 100,
@@ -34,6 +36,7 @@ impl BuiltinCommand {
             Self::List => "list.execute",
             Self::Quote => "quote.execute",
             Self::Code => "code.execute",
+            Self::Math => "math.execute",
             Self::Templates => "templates.execute",
         }
     }
@@ -50,7 +53,10 @@ impl CommandHandler for BuiltinCommand {
             (
                 Self::Table | Self::Code | Self::List | Self::Paragraph,
                 EditIntent::Delete { .. } | EditIntent::LineBreak { .. } | EditIntent::Tab { .. }
-            ) | (Self::Quote, EditIntent::LineBreak { .. })
+            ) | (
+                Self::Quote,
+                EditIntent::Delete { .. } | EditIntent::LineBreak { .. }
+            ) | (Self::Math, EditIntent::LineBreak { .. })
                 | (Self::Format, EditIntent::FormatSource)
                 | (
                     Self::Navigation,
@@ -157,11 +163,13 @@ impl CommandHandler for BuiltinCommand {
                 .map(|()| true),
             (Self::Table, EditIntent::LineBreak { hard }) => p.table_line_break(hard),
             (Self::Code, EditIntent::LineBreak { .. }) => p.code_line_break(),
+            (Self::Math, EditIntent::LineBreak { .. }) => p.math_line_break(),
             (Self::List, EditIntent::LineBreak { hard }) => p.list_line_break(hard),
             (Self::Quote, EditIntent::LineBreak { hard }) => p.quote_line_break(hard),
             (Self::Paragraph, EditIntent::LineBreak { hard }) => {
                 p.paragraph_line_break(hard).map(|()| true)
             }
+            (Self::Quote, EditIntent::Delete { forward }) => Ok(p.reveal_alert_boundary(forward)),
             (Self::Table, EditIntent::Delete { forward }) => {
                 Ok(p.selection().is_empty() && p.remove_table_boundary(forward))
             }

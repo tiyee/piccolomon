@@ -9,6 +9,7 @@ mod inline;
 mod list_actions;
 #[path = "commands/list.rs"]
 mod list_rules;
+mod math;
 mod paragraph;
 mod quote;
 mod table_actions;

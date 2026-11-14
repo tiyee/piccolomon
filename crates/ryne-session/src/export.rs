@@ -80,15 +80,11 @@ mod tests {
             assert!(current_display.text.starts_with("Changed\n"));
             assert!(current_display.text.contains("new committed body"));
             assert!(!current_display.text.contains("未确认"));
-            for exporter in [
-                &ryne_services::pdf::PdfExporter as &dyn ryne_extensions::PdfExporter,
-                &ryne_services::pdf_v2::KrillaPdfExporter as &dyn ryne_extensions::PdfExporter,
-            ] {
-                for display in [&original_display, &current_display] {
-                    let bytes = exporter.export(display).unwrap();
-                    assert!(bytes.starts_with(b"%PDF-1.7"));
-                    assert!(bytes.ends_with(b"%%EOF"));
-                }
+            let exporter = &ryne_services::pdf::PdfExporter as &dyn ryne_extensions::PdfExporter;
+            for display in [&original_display, &current_display] {
+                let bytes = exporter.export(display).unwrap();
+                assert!(bytes.starts_with(b"%PDF-1.7"));
+                assert!(bytes.ends_with(b"%%EOF"));
             }
             assert_eq!(document.source.id(), source.id());
             assert_eq!(document.source.text(), committed);
@@ -178,7 +174,7 @@ mod tests {
         );
         assert!(!document.dirty());
 
-        // Exercise both actual PDF encoders with each embedded font. A formula-
+        // Exercise the PDF encoder with each embedded font. A formula-
         // only document does not depend on platform fallback text fonts.
         let export_document = document.fork("$\\frac{a_1}{\\sqrt{b}}$\n");
         let mut displays = Vec::new();
@@ -186,16 +182,12 @@ mod tests {
             formulas.set_font(font);
             displays.push(export_document.export_snapshot().render().unwrap());
         }
-        for exporter in [
-            &ryne_services::pdf::PdfExporter as &dyn ryne_extensions::PdfExporter,
-            &ryne_services::pdf_v2::KrillaPdfExporter as &dyn ryne_extensions::PdfExporter,
-        ] {
-            let lete_pdf = exporter.export(&displays[0]).unwrap();
-            let stix_pdf = exporter.export(&displays[1]).unwrap();
-            assert!(lete_pdf.starts_with(b"%PDF-"));
-            assert!(stix_pdf.starts_with(b"%PDF-"));
-            assert_ne!(lete_pdf, stix_pdf);
-        }
+        let exporter = &ryne_services::pdf::PdfExporter as &dyn ryne_extensions::PdfExporter;
+        let lete_pdf = exporter.export(&displays[0]).unwrap();
+        let stix_pdf = exporter.export(&displays[1]).unwrap();
+        assert!(lete_pdf.starts_with(b"%PDF-"));
+        assert!(stix_pdf.starts_with(b"%PDF-"));
+        assert_ne!(lete_pdf, stix_pdf);
     }
     #[test]
     fn export_freezes_preview_renderer_and_rejects_invalid_resources() {

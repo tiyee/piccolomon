@@ -92,10 +92,13 @@ fn inline_range(parse: &ParseSnapshot, id: usize) -> Range<usize> {
 /// Reveal all inline ancestors, stopping before block containers.
 pub fn active_window(parse: &ParseSnapshot, caret: usize) -> Option<Range<usize>> {
     let parse = parse.semantic();
-    let candidates = parse.index().inline_nodes.at(caret);
-    if candidates.is_empty() {
-        return None;
+    if let Some(alert) = ryne_syntax::alert::cached(parse)
+        .iter()
+        .find(|a| a.header.start <= caret && caret <= a.header.end)
+    {
+        return Some(alert.header.clone());
     }
+    let candidates = parse.index().inline_nodes.at(caret);
     let all_formulas = ryne_syntax::math::cached(parse);
     let first = all_formulas.partition_point(|f| f.range.end <= caret);
     let formulas = &all_formulas[first..all_formulas.partition_point(|f| f.range.start < caret)];
@@ -397,12 +400,13 @@ impl PresentationBuilder<'_> {
                 range.clone(),
                 Style {
                     code: true,
+                    source: formula.block || style.source,
                     marker: false,
                     ..style
                 },
             );
-            plan.set(range.start..range.start + 1, Attr::Marker, 1);
-            plan.set(range.end - 1..range.end, Attr::Marker, 1);
+            plan.set(range.start..formula.content.start, Attr::Marker, 1);
+            plan.set(formula.content.end..range.end, Attr::Marker, 1);
             // LaTeX remains literal in both rendered and failed/source-edit views.
             insertions.retain(|(at, _, value)| *value == "\t" || !range.contains(at));
             let active = source_mode
@@ -411,11 +415,38 @@ impl PresentationBuilder<'_> {
                     .chain(block_window)
                     .any(|w| w.start < range.end && range.start < w.end);
             if !active
-                && let Some(view) = self.renderer.render(&text[range.start + 1..range.end - 1])
+                && let Some(view) = if formula.block {
+                    match &parse.nodes[formula.node].kind {
+                        NodeKind::DisplayMath(latex) => self.renderer.render_block(latex),
+                        _ => None,
+                    }
+                } else {
+                    self.renderer.render(&text[formula.content.clone()])
+                }
             {
                 plan.set(range.clone(), Attr::Hidden, 1);
-                rendered.push((range.clone(), view));
+                if formula.block {
+                    // The parser permits up to three leading spaces and trailing spaces.
+                    // Fold these presentation-only margins with the standalone panel.
+                    if let Some(line) = parse.index().line(range.start) {
+                        plan.set(line.start..range.start, Attr::Hidden, 1);
+                    }
+                    if let Some(line) = parse.index().line(range.end.saturating_sub(1)) {
+                        let end =
+                            line.start + text[line.clone()].trim_end_matches(['\r', '\n']).len();
+                        if text[range.end..end].trim().is_empty() {
+                            plan.set(range.end..end, Attr::Hidden, 1);
+                        }
+                    }
+                }
+                rendered.push((range.clone(), view, formula.block));
             }
+        }
+        // Revealed math must not expose quote/list prefixes within its envelope.
+        if !list_component::prefixes(&list_rows).apply_plan(text, &mut plan)
+            || !quote::prefixes(parse, &quotes).apply_plan(text, &mut plan)
+        {
+            return Display::plain_source(text);
         }
         for range in source_mode
             .then_some(0..text.len())
@@ -433,6 +464,9 @@ impl PresentationBuilder<'_> {
             ] {
                 plan.set(range.clone(), attr, matches!(attr, Attr::Source) as u8);
             }
+        }
+        if !quote::alert_headers(parse, &quotes, window).apply_plan(text, &mut plan) {
+            return Display::plain_source(text);
         }
         let resolved = plan.resolve(text.len());
         let mut styles = resolved.cursor();
@@ -476,7 +510,7 @@ impl PresentationBuilder<'_> {
         folded_diagrams.sort_by_key(|(b, _)| b.range.start);
         let mut folded_diagrams = folded_diagrams.iter().peekable();
         let mut folded_failures = folded_failures.iter().peekable();
-        rendered.sort_by_key(|(range, _)| range.start);
+        rendered.sort_by_key(|(range, _, _)| range.start);
         let mut rendered = rendered.iter().peekable();
         let empty_code_anchors = structured
             .iter()
@@ -578,7 +612,9 @@ impl PresentationBuilder<'_> {
                     });
                 }
             }
-            if let Some((source, formula)) = rendered.next_if(|(range, _)| range.start == start) {
+            if let Some((source, formula, block)) =
+                rendered.next_if(|(range, _, _)| range.start == start)
+            {
                 let from = display.text.len();
                 display.text.push_str(math::OBJECT);
                 let range = from..display.text.len();
@@ -593,6 +629,7 @@ impl PresentationBuilder<'_> {
                     },
                 });
                 display.formulas.push(MathView {
+                    block: *block,
                     source: source.clone(),
                     display: range,
                     formula: formula.clone(),
@@ -705,7 +742,7 @@ impl PresentationBuilder<'_> {
             .collect();
         display.quotes = quotes
             .into_iter()
-            .filter_map(|(_, source, depth, inset)| {
+            .filter_map(|(id, source, depth, inset)| {
                 let range = mapping.position_at(&display, source.start)
                     ..mapping.position_at(&display, source.end);
                 let empty_tail = ryne_syntax::quote::at(parse, source.end)
@@ -714,6 +751,7 @@ impl PresentationBuilder<'_> {
                     })
                     .map(|row| row.content.end);
                 (!range.is_empty()).then_some(QuoteView {
+                    alert: quote::alert_view(parse, id, window),
                     source,
                     display: range,
                     depth,

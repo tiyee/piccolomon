@@ -37,7 +37,14 @@ struct Piece {
     formula: Option<Arc<Formula>>,
 }
 type Line = Vec<Piece>;
+struct PrintAlert {
+    kind: ryne_syntax::alert::Kind,
+    end: usize,
+    top: f32,
+    insertion: usize,
+}
 struct Layout<'a> {
+    alert: Option<PrintAlert>,
     display: &'a Display,
     formula_order: Vec<usize>,
     pages: Vec<String>,
@@ -55,6 +62,7 @@ pub(super) fn layout_pages(display: &Display) -> Result<Vec<String>, String> {
     display.validate_layout()?;
     let mut layout = Layout {
         display,
+        alert: None,
         formula_order: ordered_formulas(display),
         pages: Vec::new(),
         page: String::new(),
@@ -85,10 +93,27 @@ impl Layout<'_> {
         if self.pages.len() >= 500 {
             return Err("PDF export exceeds 500 pages".into());
         }
+        self.flush_alert();
         let number = self.pages.len() + 1;
         self.pages.push(format!(r##"<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{HEIGHT}" viewBox="0 0 {WIDTH} {HEIGHT}"><rect width="100%" height="100%" fill="white"/>{}<text x="{}" y="{}" font-family="sans-serif" font-size="9" fill="#727780" text-anchor="middle">{number}</text></svg>"##, std::mem::take(&mut self.page), WIDTH / 2., HEIGHT - 24.));
         self.y = MARGIN;
+        if let Some(alert) = &mut self.alert {
+            alert.top = MARGIN;
+            alert.insertion = 0;
+        }
         Ok(())
+    }
+    fn flush_alert(&mut self) {
+        if let Some(alert) = &self.alert {
+            let height = (self.y - alert.top).max(0.);
+            let color = ryne_projection::alert::color(alert.kind, false);
+            let bg = ryne_projection::alert::background(alert.kind, 0xffffff, false);
+            let decoration = format!(
+                r##"<rect x="{MARGIN}" y="{}" width="{BODY_WIDTH}" height="{height}" fill="#{bg:06x}"/><rect x="{MARGIN}" y="{}" width="3" height="{height}" fill="#{color:06x}"/>"##,
+                alert.top, alert.top
+            );
+            self.page.insert_str(alert.insertion, &decoration);
+        }
     }
     fn room(&mut self, height: f32) -> Result<(), String> {
         if height > HEIGHT - MARGIN * 2. {
@@ -377,9 +402,44 @@ impl Layout<'_> {
         for table in &display.tables {
             tables.entry(table.range.start).or_insert(table);
         }
+        let alerts: Vec<_> = display
+            .quotes
+            .iter()
+            .filter_map(|q| {
+                q.alert
+                    .as_ref()
+                    .filter(|a| a.folded)
+                    .map(|a| (q.display.clone(), a.source.kind))
+            })
+            .collect();
+        let mut alert_cursor = 0;
         let mut start = 0;
         let mut previous_code = None;
         while start < self.display.text.len() {
+            if self.alert.as_ref().is_some_and(|a| start >= a.end) {
+                self.flush_alert();
+                self.alert = None;
+            }
+            if let Some((range, kind)) = alerts.get(alert_cursor).filter(|(r, _)| r.start == start)
+            {
+                self.room(56.)?;
+                self.alert = Some(PrintAlert {
+                    kind: *kind,
+                    end: range.end,
+                    top: self.y,
+                    insertion: self.page.len(),
+                });
+                let color = ryne_projection::alert::color(*kind, false);
+                let icon = ryne_projection::alert::svg(*kind)
+                    .replace("currentColor", &format!("#{color:06x}"));
+                let encoded = STANDARD.encode(icon.as_bytes());
+                self.page.push_str(&format!(r#"<image x="{}" y="{}" width="12" height="12" href="data:image/svg+xml;base64,{encoded}"/>"#, MARGIN + 12., self.y + 7.));
+                self.page.push_str(&format!(r##"<text x="{}" y="{}" font-family="sans-serif" font-size="12" font-weight="600" fill="#{color:06x}">{}</text>"##, MARGIN + 30., self.y + 18., escape(kind.label())));
+                self.y += 30.;
+                start += 1; // The folded type row is its original, mapped newline.
+                alert_cursor += 1;
+                continue;
+            }
             if let Some(table) = tables.get(&start).copied() {
                 self.table(table)?;
                 start = table.range.end;
@@ -423,6 +483,45 @@ impl Layout<'_> {
             let end = self.display.text[start..]
                 .find('\n')
                 .map_or(self.display.text.len(), |n| start + n);
+            if let Some(formula) = display
+                .formulas
+                .get(
+                    display
+                        .formulas
+                        .partition_point(|f| f.display.start < start),
+                )
+                .filter(|f| f.block && f.display == (start..end))
+            {
+                let list = list_rows.get(&start).copied();
+                let inset = list
+                    .map_or(0., |r| r.source.item.inset as f32 * 2. / 3.)
+                    .max(
+                        display
+                            .quotes
+                            .iter()
+                            .filter(|q| q.display.contains(&start))
+                            .map(|q| q.inset as f32 * 2. / 3.)
+                            .fold(0., f32::max),
+                    )
+                    .min(BODY_WIDTH - 1.);
+                let f = &formula.formula;
+                let size = 12.0_f32
+                    .min((BODY_WIDTH - inset) / f.width)
+                    .min((HEIGHT - MARGIN * 2. - 16.) / (f.ascent + f.descent));
+                let height = (f.ascent + f.descent) * size + 16.;
+                self.room(height)?;
+                if let Some(row) = list.filter(|r| r.source.first) {
+                    self.list_marker(row, inset, 12.);
+                }
+                let x = MARGIN + inset + (BODY_WIDTH - inset - f.width * size) / 2.;
+                let encoded = STANDARD.encode(&f.svg);
+                self.page.push_str(&format!(r#"<image x="{x}" y="{}" width="{}" height="{}" href="data:image/svg+xml;base64,{encoded}"/>"#,
+                    self.y + 8., f.width * size, (f.ascent + f.descent) * size));
+                self.y += height;
+                start = end + usize::from(end < display.text.len());
+                previous_code = None;
+                continue;
+            }
             let code = code_rows.code_row(start);
             let heading = self
                 .display
@@ -452,6 +551,7 @@ impl Layout<'_> {
                         .map_or(0., |r| r.source.item.inset as f32 * 2. / 3.),
                     |i| 12. + self.display.code_blocks[i].source.indent as f32 * 12.,
                 )
+                .max(if self.alert.is_some() { 20. } else { 0. })
                 .min(BODY_WIDTH / 2.);
             if code.is_some() && previous_code != code {
                 self.room(40.)?;
@@ -503,6 +603,52 @@ impl Layout<'_> {
 mod tests {
     use super::*;
     #[test]
+    fn alert_title_and_decoration_survive_page_breaks() {
+        use ryne_projection::{AlertView, QuoteView};
+        use ryne_syntax::alert::{Alert, Kind};
+        // This fixture starts at the validated display boundary: the empty first row
+        // is the type line's retained newline, followed by selectable body text.
+        let text = format!("\n{}", "Body remains selectable.\n".repeat(120));
+        let mut display = Display::plain_source(&text);
+        display.quotes.push(QuoteView {
+            source: 0..text.len(),
+            display: 0..text.len(),
+            depth: 1,
+            inset: 20,
+            empty_tail: None,
+            alert: Some(AlertView {
+                folded: true,
+                source: Alert {
+                    owner: 0,
+                    kind: Kind::Note,
+                    source: 0..text.len(),
+                    header: 0..1,
+                    marker: 0..1,
+                },
+            }),
+        });
+        let pages = layout_pages(&display).unwrap();
+        assert!(pages.len() >= 3);
+        assert_eq!(
+            pages
+                .iter()
+                .map(|p| p.matches(">Note</text>").count())
+                .sum::<usize>(),
+            1
+        );
+        assert_eq!(
+            pages
+                .iter()
+                .map(|p| p.matches("Body remains selectable.").count())
+                .sum::<usize>(),
+            120
+        );
+        for page in pages {
+            assert!(page.contains("fill=\"#0969da\""));
+            assert!(page.contains("fill=\"#f0f6fd\""));
+        }
+    }
+    #[test]
     fn ordered_print_lookup_produces_the_same_scenes_as_linear_lookup() {
         use ryne_extensions::FormulaRenderer;
         let formula = crate::math::FormularyRenderer::default()
@@ -528,6 +674,7 @@ mod tests {
             });
             if ch == '\u{fffc}' {
                 display.formulas.push(ryne_projection::MathView {
+                    block: false,
                     source: range.clone(),
                     display: range,
                     formula: formula.clone(),
@@ -546,6 +693,7 @@ mod tests {
         display.formulas.push(duplicate);
         let mut old = Layout {
             display: &display,
+            alert: None,
             formula_order: ordered_formulas(&display),
             pages: Vec::new(),
             page: String::new(),
@@ -560,6 +708,7 @@ mod tests {
         assert!(layout_pages(&display).is_err());
         let mut optimized = Layout {
             display: &display,
+            alert: None,
             formula_order: ordered_formulas(&display),
             pages: Vec::new(),
             page: String::new(),
@@ -574,6 +723,7 @@ mod tests {
         let range = display.text.find('中').unwrap()..display.text.find('\n').unwrap();
         let mut new = Layout {
             display: &display,
+            alert: None,
             formula_order: ordered_formulas(&display),
             pages: Vec::new(),
             page: String::new(),

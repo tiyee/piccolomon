@@ -41,6 +41,7 @@ pub(super) struct ViewportState {
     pub dragging: bool,
     pub render_controls: std::sync::Arc<Vec<ryne_extensions::RenderControl>>,
     pub control_index: text_layout::ControlIndex,
+    pub inline_layouts: std::cell::RefCell<crate::inline_layout_cache::InlineLayoutCache>,
 }
 
 impl MenuState {

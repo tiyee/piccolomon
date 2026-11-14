@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         r"\widehat{abc} + \overrightarrow{AB}",
     ];
     let mut html = String::from(
-        "<!doctype html><meta charset='utf-8'><title>Ryne math font comparison</title><style>body{font-family:system-ui;margin:32px;background:#faf9f6}table{border-collapse:collapse}td,th{padding:12px 24px;border:1px solid #ddd;text-align:left}img{vertical-align:baseline}code{font-size:13px}small{color:#666}</style><h1>Lete Sans Math 0.63 / STIX Two Math 2.13</h1><p>math-core 0.5.5 → Formulary 0.3.0, actual Ryne adapter. SVG glyph paths, red baseline. PNGs at 1× / 2×. No layout engine changes.</p>",
+        "<!doctype html><meta charset='utf-8'><title>Ryne math font comparison</title><style>body{font-family:system-ui;margin:32px;background:#faf9f6}table{border-collapse:collapse}td,th{padding:12px 24px;border:1px solid #ddd;text-align:left}img{vertical-align:baseline}code{font-size:13px}small{color:#666}</style><h1>Lete Sans Math 0.63 / STIX Two Math 2.13</h1><p>math-core 0.9.0 → Formulary 0.3.0, actual Ryne adapter. SVG glyph paths, red baseline. PNGs at 1× / 2×. No layout engine changes.</p>",
     );
     let mut sheet = Pixmap::new(1600, 2600).ok_or("contact sheet allocation")?;
     sheet.fill(resvg::tiny_skia::Color::from_rgba8(250, 249, 246, 255));

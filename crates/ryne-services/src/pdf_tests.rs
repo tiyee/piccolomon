@@ -1,14 +1,7 @@
-//! Run the same export contracts against both independent PDF encoders.
+//! PDF export contracts for the Krilla encoder.
 use crate::print_layout::layout_pages;
 use ryne_extensions::PdfExporter;
 use ryne_projection::Display;
-
-fn exporters() -> [(&'static str, &'static dyn PdfExporter); 2] {
-    [
-        ("svg2pdf", &crate::pdf::PdfExporter),
-        ("krilla", &crate::pdf_v2::KrillaPdfExporter),
-    ]
-}
 
 fn page_count(bytes: &[u8]) -> usize {
     assert!(bytes.starts_with(b"%PDF-1.7"));
@@ -35,19 +28,17 @@ fn page_count(bytes: &[u8]) -> usize {
 }
 
 #[test]
-fn both_backends_export_one_empty_a4_page() {
-    for (name, exporter) in exporters() {
-        let bytes = exporter.export(&Display::default()).unwrap();
-        assert_eq!(page_count(&bytes), 1, "{name}");
-        let structure = String::from_utf8_lossy(&bytes)
-            .split_ascii_whitespace()
-            .collect::<String>();
-        assert!(structure.contains("/MediaBox[00595.28841.89]"), "{name}");
-    }
+fn exports_one_empty_a4_page() {
+    let bytes = crate::pdf::PdfExporter.export(&Display::default()).unwrap();
+    assert_eq!(page_count(&bytes), 1);
+    let structure = String::from_utf8_lossy(&bytes)
+        .split_ascii_whitespace()
+        .collect::<String>();
+    assert!(structure.contains("/MediaBox[00595.28841.89]"));
 }
 
 #[test]
-fn both_backends_encode_every_page_of_a_long_document() {
+fn encodes_every_page_of_a_long_document() {
     // The PDFKit text check uses the CJK fonts installed on macOS. Keep the
     // portable pagination contract usable on hosts with only Latin fonts.
     let last_line = if cfg!(target_os = "macos") {
@@ -62,16 +53,14 @@ fn both_backends_encode_every_page_of_a_long_document() {
     let pages = layout_pages(&display).unwrap();
     assert!(pages.len() > 3);
     assert!(pages.last().unwrap().contains("FINAL-TOKEN"));
-    for (name, exporter) in exporters() {
-        let bytes = exporter.export(&display).unwrap();
-        assert_eq!(page_count(&bytes), pages.len(), "{name}");
-        #[cfg(target_os = "macos")]
-        assert_last_page_text(name, &bytes);
-    }
+    let bytes = crate::pdf::PdfExporter.export(&display).unwrap();
+    assert_eq!(page_count(&bytes), pages.len());
+    #[cfg(target_os = "macos")]
+    assert_last_page_text("krilla", &bytes);
 }
 
 /// Read the encoded page tree, font mappings and content streams using the
-/// system PDF reader, independently of either exporter or the SVG layout.
+/// system PDF reader, independently of the exporter and SVG layout.
 #[cfg(target_os = "macos")]
 fn assert_last_page_text(name: &str, bytes: &[u8]) {
     let dir = tempfile::tempdir().unwrap();
@@ -109,7 +98,7 @@ fn assert_last_page_text(name: &str, bytes: &[u8]) {
 }
 
 #[test]
-fn both_backends_reject_invalid_text_and_document_limits() {
+fn rejects_invalid_text_and_document_limits() {
     for (text, message) in [
         ("visible\0hidden".into(), "control character"),
         ("a".repeat(4 * 1024 * 1024 + 1), "4 MiB"),
@@ -119,9 +108,7 @@ fn both_backends_reject_invalid_text_and_document_limits() {
             text,
             ..Default::default()
         };
-        for (name, exporter) in exporters() {
-            let error = exporter.export(&display).unwrap_err();
-            assert!(error.contains(message), "{name}: {error}");
-        }
+        let error = crate::pdf::PdfExporter.export(&display).unwrap_err();
+        assert!(error.contains(message), "{error}");
     }
 }

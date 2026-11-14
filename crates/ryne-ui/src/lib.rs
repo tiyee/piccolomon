@@ -1,7 +1,10 @@
 //! GPUI facade; input, geometry, elements, smoke and asset upload have separate modules.
 pub use ryne_syntax::{block, code_block, list, table};
+mod alert_smoke;
 mod assets;
+mod block_math_smoke;
 mod block_query_cache;
+mod block_tree_smoke;
 mod interaction_state;
 use interaction_state::*;
 mod background;
@@ -14,6 +17,7 @@ mod i18n;
 mod image_smoke;
 mod input;
 pub use image_smoke::smoke_image_renderer;
+mod inline_layout_cache;
 mod layout;
 mod layout_frame;
 #[cfg(test)]
@@ -443,6 +447,7 @@ impl Editor {
                 dragging: false,
                 render_controls: Default::default(),
                 control_index: Default::default(),
+                inline_layouts: Default::default(),
             },
         };
         editor.refresh(cx);
@@ -720,9 +725,9 @@ impl Editor {
             })
         {
             let source = if forward {
-                formula.source.start + 1
+                formula.source.start + if formula.block { 2 } else { 1 }
             } else {
-                formula.source.end - 1
+                formula.source.end - if formula.block { 2 } else { 1 }
             };
             self.move_to(source, false, cx);
             return;
@@ -1130,6 +1135,29 @@ impl Editor {
             if !geometry.is_current(self) {
                 return;
             }
+            if !event.modifiers.shift {
+                let local = event.position
+                    - geometry.bounds.origin
+                    - point(
+                        px(geometry.page.left),
+                        px(geometry.page.top) - geometry.scroll,
+                    );
+                let header = geometry.text_layout.quote_panels.iter().find_map(|panel| {
+                    let alert = panel.alert.as_ref().filter(|a| a.folded)?;
+                    panel
+                        .header_bounds
+                        .contains(&local)
+                        .then(|| alert.source.clone())
+                });
+                if let Some(header) = header {
+                    self.document.set_block_source(Some(header.source));
+                    self.document.select(header.marker.start + 2, false, false);
+                    self.caret_state.preferred_x = None;
+                    self.viewport.dragging = false;
+                    self.refresh(cx);
+                    return;
+                }
+            }
             // Resolve once against the displayed layout, then retain source anchors.
             let (hit, affinity) = geometry.hit_caret(event.position);
             let source = if !event.modifiers.shift {
@@ -1140,7 +1168,7 @@ impl Editor {
                             .source_byte_at(ryne_core::DisplayByte(hit), affinity)
                             .0
                     },
-                    |formula| formula.source.start + 1,
+                    |formula| formula.source.start + if formula.block { 2 } else { 1 },
                 )
             } else {
                 geometry
@@ -1455,6 +1483,9 @@ pub fn run(
                 window_min_size: Some(size(px(520.), px(360.))),
                 titlebar: Some(TitlebarOptions {
                     appears_transparent: cfg!(any(target_os = "macos", target_os = "windows")),
+                    // GPUI takes the top-left position of the native 16 px button frames.
+                    traffic_light_position: cfg!(target_os = "macos")
+                        .then(|| point(px(8.), px((element::WINDOW_HEADER_HEIGHT - 16.) / 2.))),
                     ..Default::default()
                 }),
                 ..Default::default()

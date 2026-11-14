@@ -307,6 +307,7 @@ impl ParseSnapshot {
     /// Parse a dialect with an explicit math-extension setting. The default
     /// constructors keep math disabled and retain the fixed GFM baseline.
     pub fn with_dialect_and_math(source: Source, dialect: Dialect, math_enabled: bool) -> Self {
+        let _profile = crate::profile::Scope::new("semantic_parse");
         let mut unresolved = Vec::new();
         let mut callback = |link: pulldown_cmark::BrokenLink<'_>| {
             unresolved.push((normalize_label(&link.reference), link.span));

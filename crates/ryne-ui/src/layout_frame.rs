@@ -82,6 +82,7 @@ impl EditorElement {
             sidebar_layout: editor.sidebar.layout_generation,
             snapshot: editor.document.source.id(),
             frame_epoch: editor.viewport.frame_epoch,
+            control_generation: editor.viewport.control_index.generation,
             display: layout.display.clone(),
             rows: layout.rows.clone(),
             text_layout: layout.clone(),

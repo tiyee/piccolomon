@@ -22,6 +22,7 @@ use std::{
 };
 
 mod planner;
+pub mod profile;
 mod projection;
 mod render;
 mod syntax;
@@ -108,6 +109,7 @@ impl Source {
     /// Apply ranges in one old snapshot atomically; reject invalid UTF-8/CRLF
     /// endpoints, overlaps, stale identities, and byte-identical changes.
     pub fn apply(&self, base: SnapshotId, mut edits: Vec<Edit>) -> Result<Applied, Error> {
+        let _profile = profile::Scope::new("source_apply");
         self.check(base)?;
         edits.sort_by_key(|e| (e.range.start, e.range.end));
         for (i, edit) in edits.iter().enumerate() {
@@ -262,6 +264,26 @@ pub struct PositionMap {
     edits: Vec<Edit>,
 }
 impl PositionMap {
+    /// Transaction-proven unchanged byte intervals, in source order. Inserted
+    /// text is excluded even when it happens to equal the original bytes.
+    pub fn unchanged_ranges(&self) -> impl Iterator<Item = (Range<usize>, Range<usize>)> + '_ {
+        let mut old = 0;
+        let mut new = 0;
+        self.edits
+            .iter()
+            .map(Some)
+            .chain(std::iter::once(None))
+            .filter_map(move |edit| {
+                let end = edit.map_or(self.old.len(), |e| e.range.start);
+                let length = end - old;
+                let pair = (old..end, new..new + length);
+                if let Some(edit) = edit {
+                    old = edit.range.end;
+                    new += length + edit.replacement.len();
+                }
+                (length > 0).then_some(pair)
+            })
+    }
     pub fn from(&self) -> SnapshotId {
         self.from
     }

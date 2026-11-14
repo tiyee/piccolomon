@@ -37,22 +37,13 @@ fn main() {
         ),
         files: Arc::new(ryne_services::files::AtomicFileStore),
     };
-    let exports = match ryne_ui::ExportRegistry::new(vec![
-        ryne_ui::ExportDescriptor {
-            id: "pdf",
-            label: "export.pdf",
-            fallback: "Export PDF",
-            file_suffix: "",
-            exporter: Arc::new(ryne_services::pdf::PdfExporter),
-        },
-        ryne_ui::ExportDescriptor {
-            id: "pdf-v2",
-            label: "export.pdf-v2",
-            fallback: "Export PDF v2",
-            file_suffix: "-v2",
-            exporter: Arc::new(ryne_services::pdf_v2::KrillaPdfExporter),
-        },
-    ]) {
+    let exports = match ryne_ui::ExportRegistry::new(vec![ryne_ui::ExportDescriptor {
+        id: "pdf",
+        label: "export.pdf",
+        fallback: "Export PDF",
+        file_suffix: "",
+        exporter: Arc::new(ryne_services::pdf::PdfExporter),
+    }]) {
         Ok(exports) => exports,
         Err(error) => {
             eprintln!("初始化失败：{error}");

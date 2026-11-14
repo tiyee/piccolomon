@@ -165,7 +165,8 @@ pub fn at(parse: &ParseSnapshot, caret: usize) -> Option<Block> {
 
     let kind = match node.kind {
         NodeKind::Heading(level) => BlockKind::Heading(level),
-        NodeKind::BlockQuote => BlockKind::Quote,
+        NodeKind::BlockQuote => crate::alert::for_owner(parse, id)
+            .map_or(BlockKind::Quote, |a| BlockKind::Alert(a.kind)),
         NodeKind::CodeBlock(_) => BlockKind::Code,
         NodeKind::Table(_) => BlockKind::Table,
         NodeKind::HtmlBlock | NodeKind::SourceBlock => BlockKind::Raw,

@@ -42,8 +42,10 @@ impl From<BlockKind> for BlockMetadata {
                     "无序列表"
                 },
             ),
+            Alert(kind) => ("alert", "!", kind.label()),
             Quote => ("quote_bubble", "❯", "引用"),
             Code => ("code", "</>", "代码块"),
+            Formula => ("math_format_professional", "ƒ", "块级公式"),
             Mermaid => ("mermaid", "◇", "Mermaid"),
             Table => ("table", "▦", "表格"),
             Raw => ("code", "<>", "原始块"),

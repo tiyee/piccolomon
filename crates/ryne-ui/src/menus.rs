@@ -464,19 +464,16 @@ mod tests {
                 Err("menu test".into())
             }
         }
-        [
-            ("pdf", "export.pdf", "Export PDF"),
-            ("pdf-v2", "export.pdf-v2", "Export PDF v2"),
-        ]
-        .into_iter()
-        .map(|(id, label, fallback)| ExportDescriptor {
-            id,
-            label,
-            fallback,
-            file_suffix: "",
-            exporter: std::sync::Arc::new(Unused),
-        })
-        .collect()
+        [("pdf", "export.pdf", "Export PDF")]
+            .into_iter()
+            .map(|(id, label, fallback)| ExportDescriptor {
+                id,
+                label,
+                fallback,
+                file_suffix: "",
+                exporter: std::sync::Arc::new(Unused),
+            })
+            .collect()
     }
     #[::core::prelude::v1::test]
     fn custom_export_appears_without_a_new_ui_action_type() {
@@ -648,16 +645,20 @@ mod tests {
             );
             assert_eq!(menus[0].name.as_ref(), "Ryne");
             assert_eq!(menus[1].name.as_ref(), language.text(Text::File));
-            for (key, v2) in [(Text::ExportPdf, false), (Text::ExportPdfV2, true)] {
-                let entry = menus[1].items.iter().find(|item| {
-                    matches!(item, MenuItem::Action { name, .. } if name.as_ref() == language.text(key))
-                }).expect("localized export action");
-                let MenuItem::Action { action, .. } = entry else {
-                    unreachable!()
-                };
-                let action = action.as_any().downcast_ref::<ExportRegistered>().unwrap();
-                assert_eq!(action.id, if v2 { "pdf-v2" } else { "pdf" });
-            }
+            let export_actions: Vec<_> = menus[1]
+                .items
+                .iter()
+                .filter_map(|item| match item {
+                    MenuItem::Action { name, action, .. } => action
+                        .as_any()
+                        .downcast_ref::<ExportRegistered>()
+                        .map(|action| (name, action)),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(export_actions.len(), 1);
+            assert_eq!(export_actions[0].0.as_ref(), language.text(Text::ExportPdf));
+            assert_eq!(export_actions[0].1.id, "pdf");
             assert!(menus[1].items.iter().any(|item| matches!(item,
                 MenuItem::Action { name, action, .. } if name.as_ref()==language.text(Text::OpenFolder) && action.as_any().is::<OpenFolder>()
             )));

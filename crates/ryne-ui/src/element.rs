@@ -2,6 +2,7 @@ use super::*;
 
 // GPUI tests exercise the custom caption and its native event targets on every host.
 const NATIVE_MAC_TITLEBAR: bool = cfg!(all(target_os = "macos", not(test)));
+pub(super) const WINDOW_HEADER_HEIGHT: f32 = 34.;
 
 pub(super) struct EditorElement {
     pub(super) editor: Entity<Editor>,
@@ -63,7 +64,13 @@ fn window_control_button(
 }
 
 impl Editor {
-    fn window_header(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn window_header(
+        &self,
+        name: &str,
+        sidebar_visible: bool,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let colors = theme::palette(cx);
         // Paint the two pane backgrounds behind the native controls and drag targets.
         let background = div()
@@ -86,18 +93,237 @@ impl Editor {
         div()
             .relative()
             .w_full()
-            .h(px(if NATIVE_MAC_TITLEBAR { 22. } else { 30. }))
+            .debug_selector(|| "window-header".into())
+            .h(px(WINDOW_HEADER_HEIGHT))
             .flex_shrink_0()
             .flex()
             .items_center()
             .child(background)
-            .when(!NATIVE_MAC_TITLEBAR, |row| {
-                row.pb(px(1.)).child(self.window_menu(window, cx))
+            .when(NATIVE_MAC_TITLEBAR && !window.is_fullscreen(), |row| {
+                row.child(div().w(px(72.)).h_full().flex_shrink_0())
             })
+            .child(self.titlebar_document(name, sidebar_visible, window, cx))
             .when(
                 cfg!(any(target_os = "windows", test)) && !window.is_fullscreen(),
                 |row| row.child(self.windows_caption_controls(window, colors)),
             )
+    }
+
+    fn titlebar_document(
+        &self,
+        name: &str,
+        sidebar_visible: bool,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let colors = theme::palette(cx);
+        let (stem, extension) = name
+            .rsplit_once('.')
+            .filter(|(stem, extension)| !stem.is_empty() && !extension.is_empty())
+            .unwrap_or((name, ""));
+        let stem_line_height = px(24.);
+        let extension_line_height = px(18.);
+        let text_system = window.text_system();
+        let stem_font = text_system.resolve_font(&font(".SystemUIFont").bold());
+        let extension_font = text_system.resolve_font(&font(".SystemUIFont"));
+        // GPUI's flex layout synthesizes baselines from box bottoms. Align the
+        // actual text baselines by including each font's descent and leading.
+        let stem_depth =
+            stem_line_height - text_system.baseline_offset(stem_font, px(16.), stem_line_height);
+        let extension_depth = extension_line_height
+            - text_system.baseline_offset(extension_font, px(12.), extension_line_height);
+        let baseline_depth = stem_depth.max(extension_depth);
+        div()
+            .flex()
+            .items_center()
+            .flex_1()
+            .min_w_0()
+            .h_full()
+            .gap_2()
+            .pl(px(12.))
+            .pr(px(12.))
+            .child(
+                div()
+                    .id("window-drag")
+                    .debug_selector(|| "window-drag".into())
+                    .window_control_area(WindowControlArea::Drag)
+                    .flex_1()
+                    .min_w_0()
+                    .h_full()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        svg()
+                            .path("icon:clip")
+                            .size(px(16.))
+                            .flex_shrink_0()
+                            .text_color(rgb(colors.ink)),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .items_end()
+                            .debug_selector(|| "document-name".into())
+                            .min_w_0()
+                            .max_w(px(220.))
+                            .child(
+                                div()
+                                    .min_w_0()
+                                    .text_size(px(16.))
+                                    .line_height(stem_line_height)
+                                    .pb(baseline_depth - stem_depth)
+                                    .font_weight(FontWeight::BOLD)
+                                    .text_color(rgb(colors.heading_ink))
+                                    .text_ellipsis()
+                                    .child(stem.to_owned()),
+                            )
+                            .when(!extension.is_empty(), |row| {
+                                row.child(
+                                    div()
+                                        .text_size(px(12.))
+                                        .line_height(extension_line_height)
+                                        .pb(baseline_depth - extension_depth)
+                                        .text_color(rgb(colors.muted))
+                                        .flex_shrink_0()
+                                        .child(format!(".{extension}")),
+                                )
+                            }),
+                    ),
+            )
+            .when(NATIVE_MAC_TITLEBAR, |row| {
+                row.child(self.editor_shortcuts(sidebar_visible, cx))
+            })
+    }
+
+    fn editor_shortcuts(&self, sidebar_visible: bool, cx: &mut Context<Self>) -> impl IntoElement {
+        let colors = theme::palette(cx);
+        div()
+            .flex_shrink_0()
+            .flex()
+            .gap_2()
+            .items_center()
+            .child(
+                div()
+                    .id("toggle-sidebar")
+                    .debug_selector(|| "toggle-sidebar".into())
+                    .size(px(28.))
+                    .flex_shrink_0()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .cursor_pointer()
+                    .tooltip({
+                        let label = self.locale.language.text(Text::Sidebar);
+                        move |_, cx| cx.new(|_| ModeTooltip(label)).into()
+                    })
+                    .child(
+                        svg()
+                            .path(if sidebar_visible {
+                                "icon:panel_left_expand"
+                            } else {
+                                "icon:panel_right_expand"
+                            })
+                            .size(px(18.))
+                            .text_color(rgb(colors.ink)),
+                    )
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|s, _, w, cx| {
+                            cx.stop_propagation();
+                            s.sidebar_toggle(&ToggleSidebar, w, cx)
+                        }),
+                    ),
+            )
+            .child(
+                div()
+                    .id("format-source")
+                    .debug_selector(|| "format-source".into())
+                    .size(px(28.))
+                    .flex_shrink_0()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .cursor_pointer()
+                    .tooltip({
+                        let label = self.locale.language.text(Text::FormatSource);
+                        move |_, cx| cx.new(|_| ModeTooltip(label)).into()
+                    })
+                    .child(
+                        svg()
+                            .path("icon:format")
+                            .size(px(18.))
+                            .text_color(rgb(colors.ink)),
+                    )
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, _, window, cx| {
+                            cx.stop_propagation();
+                            this.format_source(&FormatSource, window, cx);
+                        }),
+                    )
+                    .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation()),
+            )
+            .child(
+                div()
+                    .id("toggle-source")
+                    .debug_selector(|| "toggle-source".into())
+                    .size(px(28.))
+                    .flex_shrink_0()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .tooltip({
+                        let label = self.locale.language.text(if self.document.source_mode {
+                            Text::SourceMode
+                        } else {
+                            Text::ViewMode
+                        });
+                        move |_, cx| cx.new(|_| ModeTooltip(label)).into()
+                    })
+                    .child(
+                        svg()
+                            .path(if self.document.source_mode {
+                                "icon:code"
+                            } else {
+                                "icon:eye"
+                            })
+                            .size(px(18.))
+                            .text_color(rgb(colors.ink)),
+                    )
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, _, window, cx| {
+                            cx.stop_propagation();
+                            this.toggle_source(&ToggleSource, window, cx)
+                        }),
+                    ),
+            )
+    }
+
+    fn windows_menu_bar(
+        &self,
+        sidebar_visible: bool,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let colors = theme::palette(cx);
+        div()
+            .debug_selector(|| "window-menu-bar".into())
+            .w_full()
+            .h(px(34.))
+            .flex_shrink_0()
+            .flex()
+            .items_center()
+            .justify_between()
+            .pr(px(12.))
+            .pb(px(1.))
+            .border_b_1()
+            .border_color(rgb(colors.border))
+            .child(self.window_menu(window, cx))
+            .child(self.editor_shortcuts(sidebar_visible, cx))
     }
 
     fn windows_caption_controls(
@@ -107,17 +333,9 @@ impl Editor {
     ) -> impl IntoElement {
         let maximized = window.is_maximized();
         div()
-            .flex_1()
+            .flex_shrink_0()
             .h_full()
             .flex()
-            .child(
-                div()
-                    .id("window-drag")
-                    .debug_selector(|| "window-drag".into())
-                    .flex_1()
-                    .h_full()
-                    .window_control_area(WindowControlArea::Drag),
-            )
             .child(window_control_button(
                 colors,
                 "window-minimize",
@@ -352,6 +570,19 @@ impl Render for Editor {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         if !self.caret_state.focus_observed {
             self.caret_state.focus_observed = true;
+            if NATIVE_MAC_TITLEBAR {
+                let editor = cx.entity().downgrade();
+                // AppKit's initial layout can reset the native button frames.
+                // Reapplying the current title after the first frame asks GPUI
+                // to restore traffic_light_position without resizing the window.
+                window.on_next_frame(move |window, cx| {
+                    if let Some(editor) = editor.upgrade()
+                        && let Some(title) = &editor.read(cx).viewport.window_title
+                    {
+                        window.set_window_title(title);
+                    }
+                });
+            }
             cx.observe_window_appearance(window, |_, window, cx| {
                 cx.update_global::<theme::Settings, _>(|settings, _| {
                     settings.system = window.appearance();
@@ -395,28 +626,8 @@ impl Render for Editor {
             .and_then(|p| p.file_name())
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| self.locale.language.text(Text::Untitled).into());
-        let (stem, extension) = name
-            .rsplit_once('.')
-            .filter(|(stem, extension)| !stem.is_empty() && !extension.is_empty())
-            .unwrap_or((&name, ""));
-        let stem_line_height = px(27.);
-        let extension_line_height = px(18.);
-        let text_system = window.text_system();
-        let stem_font = text_system.resolve_font(&font(".SystemUIFont").bold());
-        let extension_font = text_system.resolve_font(&font(".SystemUIFont"));
-        // GPUI's flex layout synthesizes baselines from box bottoms. Align the
-        // actual text baselines by including each font's descent and leading.
-        let stem_depth =
-            stem_line_height - text_system.baseline_offset(stem_font, px(18.), stem_line_height);
-        let extension_depth = extension_line_height
-            - text_system.baseline_offset(extension_font, px(12.), extension_line_height);
-        let baseline_depth = stem_depth.max(extension_depth);
         let dock = self.sidebar_geometry(window);
         let sidebar = self.sidebar_view(cx);
-        let toolbar_page = theme::Page::new(
-            f32::from(window.viewport_size().width) - dock,
-            self.document.source_mode,
-        );
         let title = format!(
             "{}{} — Ryne",
             name,
@@ -474,8 +685,9 @@ impl Render for Editor {
             .on_action(cx.listener(Self::save))
             .on_action(cx.listener(Self::save_as))
             .on_action(cx.listener(Self::quit))
-            .when(!NATIVE_MAC_TITLEBAR || !window.is_fullscreen(), |view| {
-                view.child(self.window_header(window, cx))
+            .child(self.window_header(&name, sidebar.is_some(), window, cx))
+            .when(!NATIVE_MAC_TITLEBAR, |view| {
+                view.child(self.windows_menu_bar(sidebar.is_some(), window, cx))
             });
         let right = div()
             .flex()
@@ -483,164 +695,6 @@ impl Render for Editor {
             .flex_1()
             .min_w_0()
             .h_full()
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .flex_wrap()
-                    .gap_2()
-                    .pl(px(toolbar_page.left))
-                    .pr(px(20.))
-                    .py(px(2.))
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                svg()
-                                    .path("icon:clip")
-                                    .size(px(18.))
-                                    .flex_shrink_0()
-                                    .text_color(rgb(colors.ink)),
-                            )
-                            .child(
-                                div()
-                                    .flex()
-                                    .items_end()
-                                    .max_w(px(220.))
-                                    .child(
-                                        div()
-                                            .text_size(px(18.))
-                                            .line_height(stem_line_height)
-                                            .pb(baseline_depth - stem_depth)
-                                            .font_weight(FontWeight::BOLD)
-                                            .text_color(rgb(colors.heading_ink))
-                                            .text_ellipsis()
-                                            .child(stem.to_owned()),
-                                    )
-                                    .when(!extension.is_empty(), |row| {
-                                        row.child(
-                                            div()
-                                                .text_size(px(12.))
-                                                .line_height(extension_line_height)
-                                                .pb(baseline_depth - extension_depth)
-                                                .text_color(rgb(colors.muted))
-                                                .flex_shrink_0()
-                                                .child(format!(".{extension}")),
-                                        )
-                                    }),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .gap_2()
-                            .items_center()
-                            .child(
-                                div()
-                                    .id("toggle-sidebar")
-                                    .debug_selector(|| "toggle-sidebar".into())
-                                    .size(px(28.))
-                                    .flex_shrink_0()
-                                    .flex()
-                                    .items_center()
-                                    .justify_center()
-                                    .cursor_pointer()
-                                    .tooltip({
-                                        let label = self.locale.language.text(Text::Sidebar);
-                                        move |_, cx| cx.new(|_| ModeTooltip(label)).into()
-                                    })
-                                    .child(
-                                        svg()
-                                            .path(if sidebar.is_some() {
-                                                "icon:panel_left_expand"
-                                            } else {
-                                                "icon:panel_right_expand"
-                                            })
-                                            .size(px(18.))
-                                            .text_color(rgb(colors.ink)),
-                                    )
-                                    .on_mouse_down(
-                                        MouseButton::Left,
-                                        cx.listener(|s, _, w, cx| {
-                                            cx.stop_propagation();
-                                            s.sidebar_toggle(&ToggleSidebar, w, cx)
-                                        }),
-                                    ),
-                            )
-                            .child(
-                                div()
-                                    .id("format-source")
-                                    .debug_selector(|| "format-source".into())
-                                    .size(px(28.))
-                                    .flex_shrink_0()
-                                    .flex()
-                                    .items_center()
-                                    .justify_center()
-                                    .cursor_pointer()
-                                    .tooltip({
-                                        let label = self.locale.language.text(Text::FormatSource);
-                                        move |_, cx| cx.new(|_| ModeTooltip(label)).into()
-                                    })
-                                    .child(
-                                        svg()
-                                            .path("icon:format")
-                                            .size(px(18.))
-                                            .text_color(rgb(colors.ink)),
-                                    )
-                                    .on_mouse_down(
-                                        MouseButton::Left,
-                                        cx.listener(|this, _, window, cx| {
-                                            cx.stop_propagation();
-                                            this.format_source(&FormatSource, window, cx);
-                                        }),
-                                    )
-                                    .on_mouse_up(MouseButton::Left, |_, _, cx| {
-                                        cx.stop_propagation()
-                                    }),
-                            )
-                            .child(
-                                div()
-                                    .id("toggle-source")
-                                    .debug_selector(|| "toggle-source".into())
-                                    .size(px(28.))
-                                    .flex_shrink_0()
-                                    .flex()
-                                    .items_center()
-                                    .justify_center()
-                                    .rounded_md()
-                                    .cursor_pointer()
-                                    .tooltip({
-                                        let label = self.locale.language.text(
-                                            if self.document.source_mode {
-                                                Text::SourceMode
-                                            } else {
-                                                Text::ViewMode
-                                            },
-                                        );
-                                        move |_, cx| cx.new(|_| ModeTooltip(label)).into()
-                                    })
-                                    .child(
-                                        svg()
-                                            .path(if self.document.source_mode {
-                                                "icon:code"
-                                            } else {
-                                                "icon:eye"
-                                            })
-                                            .size(px(18.))
-                                            .text_color(rgb(colors.ink)),
-                                    )
-                                    .on_mouse_down(
-                                        MouseButton::Left,
-                                        cx.listener(|this, _, window, cx| {
-                                            this.toggle_source(&ToggleSource, window, cx)
-                                        }),
-                                    ),
-                            ),
-                    ),
-            )
             .child(
                 div()
                     .id("editor")

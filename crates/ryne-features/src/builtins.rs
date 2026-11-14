@@ -22,6 +22,7 @@ impl BuiltinFeature for Builtin {
         });
         let handlers: &[BuiltinCommand] = match self.id {
             "code" => &[BuiltinCommand::Code],
+            "formula" => &[BuiltinCommand::Math],
             "list" => &[BuiltinCommand::List],
             "quote" => &[BuiltinCommand::Quote],
             "table" => &[BuiltinCommand::Table],

@@ -13,6 +13,7 @@ pub enum InsertBlock {
     Table,
     Image,
     Formula,
+    BlockFormula,
     Rule,
 }
 

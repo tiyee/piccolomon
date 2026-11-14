@@ -206,3 +206,78 @@ pub fn fence(parse: &ParseSnapshot, caret: usize) -> Option<Fence> {
             })
         })
 }
+
+/// Completion is an input proposal; the parser must recognize the result.
+pub fn math_fence(parse: &ParseSnapshot, caret: usize) -> Option<Fence> {
+    let parse = parse.semantic();
+    let text = parse.source().text();
+    let start = caret.checked_sub(2)?;
+    if text.get(start..caret)? != "$$" {
+        return None;
+    }
+    let line = parse.index().line(start)?;
+    if !text[caret..line.end].trim().is_empty()
+        || ryne_syntax::math::cached(parse)
+            .iter()
+            .any(|f| f.range.start <= start && caret <= f.range.end)
+    {
+        return None;
+    }
+    if line.end < text.len()
+        && let Some(body) = parse.index().line(line.end)
+        && empty_math_body(
+            parse,
+            body.start + text[body.clone()].trim_end_matches(['\r', '\n']).len(),
+        )
+        .is_some()
+    {
+        return None;
+    }
+    let continuation = ryne_syntax::math::continuation(parse, start);
+    if continuation
+        .chars()
+        .any(|ch| !matches!(ch, '>' | ' ' | '\t'))
+    {
+        return None;
+    }
+    let candidate = format!(
+        "{}\n{continuation}x\n{continuation}$${}",
+        &text[..caret],
+        &text[caret..]
+    );
+    let parsed = ParseSnapshot::with_math(ryne_parser::Source::new(&candidate));
+    ryne_syntax::math::cached(&parsed)
+        .iter()
+        .any(|f| f.block && f.range.start == start)
+        .then_some(Fence {
+            range: line.start..caret,
+            closing: "$$".into(),
+            continuation,
+        })
+}
+
+pub fn empty_math_body(parse: &ParseSnapshot, caret: usize) -> Option<String> {
+    let parse = parse.semantic();
+    let text = parse.source().text();
+    let line = parse.index().line(caret)?;
+    let prefix = ryne_syntax::math::continuation(parse, caret);
+    if prefix.chars().any(|ch| !matches!(ch, '>' | ' ' | '\t'))
+        || !text[caret..line.end].trim().is_empty()
+    {
+        return None;
+    }
+    // Restrict the probe to a nearby opening/closing pair, including containers.
+    if !text[..line.start].trim_end().ends_with("$$")
+        || !text[line.end..]
+            .trim_start_matches(['>', ' ', '\t', '\r', '\n'])
+            .starts_with("$$")
+    {
+        return None;
+    }
+    let candidate = format!("{}x{}", &text[..caret], &text[caret..]);
+    let parsed = ParseSnapshot::with_math(ryne_parser::Source::new(&candidate));
+    ryne_syntax::math::cached(&parsed)
+        .iter()
+        .find(|f| f.block && f.content.contains(&caret))
+        .map(|f| ryne_syntax::math::continuation(&parsed, f.range.start))
+}

@@ -59,6 +59,29 @@ impl Planner<'_> {
     ) -> Result<(), Error> {
         let mut draft = InputDraft::new(self.state.source.id(), range.clone(), text, origin);
         draft.range.validate(&self.state.source)?;
+        if !self.state.source_mode
+            && !self.in_block_source(range.start)
+            && let Some(prefix) = ryne_syntax::math::cached(self.state.parse.semantic())
+                .iter()
+                .find(|f| f.block && f.range.start < range.start && range.end < f.range.end)
+                .map(|f| ryne_syntax::math::continuation(&self.state.parse, f.range.start))
+                .or_else(|| {
+                    (range.is_empty() && text.contains(['\r', '\n']))
+                        .then(|| crate::input::empty_math_body(&self.state.parse, range.start))
+                        .flatten()
+                })
+        {
+            let mut replacement = String::new();
+            for line in code_block::lines(text) {
+                replacement.push_str(&text[line.clone()]);
+                if text[..line.end].ends_with(['\r', '\n']) {
+                    replacement.push_str(&prefix);
+                }
+            }
+            draft.normalize(replacement);
+            self.apply_draft(&draft)?;
+            return Ok(());
+        }
         if let Some(table) = self.active_table(range.start) {
             let (r, c) = table.cell_at(range.start);
             let cell = &table.rows[r].cells[c].content;

@@ -7,6 +7,7 @@ pub(super) struct RenderFrameKey {
     sidebar_layout: u64,
     document: SnapshotId,
     epoch: u64,
+    control_generation: u64,
     bounds: Bounds<Pixels>,
     scroll: Pixels,
     viewport: Size<Pixels>,
@@ -65,6 +66,7 @@ impl Geometry {
             sidebar_layout: self.sidebar_layout,
             document: self.snapshot,
             epoch: self.frame_epoch,
+            control_generation: self.control_generation,
             bounds: self.bounds,
             scroll: self.scroll,
             viewport,
@@ -150,7 +152,7 @@ impl Editor {
     fn render_key_current(&self, key: &RenderFrameKey, window: &Window) -> bool {
         self.render_available()
             && self.viewport.geometry.as_ref().is_some_and(|g| {
-                g.is_current(self)
+                g.controls_current(self)
                     && g.scroll == self.viewport.scroll
                     && g.render_key(window.viewport_size()) == *key
             })
@@ -259,7 +261,7 @@ impl Editor {
         let Some(g) = &self.viewport.geometry else {
             return false;
         };
-        if !g.is_current(self) {
+        if !g.controls_current(self) {
             return false;
         }
         if self.menus.render_menu.is_some() {
@@ -387,7 +389,7 @@ impl Editor {
                 .viewport
                 .geometry
                 .as_ref()
-                .filter(|g| g.is_current(self))
+                .filter(|g| g.controls_current(self))
                 .and_then(|g| {
                     g.render_regions
                         .iter()
@@ -419,7 +421,7 @@ impl Editor {
             self.viewport
                 .geometry
                 .as_ref()
-                .filter(|g| g.is_current(self))
+                .filter(|g| g.controls_current(self))
                 .and_then(|g| {
                     g.render_regions
                         .iter()

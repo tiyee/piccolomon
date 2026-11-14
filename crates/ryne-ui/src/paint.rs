@@ -43,7 +43,21 @@ impl EditorElement {
                 let panel = &frame.geometry.text_layout.quote_panels[i];
                 let mut background = panel.bounds;
                 background.origin += quote_origin;
-                window.paint_quad(fill(background, rgb(colors.quote_bg)).corner_radii(px(6.)));
+                if let Some(alert) = &panel.alert {
+                    let kind = alert.source.kind;
+                    let dark = colors == theme::Palette::DARK;
+                    window.paint_quad(fill(
+                        background,
+                        rgb(ryne_projection::alert::background(kind, colors.paper, dark)),
+                    ));
+                    let border = Bounds::new(
+                        background.origin,
+                        size(px(4.).min(background.size.width), background.size.height),
+                    );
+                    window.paint_quad(fill(border, rgb(ryne_projection::alert::color(kind, dark))));
+                } else {
+                    window.paint_quad(fill(background, rgb(colors.quote_bg)).corner_radii(px(6.)));
+                }
             }
             for quad in &frame.table_quads {
                 window.paint_quad(quad.clone());
@@ -75,13 +89,42 @@ impl EditorElement {
                 if !icon.intersects(&bounds) {
                     continue;
                 }
-                let _ = window.paint_svg(
-                    icon,
-                    "icon:quoter".into(),
-                    TransformationMatrix::default(),
-                    rgb(colors.muted).into(),
-                    cx,
-                );
+                if let Some(alert) = &panel.alert {
+                    if let Some(title) = &panel.title {
+                        let mut clip = panel.bounds;
+                        clip.origin += quote_origin;
+                        // Preserve the enclosing viewport clip for long and narrow alerts.
+                        clip = clip.intersect(&bounds);
+                        window.with_content_mask(Some(ContentMask { bounds: clip }), |window| {
+                            let _ = window.paint_svg(
+                                icon,
+                                format!("icon:{}", ryne_projection::alert::icon(alert.source.kind))
+                                    .into(),
+                                TransformationMatrix::default(),
+                                rgb(ryne_projection::alert::color(
+                                    alert.source.kind,
+                                    colors == theme::Palette::DARK,
+                                ))
+                                .into(),
+                                cx,
+                            );
+                            let _ = title.paint(
+                                panel.title_origin + quote_origin,
+                                px(theme::BODY.1),
+                                window,
+                                cx,
+                            );
+                        });
+                    }
+                } else {
+                    let _ = window.paint_svg(
+                        icon,
+                        "icon:quoter".into(),
+                        TransformationMatrix::default(),
+                        rgb(colors.muted).into(),
+                        cx,
+                    );
+                }
             }
             for view in &frame.geometry.display.image_failures {
                 let height = frame

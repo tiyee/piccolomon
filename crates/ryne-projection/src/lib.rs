@@ -1,4 +1,5 @@
 //! Platform-independent display model and source mapping.
+pub mod alert;
 use ryne_parser::Affinity;
 use ryne_syntax::{code_block::CodeBlock, list, table};
 use std::{ops::Range, sync::Arc};
@@ -156,6 +157,7 @@ impl FlowSpacing {
 
 #[derive(Clone, Debug)]
 pub struct MathView {
+    pub block: bool,
     pub source: Range<usize>,
     pub display: Range<usize>,
     pub formula: Arc<Formula>,
@@ -184,12 +186,19 @@ pub struct ListView {
 /// A quote decorates the same editable source projection, including its children.
 #[derive(Clone, Debug, PartialEq)]
 pub struct QuoteView {
+    pub alert: Option<AlertView>,
     pub source: Range<usize>,
     pub display: Range<usize>,
     pub depth: usize,
     pub inset: usize,
     /// An empty last physical row has no visible byte, but still belongs to the quote.
     pub empty_tail: Option<usize>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct AlertView {
+    pub source: ryne_syntax::alert::Alert,
+    pub folded: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -201,7 +210,8 @@ pub struct TableView {
 
 impl PartialEq for MathView {
     fn eq(&self, other: &Self) -> bool {
-        self.source == other.source
+        self.block == other.block
+            && self.source == other.source
             && self.display == other.display
             && Arc::ptr_eq(&self.formula, &other.formula)
     }

@@ -174,7 +174,9 @@ fn outline_jump_dock_and_overlay_preserve_editor_state(cx: &mut TestAppContext) 
     let cap = cx.debug_bounds("sidebar-titlebar").unwrap();
     let panel = cx.debug_bounds("sidebar").unwrap();
     assert_eq!(cap.top(), px(0.));
-    assert_eq!(cap.bottom(), panel.top());
+    let menu_bar = cx.debug_bounds("window-menu-bar").unwrap();
+    assert_eq!(cap.bottom(), menu_bar.top());
+    assert_eq!(menu_bar.bottom(), panel.top());
     assert_eq!(cap.right(), panel.right());
     assert_eq!(
         cx.debug_bounds("document-titlebar").unwrap().left(),

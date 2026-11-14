@@ -1,0 +1,16 @@
+{"baseline": "e0edd9e4d14905084a1577ee1bdb473dcb578bb2 plus existing core history edits and current implementation", "platform": "macOS 15.8.1 x86_64", "rust": "1.99.1", "profile": "release", "date": "2026-11-14", "kind": "initial characterization; three samples, not percentile acceptance"}
+{"bytes": 1048576, "blocks": 16384, "pieces": 32768, "samples": 3, "debug": false}
+{"stage": "source_apply", "min_ms": 0.422, "median_ms": 0.427, "max_ms": 1.19}
+{"stage": "parse", "min_ms": 59.047, "median_ms": 61.964, "max_ms": 73.792}
+{"stage": "directory_new", "min_ms": 3.398, "median_ms": 3.981, "max_ms": 4.733}
+{"stage": "directory_update", "min_ms": 18.329, "median_ms": 18.917, "max_ms": 21.367}
+{"bytes": 5242880, "blocks": 81920, "pieces": 163840, "samples": 3, "debug": false}
+{"stage": "source_apply", "min_ms": 9.596, "median_ms": 11.719, "max_ms": 13.24}
+{"stage": "parse", "min_ms": 318.861, "median_ms": 330.475, "max_ms": 380.614}
+{"stage": "directory_new", "min_ms": 26.174, "median_ms": 28.899, "max_ms": 29.179}
+{"stage": "directory_update", "min_ms": 110.357, "median_ms": 116.19, "max_ms": 124.626}
+{"bytes": 10485760, "blocks": 163840, "pieces": 327680, "samples": 3, "debug": false}
+{"stage": "source_apply", "min_ms": 26.646, "median_ms": 27.081, "max_ms": 28.269}
+{"stage": "parse", "min_ms": 668.538, "median_ms": 669.343, "max_ms": 766.592}
+{"stage": "directory_new", "min_ms": 51.85, "median_ms": 52.584, "max_ms": 60.538}
+{"stage": "directory_update", "min_ms": 229.931, "median_ms": 239.127, "max_ms": 251.735}

@@ -54,6 +54,9 @@ impl AssetSource for Assets {
                 "divider" => &include_bytes!("../../../assets/icons/divider.svg")[..],
                 "image" => &include_bytes!("../../../assets/icons/image.svg")[..],
                 "image_failed" => &include_bytes!("../../../assets/icons/image_failed.svg")[..],
+                "math_format_professional" => {
+                    &include_bytes!("../../../assets/icons/math_format_professional.svg")[..]
+                }
                 "mermaid" => &include_bytes!("../../../assets/icons/mermaid.svg")[..],
                 "table" => &include_bytes!("../../../assets/icons/table.svg")[..],
                 "more_vertical" => &include_bytes!("../../../assets/icons/more_vertical.svg")[..],
@@ -77,6 +80,14 @@ impl AssetSource for Assets {
                 "text_t" => &include_bytes!("../../../assets/icons/text_t.svg")[..],
                 "text_quote" => &include_bytes!("../../../assets/icons/text_quote.svg")[..],
                 "quote_bubble" => &include_bytes!("../../../assets/icons/quote_bubble.svg")[..],
+                "alert" => &include_bytes!("../../../assets/icons/alert.svg")[..],
+                "alert_note" => &include_bytes!("../../../assets/icons/alert_note.svg")[..],
+                "alert_tip" => &include_bytes!("../../../assets/icons/alert_tip.svg")[..],
+                "alert_important" => {
+                    &include_bytes!("../../../assets/icons/alert_important.svg")[..]
+                }
+                "alert_warning" => &include_bytes!("../../../assets/icons/alert_warning.svg")[..],
+                "alert_caution" => &include_bytes!("../../../assets/icons/alert_caution.svg")[..],
                 "quoter" => &include_bytes!("../../../assets/icons/quoter.svg")[..],
                 "text_header_1" => &include_bytes!("../../../assets/icons/text_header_1.svg")[..],
                 "text_header_2" => &include_bytes!("../../../assets/icons/text_header_2.svg")[..],

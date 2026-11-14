@@ -1,0 +1,13 @@
+[package]
+name = "ryne-block-tree-probe"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+pulldown-cmark = { version = "=0.13.6", default-features = false }
+pulldown-cmark-to-cmark = "=23.0.1"
+tempfile = "=3.27.0"
+unicode-segmentation = "=1.13.3"

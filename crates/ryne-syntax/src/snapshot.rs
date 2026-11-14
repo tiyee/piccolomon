@@ -9,6 +9,7 @@ use std::{
 pub struct ParseSnapshot {
     inner: ryne_parser::ParseSnapshot,
     normalized: OnceLock<Option<Box<Self>>>,
+    pub(crate) alerts: OnceLock<Vec<crate::alert::Alert>>,
     pub(crate) codes: OnceLock<Vec<code_block::CodeBlock>>,
     pub(crate) images: OnceLock<Vec<crate::image::ImageBlock>>,
     pub(crate) items: OnceLock<Vec<list::Item>>,
@@ -39,6 +40,7 @@ impl ParseSnapshot {
         Self {
             inner: ryne_parser::ParseSnapshot::with_dialect_and_math(source, dialect, math_enabled),
             normalized: OnceLock::new(),
+            alerts: OnceLock::new(),
             codes: OnceLock::new(),
             images: OnceLock::new(),
             items: OnceLock::new(),
@@ -168,6 +170,7 @@ impl SemanticIndex {
                     | NodeKind::Table(_)
                     | NodeKind::HtmlBlock
                     | NodeKind::Rule
+                    | NodeKind::DisplayMath(_)
                     | NodeKind::SourceBlock
             ) {
                 blocks.push((node.envelope.clone(), id));

@@ -107,7 +107,26 @@ Leave a closed `mermaid` block to see its diagram. Click the preview or enter wi
 
 Energy: $E = mc^2$. Fractions and indices: $\frac{a_1}{\sqrt{b}}$.
 
-Use a single `$` on each side of one-line LaTeX. Click or navigate into a formula to edit its source; leave to see the formula. Formulas also work in lists and table cells. Display math (`$$...$$`), multiline formulas, missing glyphs and unsupported formulas remain source.
+Use a single `$` on each side of one-line LaTeX. Click or navigate into a formula to edit its source; leave to see the formula. Formulas also work in lists and table cells. Missing glyphs and unsupported formulas remain source.
+
+## Block equations
+
+Summation:
+
+$$
+\sum_{i=1}^{n} i = \frac{n(n+1)}{2}
+$$
+
+A matrix written across multiple source lines:
+
+$$
+\begin{pmatrix}
+1 & 2 \\
+3 & 4
+\end{pmatrix}
+$$
+
+Wrap LaTeX in `$$` in its own paragraph to show a centered equation. Click or use arrow keys to edit its complete source. Press Enter after a standalone `$$` to complete the closing delimiter; Enter inside the body inserts a newline. Lists, quotes and PDF export are supported; source mode keeps literal input. Empty or unrecognized equations and some alignment environments remain editable source.
 
 ## Tables
 
@@ -120,6 +139,25 @@ Use a single `$` on each side of one-line LaTeX. Click or navigate into a formul
 Click a cell to edit. Tab / Shift+Tab move between cells; Enter moves down in the same column. Moving past the last row can append a row. Shift+Enter adds `<br>` inside a cell. Pipes typed or pasted into cells are escaped automatically.
 
 The cell's three-dot menu changes alignment and inserts, moves or deletes rows and columns. Alt+Enter opens the focused cell menu; arrows, Enter and Escape navigate it. Use block source to edit separators. Uneven column counts stay source. Column resizing and multi-cell TSV paste are not available yet.
+
+## Alerts
+
+These examples show the five alert types. Keep the type markers in English and edit the body as needed. Leave a blank line between separate alerts.
+
+> [!NOTE]
+> A note highlights information readers should know, even when skimming.
+
+> [!TIP]
+> A tip offers useful advice or techniques to make a task easier.
+
+> [!IMPORTANT]
+> An important alert highlights the key information needed to achieve a goal.
+
+> [!WARNING]
+> A warning calls for immediate attention to help prevent problems.
+
+> [!CAUTION]
+> A caution explains the risks or negative consequences of an action.
 
 ## Quotes, images, separators and raw text
 

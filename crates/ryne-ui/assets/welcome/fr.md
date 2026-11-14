@@ -107,7 +107,26 @@ Quittez un bloc `mermaid` fermé pour afficher le diagramme. Cliquez sur l'aper�
 
 Énergie : $E = mc^2$. Fractions et indices : $\frac{a_1}{\sqrt{b}}$.
 
-Placez un seul `$` de chaque côté du LaTeX sur une ligne. Cliquez ou utilisez les flèches pour modifier la source ; quittez la formule pour la voir. Les listes et cellules de tableau les acceptent aussi. Les formules séparées (`$$...$$`), multilignes, sans glyphes disponibles ou non prises en charge restent en source.
+Placez un seul `$` de chaque côté du LaTeX sur une ligne. Cliquez ou utilisez les flèches pour modifier la source ; quittez la formule pour la voir. Les listes et cellules de tableau les acceptent aussi. Les formules sans glyphes disponibles ou non prises en charge restent en source.
+
+## Équations en bloc
+
+Une somme :
+
+$$
+\sum_{i=1}^{n} i = \frac{n(n+1)}{2}
+$$
+
+Une matrice écrite sur plusieurs lignes :
+
+$$
+\begin{pmatrix}
+1 & 2 \\
+3 & 4
+\end{pmatrix}
+$$
+
+Entourez le LaTeX de `$$` dans un paragraphe distinct pour afficher une équation centrée. Cliquez ou utilisez les flèches pour modifier sa source complète. Entrée après un `$$` isolé complète le délimiteur de fermeture ; dans le corps, Entrée insère un saut de ligne. Les listes, citations et exports PDF sont pris en charge. Le mode source conserve la saisie littérale. Les équations vides ou non reconnues et certains environnements d’alignement restent en source.
 
 ## Tableaux
 
@@ -120,6 +139,25 @@ Placez un seul `$` de chaque côté du LaTeX sur une ligne. Cliquez ou utilisez 
 Cliquez dans une cellule pour la modifier. Tab / Maj+Tab passent d'une cellule à l'autre ; Entrée descend dans la même colonne. Dépasser la dernière ligne peut en ajouter une. Maj+Entrée ajoute `<br>` dans la cellule. Les barres verticales saisies ou collées sont échappées automatiquement.
 
 Le menu à trois points de la cellule change l'alignement, insère, déplace ou supprime des lignes et colonnes. Alt+Entrée ouvre le menu actif ; les flèches, Entrée et Échap le contrôlent. Modifiez les séparateurs dans la source du bloc. Les tableaux irréguliers restent en source. Le redimensionnement des colonnes et le collage TSV dans plusieurs cellules ne sont pas encore disponibles.
+
+## Alertes
+
+Ces exemples présentent les cinq types d’alertes. Gardez les marqueurs de type en anglais et modifiez librement le contenu. Séparez les alertes par une ligne vide.
+
+> [!NOTE]
+> Une note souligne une information à connaître, même lors d’une lecture rapide.
+
+> [!TIP]
+> Un conseil propose des astuces utiles pour faciliter une tâche.
+
+> [!IMPORTANT]
+> Une information importante indique ce qu’il faut savoir pour atteindre un objectif.
+
+> [!WARNING]
+> Un avertissement attire immédiatement l’attention pour éviter des problèmes.
+
+> [!CAUTION]
+> Une mise en garde explique les risques ou les conséquences négatives d’une action.
 
 ## Citations, images, séparateurs et texte brut
 

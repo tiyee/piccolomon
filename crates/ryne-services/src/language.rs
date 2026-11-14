@@ -43,6 +43,8 @@ impl TreeSitterLanguageDetector {
             ("tsx", tree_sitter_typescript::LANGUAGE_TSX.into()),
             ("json", tree_sitter_json::LANGUAGE.into()),
             ("bash", tree_sitter_bash::LANGUAGE.into()),
+            ("java", tree_sitter_java::LANGUAGE.into()),
+            ("go", tree_sitter_go::LANGUAGE.into()),
         ] {
             if Instant::now() >= deadline {
                 return DetectionOutcome::Deferred;
@@ -139,6 +141,22 @@ impl TreeSitterLanguageDetector {
                             )
                             && node.parent().is_some_and(|p| p.child_count() > 1)
                     }
+                    "java" => matches!(
+                        kind,
+                        "class_declaration"
+                            | "interface_declaration"
+                            | "enum_declaration"
+                            | "method_declaration"
+                            | "constructor_declaration"
+                            | "package_declaration"
+                    ),
+                    "go" => matches!(
+                        kind,
+                        "function_declaration"
+                            | "method_declaration"
+                            | "type_declaration"
+                            | "package_clause"
+                    ),
                     _ => false,
                 };
                 for index in 0..node.named_child_count() {
