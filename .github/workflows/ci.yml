@@ -16,9 +16,13 @@ env:
 
 jobs:
   check:
-    name: Check Rust workspace
-    runs-on: macos-15
+    name: Check Rust workspace (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -28,11 +32,42 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ci-macos-15
+          key: ci-${{ matrix.runner }}
       - name: Check architecture and formatting
         run: |
           python3 scripts/check-architecture.py
+          python3 scripts/test-check-architecture.py
           cargo fmt --check
+      - name: Run tests
+        run: cargo test --locked
+      - name: Run Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+  windows:
+    name: Check Windows workspace
+    runs-on: windows-2025
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ci-windows-2025
+      - name: Check architecture and formatting
+        run: |
+          python scripts/check-architecture.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/test-check-architecture.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo fmt --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run tests
         run: cargo test --locked
       - name: Run Clippy

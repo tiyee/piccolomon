@@ -1,0 +1,305 @@
+warning: `/Users/jiangtao/.cargo/config` is deprecated in favor of `config.toml`
+  |
+  = help: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+   Compiling ryne-ui v0.2.9 (/Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui)
+   Compiling ryne-app v0.2.9 (/Users/jiangtao/code/github.com/piccolomon)
+    Finished `test` profile [unoptimized] target(s) in 18.78s
+     Running unittests src/main.rs (target/debug/deps/ryne-92a6657ef775c6e6)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/export-pdf.rs (target/debug/examples/export_pdf-87c31cdb4de2576e)
+
+running 2 tests
+test tests::folded_export_keeps_editor_state_and_literal_fallbacks ... ok
+test tests::export_paginates_long_paragraphs_code_and_table_cells ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.01s
+
+     Running unittests examples/windows-icon.rs (target/debug/examples/windows_icon-0810887bed04a94d)
+
+running 2 tests
+test icon::tests::invalid_svg_is_reported ... ok
+test icon::tests::logo_has_decodable_images_at_every_shell_size ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running unittests src/lib.rs (target/debug/deps/ryne_core-bc2fad83c27dede4)
+
+running 6 tests
+test tests::invalid_and_stale_candidates_never_publish_or_change_history ... ok
+test tests::multi_edit_history_and_written_snapshot_baseline_are_atomic ... ok
+test tests::recovered_source_has_no_saved_baseline_until_first_save ... ok
+test tests::history_publication_requires_the_prepared_entry_and_direction ... ok
+test tests::dirty_preserves_exact_bytes_through_retyping_old_receipts_and_history ... ok
+test tests::history_accounting_observes_large_inverse_edits_without_changing_history ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running unittests src/lib.rs (target/debug/deps/ryne_extensions-ee49366ed3f710d0)
+
+running 27 tests
+test cancellation_tests::cancellation_relays_are_scoped_and_run_once_across_clones ... ok
+test export::tests::registration_dispatches_and_preserves_naming ... ok
+test cancellation_tests::cancellation_contains_panics_and_allows_reentrant_relays ... ok
+test preview::tests::stale_semantics_clear_the_cache_before_invoking_providers ... ok
+test preview::tests::unknown_provider_recomputes_without_invalidating_stable_provider_or_precedence ... ok
+test registry::registration_tests::recovering_from_a_duplicate_still_publishes_the_original_command ... ok
+test preview::tests::document_candidates_merge_with_fences_and_share_cache_validation_and_identity ... ok
+test preview::tests::faults_and_unstable_generation_do_not_poison_healthy_candidates ... ok
+test registry::registration_tests::rejected_duplicates_preserve_every_provider_and_staged_contribution ... ok
+test preview::tests::late_provider_failure_preserves_its_successful_prefix_and_healthy_fallbacks ... ok
+test preview::tests::source_generation_and_provider_identity_invalidate_only_affected_entries ... ok
+test registry_tests::dependency_and_exclusive_conflicts_fail_before_publication ... ok
+test registry_tests::a_module_publishes_controls_templates_preview_and_ui_atomically ... ok
+test registry_tests::explicit_order_is_deterministic_independent_of_registration_input ... ok
+test registry_tests::execution_uses_validated_priority_dependencies_and_first_acceptance ... ok
+test registry_tests::slot_priority_respects_explicit_edges_without_alphabetical_precedence ... ok
+test render_actions::cache_tests::primary_provider_is_conservative_and_can_declare_selection_and_input_dependencies ... ok
+test render_actions::cache_tests::stale_semantics_cannot_bypass_validation_via_a_cached_control ... ok
+test host::tests::diagnostic_log_bounds_duplicates_count_bytes_and_unicode ... ok
+test render_actions::cache_tests::faults_and_changing_generations_never_poison_healthy_contributors ... ok
+test render_actions::cache_tests::targeted_execution_revalidates_without_full_batch_and_isolates_failures ... ok
+test render_actions::cache_tests::undeclared_controls_recompute_only_their_own_contribution_and_empty_results_reuse ... ok
+test render_actions::cache_tests::registered_identity_is_never_requeried_by_cache_diagnostics_execution_or_extension ... ok
+test preview::tests::candidates_are_bounded_and_merge_in_original_block_and_provider_order ... ok
+test render_actions::cache_tests::declared_inputs_and_provider_identity_match_uncached_controls ... ok
+test cancellation_tests::cancellation_registration_cannot_miss_a_concurrent_cancel ... ok
+test preview::tests::source_candidates_and_negative_matches_survive_view_changes_without_scanning ... ok
+
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running unittests src/lib.rs (target/debug/deps/ryne_features-d8d7e33912f9c9a2)
+
+running 29 tests
+test presentation::contribution::tests::invalid_component_is_rejected_before_any_masks_change ... ok
+test presentation::diagram_tests::failed_render_keeps_literal_editable_code_and_diagnostic ... ok
+test presentation::math_tests::invalid_and_multiline_formulas_keep_raw_latex ... ok
+test presentation::tests::code_images_tables_and_incomplete_inline_remain_editable ... ok
+test presentation::tests::empty_code_has_an_editable_anchor_and_drafts_remain_visible ... ok
+test presentation::tests::empty_lists_unrecognized_markers_and_code_literals_are_not_lost ... ok
+test presentation::tests::code_indentation_and_nested_containers_preserve_actual_code_spaces ... ok
+test presentation::tests::empty_quote_drafts_remain_visible_and_editable ... ok
+test presentation::tests::code_blocks_fold_fences_keep_literal_text_and_map_unicode_and_crlf ... ok
+test presentation::math_tests::short_math_is_atomic_even_when_source_and_object_have_equal_byte_length ... ok
+test presentation::tests::hidden_markers_map_content_and_crlf_without_splitting_unicode ... ok
+test list_actions::extent_tests::indexed_extents_match_scan_and_borrow_snapshot_directories ... ok
+test presentation::tests::nested_inline_reveal_keeps_quote_presentation_and_source_unchanged ... ok
+test presentation::tests::headings_fold_structural_syntax_and_keep_levels_and_source_maps ... ok
+test presentation::math_tests::table_formula_source_keeps_literal_break_tags ... ok
+test presentation::tests::quotes_in_lists_and_lazy_continuations_use_the_container_range ... ok
+test presentation::tests::lists_fold_markers_render_semantic_numbers_and_preserve_nested_mapping ... ok
+test presentation::math_tests::math_reveal_expands_inline_ancestors_and_keeps_latex_literal ... ok
+test presentation::tests::table_projection_hides_grid_syntax_styles_cells_and_maps_unicode_escapes_and_empty_cells ... ok
+test presentation::typography_tests::local_source_and_nested_paragraphs_keep_semantic_boundaries ... ok
+test presentation::tests::table_raw_fallback_preserves_unaccounted_content_and_source_mode_preserves_markers ... ok
+test presentation::typography_tests::semantic_spacing_keeps_separators_and_code_literal_for_all_newlines ... ok
+test presentation::tests::quote_decoration_preserves_nested_mapping_literal_code_and_source_modes ... ok
+test presentation::math_tests::math_in_nested_list_and_table_keeps_anchors_and_source_entry ... ok
+test target_action_tests::target_controls_match_full_actions_for_containers_and_newlines ... ok
+test target_action_tests::large_table_target_builds_one_control ... ok
+test presentation::diagram_tests::diagrams_are_atomic_and_keep_adjacent_blocks_and_line_endings ... ok
+test presentation::legacy::interval_composition_matches_byte_oracle_for_structure_reveal_and_source_modes ... ok
+test list_actions::extent_tests::mixed_lists_and_fences_have_logarithmic_code_queries ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.75s
+
+     Running unittests src/lib.rs (target/debug/deps/ryne_parser-94c128f7459106f2)
+
+running 21 tests
+test tests::adjacent_deletions_have_unambiguous_inverse ... ok
+test tests::invalid_utf8_boundary_is_rejected ... ok
+test tests::atomic_multi_edit_and_inverse ... ok
+test tests::adjacent_replacement_boundary_maps_once ... ok
+test tests::crlf_is_atomic ... ok
+test tests::composition_commit_once_cancel_no_change ... ok
+test tests::insertion_affinity ... ok
+test tests::no_op_does_not_create_a_revision ... ok
+test tests::composed_grapheme_crosses_nodes ... ok
+test tests::entity_mapping_is_atomic ... ok
+test tests::direct_projection_mapping ... ok
+test tests::overlapping_edits_are_rejected ... ok
+test tests::long_code_delimiter_is_not_truncated ... ok
+test tests::semantic_entity_partial_delete_with_inverse ... ok
+test tests::session_survives_strong_to_rule_to_strong ... ok
+test tests::stale_source_is_rejected ... ok
+test tests::task_state_changes_only_one_byte ... ok
+test tests::source_bytes_survive_partition ... ok
+test tests::utf16_surrogate_middle_is_rejected ... ok
+test tests::unresolved_reference_reparses ... ok
+test tests::deterministic_edit_sequences_roundtrip ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/backend_upgrade.rs (target/debug/deps/backend_upgrade-1ca5b7776736404f)
+
+running 3 tests
+test backend_upgrade_keeps_optional_extensions_explicit ... ok
+test nested_wikilink_like_text_stays_literal_and_reversibly_editable ... ok
+test upstream_nested_image_wikilink_fix_prefers_the_innermost_image ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/editing.rs (target/debug/deps/editing-6db048b8a1bebc61)
+
+running 26 tests
+test mapped_cursor_repairs_crlf_while_byte_map_remains_exact ... ok
+test inverse_absorbs_new_crlf_and_merges_neighboring_patches ... ok
+test drag_freezes_reveal_and_composition_keeps_source_visible ... ok
+test final_projection_validates_cross_node_graphemes ... ok
+test invalid_session_transform_is_atomic_and_copy_defaults_to_markdown ... ok
+test deletion_at_display_endpoints_does_not_rewrite_entities ... ok
+test multiline_inline_reveal_excludes_container_prefix_and_offers_block_fallback ... ok
+test html_block_comment_rules_differ_from_inline_comments ... ok
+test bidirectional_mapping_returns_hidden_reveal_and_rejects_stale_hits ... ok
+test deleting_preview_format_content_does_not_create_a_rule ... ok
+test hidden_markers_map_to_final_grapheme_edges_and_source_eof ... ok
+test generated_objects_and_multiple_sources_retain_explicit_origins ... ok
+test parse_reference_dependencies_include_unresolved_users_and_definition_origins ... ok
+test planner_accepts_partial_entity_edits_between_direct_runs_and_rejects_old_hits ... ok
+test planner_handles_entity_partial_delete_without_manual_source_ranges ... ok
+test production_html_filters_tags_without_modifying_source ... ok
+test planner_reports_no_change_reveal_confirmation_and_unsupported ... ok
+test quote_prefixes_belong_to_containers_not_strong ... ok
+test snapshot_bound_objects_reject_other_documents_and_branches ... ok
+test planner_toggles_tasks_removes_format_and_escapes_tables ... ok
+test unicode_17_combining_mark_spans_projection_runs ... ok
+test source_session_and_selection_survive_strong_rule_strong ... ok
+test syntax_owner_indices_cover_unicode_and_nested_containers ... ok
+test reference_definition_blank_lines_preserve_html_and_source_ranges ... ok
+test planner_uses_final_graphemes_for_directional_delete ... ok
+test randomized_multiple_patches_restore_exact_bytes ... ok
+
+test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/gfm_fixtures.rs (target/debug/deps/gfm_fixtures-1d991ac81618e2d6)
+
+running 3 tests
+test backend_output_matches_every_recorded_difference ... ok
+test all_pinned_gfm_inputs_preserve_source_bytes ... ok
+test owned_semantic_renderer_matches_fixed_gfm_examples ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/math.rs (target/debug/deps/math-2afd537f17547943)
+
+running 3 tests
+test math_does_not_parse_in_code_html_destinations_or_escaped_dollars ... ok
+test opt_in_math_has_literal_content_and_exact_marker_ownership ... ok
+test nested_math_object_reveals_source_and_reversible_edit_preserves_crlf ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/ryne_projection-c410514b7c6dcde3)
+
+running 8 tests
+test code_row_index::tests::matches_scan_for_empty_duplicate_unordered_and_non_start_positions ... ok
+test validation::tests::fallback_maps_unicode_and_crlf_without_losing_source_bytes ... ok
+test validation::tests::same_byte_length_cannot_disguise_incompatible_character_boundaries ... ok
+test indexed::tests::special_anchor_precedence_and_overlapping_flow_are_preserved ... ok
+test validation::tests::diagram_objects_require_order_unique_complete_ranges_and_matching_spans ... ok
+test code_row_index::tests::matches_scan_for_long_code_and_rebuilt_display ... ok
+test indexed::tests::indexed_mapping_and_graphemes_match_full_scans ... ok
+test indexed::tests::adjacent_boundaries_match_complete_unicode_segmentation_at_every_byte ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src/lib.rs (target/debug/deps/ryne_services-3f78bc1b6dbc21f4)
+
+running 50 tests
+test highlight::tests::retries_use_full_budgets_and_persistent_timeouts_converge_without_starving_later_code ... ok
+test highlight::tests::reordered_and_changed_content_keeps_retry_allowance_and_negative_cache_distinct ... ok
+test highlight::tests::partial_budget_timeout_retries_real_detection_with_a_fresh_budget ... FAILED
+test highlight::tests::automatic_highlighting_caches_success_failure_and_remaps_without_source_edits ... FAILED
+test highlight::tests::detection_limits_finish_with_plain_code_and_reclaim_removed_content ... ok
+test highlight::tests::first_batch_many_automatic_blocks_eventually_complete ... FAILED
+test images::tests::decodes_pixels_and_preserves_alpha ... ok
+test images::tests::invalid_oversized_and_cancelled_sources_fail_without_partial_images ... ok
+test files::artifact_tests::replaces_binary_output_and_cleans_up_failed_rename ... ok
+test images::tests::file_and_data_urls_support_raster_svg_and_encoded_names ... ok
+test directory::tests::supported_documents_bounded_reads_and_filtered_entries_count ... ok
+test images::tests::network::http_loads_svg_by_content_without_a_filename_extension ... ok
+test images::tests::user_example_downloads_and_decodes ... ignored, explicit external network integration check
+test language::tests::ambiguous_literal_incomplete_and_oversized_input_stays_unlabelled ... ok
+test language::tests::distinctive_valid_code_uses_bundled_languages ... FAILED
+test language::tests::expired_deadline_is_not_a_completed_negative_detection ... ok
+test highlight::tests::unknown_plain_empty_and_oversized_code_fall_back_without_parsing ... ok
+test math::cache::tests::evicted_live_formulas_remain_reusable_but_are_not_kept_alive ... ok
+test math::tests::conversion_warnings_and_css_dependent_output_keep_source ... ok
+test math::tests::embedded_paths_and_inline_metrics ... ok
+test images::tests::network::ftp_downloads_binary_raster_and_svg_with_epsv_and_pasv ... ok
+test math::tests::font_choice_partitions_metrics_assets_cache_and_frozen_renderer ... ok
+test math::tests::macro_expansion_keeps_source_without_recursion_or_cross_formula_state ... ok
+test math::block_tests::display_mode_is_distinct_frozen_and_multiline ... ok
+test math::tests::missing_glyphs_unsupported_variants_and_invalid_input_keep_source ... ok
+test images::tests::svg_resources_are_self_contained_and_complexity_is_bounded ... ok
+test mermaid::tests::cache_is_content_addressed_and_bounded ... ok
+test mermaid::tests::extracts_only_closed_mermaid_fences_and_preserves_container_bytes ... ok
+test highlight::tests::shared_deadline_defers_without_spending_attempts_and_next_pass_resumes ... FAILED
+test images::tests::network::ftp_cancellation_interrupts_blocking_handshake ... ok
+test highlight::tests::cache_tracks_body_and_language_but_remaps_moved_blocks ... ok
+test math::tests::upgraded_converter_preserves_supported_math_in_both_fonts ... ok
+test images::tests::network::ftp_rejects_truncated_oversized_and_stalled_transfers ... ok
+test pdf_tests::exports_one_empty_a4_page ... ok
+test print_layout::tests::alert_title_and_decoration_survive_page_breaks ... ok
+test print_layout::tests::mixed_formulas_reserve_both_maximum_ascent_and_descent ... ok
+test print_layout::tests::folded_task_states_survive_print_including_empty_items ... ok
+test print_layout::tests::unsupported_control_characters_fail_instead_of_disappearing ... ok
+test pdf_tests::rejects_invalid_text_and_document_limits ... ok
+test updates::tests::checks_versions_and_rejects_invalid_release_data ... ok
+test mermaid::tests::renders_color_unicode_and_errors_without_panicking ... ok
+test print_layout::tests::ordered_print_lookup_produces_the_same_scenes_as_linear_lookup ... ok
+test mermaid::tests::presentation_preserves_source_configuration_over_host_defaults ... ok
+test math::tests::formulary_svg_metrics_and_rasters_match_at_text_and_zoom_sizes ... ok
+test highlight::tests::bundled_grammars_and_aliases_highlight_real_tokens ... ok
+test images::tests::data_larger_than_old_url_limit_decodes_but_expansion_is_bounded ... ok
+test pdf_tests::encodes_every_page_of_a_long_document ... ok
+test images::tests::large_images_are_downsampled_without_changing_the_layout_aspect_ratio ... ok
+test highlight::tests::multiline_tokens_map_through_nested_prefixes_and_all_line_endings ... ok
+test mermaid::tests::basic_diagram_families_render_through_the_pinned_backend ... ok
+
+failures:
+
+---- highlight::tests::partial_budget_timeout_retries_real_detection_with_a_fresh_budget stdout ----
+
+thread 'highlight::tests::partial_budget_timeout_retries_real_detection_with_a_fresh_budget' (31054426) panicked at crates/ryne-services/src/highlight.rs:559:9:
+assertion failed: !h.spans(raw, block).is_empty()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- highlight::tests::automatic_highlighting_caches_success_failure_and_remaps_without_source_edits stdout ----
+
+thread 'highlight::tests::automatic_highlighting_caches_success_failure_and_remaps_without_source_edits' (31054420) panicked at crates/ryne-services/src/highlight.rs:801:13:
+assertion failed: first.iter().any(|s| s.class == Class::Keyword)
+
+---- highlight::tests::first_batch_many_automatic_blocks_eventually_complete stdout ----
+
+thread 'highlight::tests::first_batch_many_automatic_blocks_eventually_complete' (31054424) panicked at crates/ryne-services/src/highlight.rs:660:21:
+assertion `left == right` failed
+  left: 0
+ right: 8
+
+---- language::tests::distinctive_valid_code_uses_bundled_languages stdout ----
+
+thread 'language::tests::distinctive_valid_code_uses_bundled_languages' (31054463) panicked at crates/ryne-services/src/language.rs:221:13:
+assertion `left == right` failed: fn main() { let s = "中😀"; }
+  left: None
+ right: Some("rust")
+
+---- highlight::tests::shared_deadline_defers_without_spending_attempts_and_next_pass_resumes stdout ----
+
+thread 'highlight::tests::shared_deadline_defers_without_spending_attempts_and_next_pass_resumes' (31054429) panicked at crates/ryne-services/src/highlight.rs:885:9:
+assertion failed: !h.spans(raw, block).is_empty()
+
+
+failures:
+    highlight::tests::automatic_highlighting_caches_success_failure_and_remaps_without_source_edits
+    highlight::tests::first_batch_many_automatic_blocks_eventually_complete
+    highlight::tests::partial_budget_timeout_retries_real_detection_with_a_fresh_budget
+    highlight::tests::shared_deadline_defers_without_spending_attempts_and_next_pass_resumes
+    language::tests::distinctive_valid_code_uses_bundled_languages
+
+test result: FAILED. 44 passed; 5 failed; 1 ignored; 0 measured; 0 filtered out; finished in 2.23s
+
+error: test failed, to rerun pass `-p ryne-services --lib`

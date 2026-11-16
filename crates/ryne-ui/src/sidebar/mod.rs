@@ -276,9 +276,9 @@ impl Editor {
         self.sidebar.folder_menu = false;
         self.sidebar.prefs.visible = !self.sidebar.prefs.visible;
         if self.sidebar.prefs.visible {
-            window.focus(&self.sidebar.focus)
+            window.focus(&self.sidebar.focus, cx)
         } else {
-            window.focus(&self.focus)
+            window.focus(&self.focus, cx)
         }
         self.sidebar_geometry(window);
         self.persist_sidebar();
@@ -307,7 +307,7 @@ impl Editor {
         if pane != Pane::Outline {
             self.sidebar.prefs.list = pane == Pane::List
         }
-        window.focus(&self.sidebar.focus);
+        window.focus(&self.sidebar.focus, cx);
         self.persist_sidebar();
         cx.notify();
     }
@@ -357,7 +357,7 @@ impl Editor {
         self.sidebar.browse_focus[pane.index()] = Some(path.clone());
         if kind != EntryKind::Document {
             if kind == EntryKind::Directory && !self.sidebar_protected() {
-                window.focus(&self.sidebar.focus);
+                window.focus(&self.sidebar.focus, cx);
                 if !self.sidebar.browser.expanded.insert(path.clone()) {
                     self.sidebar.browser.expanded.remove(&path);
                     if self
@@ -384,7 +384,7 @@ impl Editor {
             if self.sidebar.overlay(window) {
                 self.sidebar_toggle(&ToggleSidebar, window, cx)
             }
-            window.focus(&self.focus);
+            window.focus(&self.focus, cx);
             return;
         }
         if !self.operations.blocks_document_replacement() {
@@ -419,7 +419,7 @@ impl Editor {
         if self.sidebar.overlay(window) {
             self.sidebar_toggle(&ToggleSidebar, window, cx)
         }
-        window.focus(&self.focus);
+        window.focus(&self.focus, cx);
         cx.notify();
     }
     pub(super) fn follow_outline(&mut self, geometry: &Geometry, cx: &mut Context<Self>) {

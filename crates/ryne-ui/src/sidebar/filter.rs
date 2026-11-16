@@ -64,7 +64,7 @@ impl Filter {
             .then(|| line.closest_index_for_x(position.x - bounds.left() + *offset))
     }
     fn keys(&mut self, event: &KeyDownEvent, _: &mut Window, cx: &mut Context<Self>) {
-        if self.marked.is_some() {
+        if event.prefer_character_input || self.marked.is_some() {
             return;
         }
         let key = event.keystroke.key.as_str();
@@ -78,7 +78,7 @@ impl Filter {
             .graphemes(true)
             .next()
             .map_or(self.head, |s| self.head + s.len());
-        match (mods.secondary(), key) {
+        match (mods.secondary(cx), key) {
             (true, "a") => {
                 self.anchor = 0;
                 self.head = self.value.len();
@@ -231,7 +231,7 @@ impl Render for Filter {
             .on_mouse_down(
                 MouseButton::Left,
                 cx.listener(|s, e: &MouseDownEvent, window, cx| {
-                    window.focus(&s.focus);
+                    window.focus(&s.focus, cx);
                     if s.marked.is_none() {
                         s.head = s.hit(e.position).unwrap_or(s.head);
                         if !e.modifiers.shift {
@@ -308,7 +308,14 @@ impl Render for Filter {
                                         Hsla::from(rgb(colors.link)).opacity(0.2),
                                     ));
                                 }
-                                let _ = line.paint(origin, bounds.size.height, window, cx);
+                                let _ = line.paint(
+                                    origin,
+                                    bounds.size.height,
+                                    TextAlign::Left,
+                                    None,
+                                    window,
+                                    cx,
+                                );
                                 if focused {
                                     window.paint_quad(fill(
                                         Bounds::new(
@@ -333,5 +340,45 @@ impl Render for Filter {
                 )
                 .size_full(),
             )
+    }
+}
+
+#[cfg(test)]
+mod upgrade_tests {
+    use super::Filter;
+    use gpui::{KeyDownEvent, Keystroke, Modifiers, TestAppContext};
+
+    #[gpui::test]
+    fn character_preference_preserves_filter_selection(cx: &mut TestAppContext) {
+        let (filter, cx) = cx.add_window_view(|window, cx| {
+            let mut filter = Filter::new(cx);
+            filter.replace(None, "A😀B");
+            window.focus(&filter.focus, cx);
+            filter
+        });
+        cx.update(|window, cx| {
+            filter.update(cx, |filter, cx| {
+                let mut event = KeyDownEvent {
+                    keystroke: Keystroke {
+                        key: "a".into(),
+                        modifiers: Modifiers {
+                            control: true,
+                            platform: true,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    is_held: false,
+                    prefer_character_input: true,
+                };
+                let selection = filter.selection();
+                filter.keys(&event, window, cx);
+                assert_eq!(filter.selection(), selection);
+                event.prefer_character_input = false;
+                filter.keys(&event, window, cx);
+                assert_eq!(filter.selection(), 0.."A😀B".len());
+                assert_eq!(filter.value, "A😀B");
+            });
+        });
     }
 }

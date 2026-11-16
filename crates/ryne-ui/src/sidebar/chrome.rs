@@ -148,7 +148,8 @@ impl Editor {
             self.select_pane(Pane::List, window, cx);
             &self.sidebar.filter
         };
-        window.focus(&input.read(cx).focus);
+        let focus = input.read(cx).focus.clone();
+        window.focus(&focus, cx);
         cx.notify();
     }
     pub(super) fn sidebar_footer(&self, root: &Path, pane: Pane, cx: &mut Context<Self>) -> Div {

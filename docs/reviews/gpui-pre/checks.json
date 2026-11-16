@@ -1,0 +1,82 @@
+{
+  "date": "2026-11-15",
+  "branch": "codex/gpui-pre",
+  "baseline": "bf8ebd5ef9271f599f56747e2b0c1c5ac626d9a7",
+  "environment": {
+    "os": "15.8.1",
+    "arch": "x86_64",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13) (Homebrew)",
+    "cargo": "cargo 1.99.1 (5f94df478 2026-08-27) (Homebrew)"
+  },
+  "upstream_revision": "d2a4fb6ded7c470be25d1541281da3882495b65b",
+  "candidate_lock_sha256": "3b3d6b1f3c4e04ec4712107bd40f0a6a5633f6a6b8f4e79863f0d534c91a681b",
+  "probe_files_changed": [
+    "Cargo.toml",
+    "crates/ryne-ui/Cargo.toml",
+    "crates/ryne-ui/src/element.rs",
+    "crates/ryne-ui/src/files.rs",
+    "crates/ryne-ui/src/layout.rs",
+    "crates/ryne-ui/src/lib.rs",
+    "crates/ryne-ui/src/menus.rs",
+    "crates/ryne-ui/src/paint.rs",
+    "crates/ryne-ui/src/render_controls.rs",
+    "crates/ryne-ui/src/sidebar/chrome.rs",
+    "crates/ryne-ui/src/sidebar/filter.rs",
+    "crates/ryne-ui/src/sidebar/mod.rs",
+    "crates/ryne-ui/src/sidebar/tests.rs",
+    "crates/ryne-ui/src/sidebar/view.rs",
+    "crates/ryne-ui/src/smoke.rs",
+    "crates/ryne-ui/src/text_layout.rs",
+    "crates/ryne-ui/src/theme_tests.rs",
+    "crates/ryne-ui/src/window_controls_tests.rs"
+  ],
+  "checks": [
+    {
+      "name": "direct replacement with old runtime_shaders feature",
+      "exit_code": 101,
+      "expected": true,
+      "evidence": "01-direct-replacement.log"
+    },
+    {
+      "name": "dependency split, no Rust adaptation, cargo check --workspace --all-targets",
+      "exit_code": 101,
+      "expected": true,
+      "library_error_count": 53,
+      "evidence": "02-cargo-check.log"
+    },
+    {
+      "name": "final minimal probe: cargo check --locked --workspace --all-targets",
+      "exit_code": 0,
+      "evidence": "06-minimal-check.log"
+    },
+    {
+      "name": "final minimal probe: cargo clippy --locked --workspace --all-targets -- -D warnings",
+      "exit_code": 0,
+      "evidence": "07-minimal-clippy.log"
+    },
+    {
+      "name": "unchanged production baseline: cargo fmt --check",
+      "exit_code": 0,
+      "evidence": "baseline-fmt.log"
+    },
+    {
+      "name": "baseline architecture (old GPUI name guard only)",
+      "exit_code": 0,
+      "evidence": "baseline-architecture.log"
+    },
+    {
+      "name": "probe.py --prepare-only; byte comparison with final compiled candidate",
+      "exit_code": 0,
+      "compared_rust_manifest_lock_files": 238
+    }
+  ],
+  "not_run": [
+    "cargo test (execution)",
+    "native GUI smoke",
+    "native IME and window controls",
+    "macOS arm64 compilation",
+    "Windows compilation and execution",
+    "release bundle / ZIP / MSIX",
+    "baseline versus candidate performance"
+  ]
+}

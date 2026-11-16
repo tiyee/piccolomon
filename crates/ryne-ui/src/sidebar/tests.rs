@@ -145,11 +145,11 @@ fn outline_jump_dock_and_overlay_preserve_editor_state(cx: &mut TestAppContext) 
         e.document.select(1, false, true);
         e.document.select(15, true, true);
         e.refresh(cx);
-        window.focus(&e.focus);
+        window.focus(&e.focus, cx);
         e
     });
     cx.simulate_resize(size(px(920.), px(680.)));
-    cx.update(|w, cx| w.draw(cx).clear());
+    cx.update(|w, cx| w.draw(cx).clear(cx));
     let before = editor.read_with(cx, |e, _| {
         (
             e.document.source.id(),
@@ -170,7 +170,7 @@ fn outline_jump_dock_and_overlay_preserve_editor_state(cx: &mut TestAppContext) 
     assert_eq!(toggle.center().y, mode.center().y);
     assert_eq!(cx.debug_bounds("document-titlebar").unwrap().left(), px(0.));
     cx.simulate_click(toggle.center(), Modifiers::default());
-    cx.update(|w, cx| w.draw(cx).clear());
+    cx.update(|w, cx| w.draw(cx).clear(cx));
     let cap = cx.debug_bounds("sidebar-titlebar").unwrap();
     let panel = cx.debug_bounds("sidebar").unwrap();
     assert_eq!(cap.top(), px(0.));
@@ -189,7 +189,7 @@ fn outline_jump_dock_and_overlay_preserve_editor_state(cx: &mut TestAppContext) 
     });
     let heading = cx.debug_bounds("sidebar-row-1").unwrap();
     cx.simulate_click(heading.center(), Modifiers::default());
-    cx.update(|w, cx| w.draw(cx).clear());
+    cx.update(|w, cx| w.draw(cx).clear(cx));
     editor.read_with(cx, |e, _| {
         assert!(e.viewport.scroll > px(500.));
         assert_eq!(e.sidebar.active, Some(1));
@@ -204,7 +204,7 @@ fn outline_jump_dock_and_overlay_preserve_editor_state(cx: &mut TestAppContext) 
         );
     });
     cx.simulate_resize(size(px(520.), px(560.)));
-    cx.update(|w, cx| w.draw(cx).clear());
+    cx.update(|w, cx| w.draw(cx).clear(cx));
     let panel = cx.debug_bounds("sidebar").unwrap();
     assert_eq!(
         cx.debug_bounds("sidebar-titlebar").unwrap().right(),
@@ -214,7 +214,7 @@ fn outline_jump_dock_and_overlay_preserve_editor_state(cx: &mut TestAppContext) 
         assert_eq!(e.viewport.geometry.as_ref().unwrap().bounds.left(), px(0.))
     });
     click(cx, "sidebar-row-0");
-    cx.update(|w, cx| w.draw(cx).clear());
+    cx.update(|w, cx| w.draw(cx).clear(cx));
     assert_eq!(cx.debug_bounds("document-titlebar").unwrap().left(), px(0.));
     editor.read_with(cx, |e, _| {
         assert!(!e.sidebar.prefs.visible);
@@ -531,7 +531,7 @@ fn large_directory_and_outline_sample(cx: &mut TestAppContext) {
         let t = std::time::Instant::now();
         cx.update(|w, cx| {
             editor.update(cx, |e, _| e.viewport.scroll = px(i as f32 * 1500.));
-            w.draw(cx).clear();
+            w.draw(cx).clear(cx);
         });
         frames.push(t.elapsed());
     }
@@ -593,7 +593,7 @@ fn queued_save_intent_and_older_revision_bind_only_after_accepted_write(cx: &mut
 fn resizing_rejects_stale_geometry_and_ime_blocks_panel_navigation(cx: &mut TestAppContext) {
     let (editor, cx) = cx.add_window_view(|w, cx| {
         let e = test_editor(cx);
-        w.focus(&e.focus);
+        w.focus(&e.focus, cx);
         e
     });
     cx.simulate_resize(size(px(920.), px(680.)));
@@ -606,7 +606,7 @@ fn resizing_rejects_stale_geometry_and_ime_blocks_panel_navigation(cx: &mut Test
             e.sidebar_toggle(&ToggleSidebar, w, cx);
         })
     });
-    cx.update(|w, cx| w.draw(cx).clear());
+    cx.update(|w, cx| w.draw(cx).clear(cx));
     let geometry = editor.read_with(cx, |e, _| e.viewport.geometry.clone().unwrap());
     let divider = cx.debug_bounds("sidebar-divider").unwrap().center();
     cx.simulate_mouse_down(divider, gpui::MouseButton::Left, Modifiers::default());
@@ -620,7 +620,7 @@ fn resizing_rejects_stale_geometry_and_ime_blocks_panel_navigation(cx: &mut Test
         gpui::MouseButton::Left,
         Modifiers::default(),
     );
-    cx.update(|w, cx| w.draw(cx).clear());
+    cx.update(|w, cx| w.draw(cx).clear(cx));
     assert_eq!(
         cx.debug_bounds("sidebar-titlebar").unwrap().right(),
         px(310.)
@@ -700,7 +700,7 @@ fn header_search_keeps_the_filtered_heading_source_target(cx: &mut TestAppContex
         );
         e.document = e.document.fork(&raw);
         e.refresh(cx);
-        w.focus(&e.focus);
+        w.focus(&e.focus, cx);
         e
     });
     let original_selection = editor.read_with(cx, |e, _| e.document.selection());

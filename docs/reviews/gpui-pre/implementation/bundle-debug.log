@@ -1,0 +1,12 @@
+warning: `/Users/jiangtao/.cargo/config` is deprecated in favor of `config.toml`
+  |
+  = help: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+    Finished `dev` profile [unoptimized] target(s) in 0.96s
+warning: `/Users/jiangtao/.cargo/config` is deprecated in favor of `config.toml`
+  |
+  = help: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+   Compiling ryne-ui v0.2.9 (/Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui)
+   Compiling ryne-app v0.2.9 (/Users/jiangtao/code/github.com/piccolomon)
+    Finished `dev` profile [unoptimized] target(s) in 10.08s
+     Running `target/debug/examples/app-icon /Users/jiangtao/code/github.com/piccolomon/assets/logo.svg /Users/jiangtao/code/github.com/piccolomon/target/.ryne-icon.mBwCyU/Ryne.iconset`
+/Users/jiangtao/code/github.com/piccolomon/target/Ryne.app

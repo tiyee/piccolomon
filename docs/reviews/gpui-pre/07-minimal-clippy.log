@@ -1,0 +1,11 @@
+    Checking ryne-parser v0.2.9 (<PROBE_ROOT>/workspace/crates/ryne-parser)
+   Compiling ryne-app v0.2.9 (<PROBE_ROOT>/workspace)
+    Checking ryne-syntax v0.2.9 (<PROBE_ROOT>/workspace/crates/ryne-syntax)
+    Checking ryne-core v0.2.9 (<PROBE_ROOT>/workspace/crates/ryne-core)
+    Checking ryne-projection v0.2.9 (<PROBE_ROOT>/workspace/crates/ryne-projection)
+    Checking ryne-extensions v0.2.9 (<PROBE_ROOT>/workspace/crates/ryne-extensions)
+    Checking ryne-services v0.2.9 (<PROBE_ROOT>/workspace/crates/ryne-services)
+    Checking ryne-features v0.2.9 (<PROBE_ROOT>/workspace/crates/ryne-features)
+    Checking ryne-session v0.2.9 (<PROBE_ROOT>/workspace/crates/ryne-session)
+    Checking ryne-ui v0.2.9 (<PROBE_ROOT>/workspace/crates/ryne-ui)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 11.81s

@@ -1,0 +1,16 @@
+GUI smoke stage 0
+GUI smoke stage 374
+GUI smoke stage 375
+Image width checks passed: 1/16/39/40/120/320/760 px columns, container inset, proportional downscaling and original small-image size
+GUI smoke stage 376
+GUI smoke stage 377
+GUI smoke stage 378
+Image GUI checks passed: actual paint, proportional fit, click-to-source, refold and full source mode; CRLF source and history unchanged
+GUI smoke stage 379
+GUI smoke stage 380
+GUI smoke stage 381
+GUI smoke stage 382
+GUI smoke stage 383
+GUI smoke stage 384
+GUI smoke stage 385
+Failed-image icon GUI checks passed: inline SVG and red struck-through truncated address, wrapped address/icon click-to-source, complete source, refold and source-mode suppression without history changes

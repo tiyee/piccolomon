@@ -1,0 +1,71 @@
+{
+  "common_env": {
+    "CARGO_HOME": "/tmp/ryne-upgrade-cargo-home",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0"
+  },
+  "results": [
+    {
+      "name": "architecture",
+      "command": [
+        "python3",
+        "scripts/check-architecture.py"
+      ],
+      "env": {},
+      "exit_code": 0,
+      "expected": 0,
+      "seconds": 0.179
+    },
+    {
+      "name": "architecture-tests",
+      "command": [
+        "python3",
+        "scripts/test-check-architecture.py"
+      ],
+      "env": {},
+      "exit_code": 0,
+      "expected": 0,
+      "seconds": 0.127
+    },
+    {
+      "name": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "env": {},
+      "exit_code": 0,
+      "expected": 0,
+      "seconds": 2.906
+    },
+    {
+      "name": "check",
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--all-targets"
+      ],
+      "env": {},
+      "exit_code": 0,
+      "expected": 0,
+      "seconds": 12.059
+    },
+    {
+      "name": "smoke",
+      "command": [
+        "cargo",
+        "run",
+        "--locked",
+        "--",
+        "--smoke-test"
+      ],
+      "env": {},
+      "exit_code": "timeout",
+      "expected": 0,
+      "seconds": 900.033
+    }
+  ]
+}

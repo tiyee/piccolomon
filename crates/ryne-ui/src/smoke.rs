@@ -166,7 +166,9 @@ impl Editor {
             } else if code_language_only {
                 std::iter::once(0).chain(259..267).collect()
             } else {
-                (0..411).collect()
+                // Stage 0 initializes; 1..=410 run cases 0..=409 below.
+                // Include the final summary/quit case instead of leaving the app open.
+                (0..=411).collect()
             };
             for stage in stages {
                 cx.background_executor()
@@ -195,7 +197,7 @@ impl Editor {
                 for _ in 0..40 {
                     if let Err(error) = cx.update(|window, cx| {
                         window.refresh();
-                        window.draw(cx).clear();
+                        window.draw(cx).clear(cx);
                     }) {
                         eprintln!("GUI smoke redraw failed at stage {stage}: {error}");
                         std::process::exit(1);
@@ -1543,10 +1545,10 @@ impl Editor {
                         105 => {
                             editor.viewport.dragging = false;
                             let other = cx.focus_handle();
-                            window.focus(&other);
+                            window.focus(&other, cx);
                             editor.sync_caret_blink(window, cx);
                             check!(editor.caret_state.caret_blink_task.is_none());
-                            window.focus(&editor.focus);
+                            window.focus(&editor.focus, cx);
                             editor.reset_caret_blink();
                             editor.sync_caret_blink(window, cx);
                             check!(editor.caret_state.caret_visible);
@@ -1699,7 +1701,7 @@ impl Editor {
                             editor.menus.hovered_render = None;
                             let end = editor.document.source.text().len()-2;
                             editor.move_to(end,false,cx);
-                            window.focus(&editor.focus);
+                            window.focus(&editor.focus, cx);
                         }
                         134 => {
                             check_eq!(geometry.render_regions.len(),6);
@@ -1726,10 +1728,19 @@ impl Editor {
                             let menu=editor.menus.render_menu.as_ref().ok_or("missing cell popup")?;
                             check_eq!(menu.rows.len(),11);
                             check!(matches!(menu.rows.first(),Some(RenderMenuRow::Submenu {children,..}) if children.len()==3));
+                            // The native pointer can hover a row when the popup opens.
+                            // Navigate to the submenu instead of assuming selection stayed at 0.
+                            for _ in 0..menu.rows.len() {
+                                if editor.menus.render_menu.as_ref().is_some_and(|m|m.selected==0) { break; }
+                                editor.up(&Up,window,cx);
+                            }
+                            check!(editor.menus.render_menu.as_ref().is_some_and(|m|m.selected==0));
                             editor.right(&Right,window,cx);
                         }
                         137 => {
-                            check_eq!(geometry.render_menu_bounds.len(),2);
+                            if geometry.render_menu_bounds.len() != 2 {
+                                return Err(format!("cell submenu geometry: bounds={}, menu={:?}, mouse={:?}", geometry.render_menu_bounds.len(), editor.menus.render_menu.as_ref().map(|m|(m.selected,m.submenu,m.child_selected)), window.mouse_position()));
+                            }
                             editor.down(&Down,window,cx);
                             let selection=editor.document.selection();
                             let length=editor.document.source.text().len();
@@ -1750,7 +1761,7 @@ impl Editor {
                         139 => {
                             check_eq!(geometry.render_buttons.len(),1);
                             check!(editor.menus.hovered_render.is_none());
-                            editor.render_shortcut(&KeyDownEvent {keystroke:Keystroke {key:"down".into(),modifiers:Modifiers {control:true,platform:cfg!(target_os="macos"),..Default::default()},..Default::default()},is_held:false},window,cx);
+                            editor.render_shortcut(&KeyDownEvent { prefer_character_input: false,keystroke:Keystroke {key:"down".into(),modifiers:Modifiers {control:true,platform:cfg!(target_os="macos"),..Default::default()},..Default::default()},is_held:false},window,cx);
                             check_eq!(editor.document.history_len(false),1);
                         }
                         140 => {
@@ -1861,7 +1872,7 @@ impl Editor {
                             check_eq!(control.center().y,first.trigger.center().y);
                             check!(control.left()>=geometry.bounds.left());
                             check!(control.right()+px(4.)<=first.trigger.left());
-                            editor.render_shortcut(&KeyDownEvent{keystroke:Keystroke{key:"enter".into(),modifiers:Modifiers{alt:true,..Default::default()},..Default::default()},is_held:false},window,cx);
+                            editor.render_shortcut(&KeyDownEvent { prefer_character_input: false,keystroke:Keystroke{key:"enter".into(),modifiers:Modifiers{alt:true,..Default::default()},..Default::default()},is_held:false},window,cx);
                             let menu=editor.menus.render_menu.as_ref().ok_or("missing nested list menu")?;
                             let marker=editor.document.source.text().find("- child").ok_or("missing child marker")?;
                             check!(menu.rows.iter().all(|r|matches!(r,RenderMenuRow::Action(i) if i.request.target.part==[marker])));

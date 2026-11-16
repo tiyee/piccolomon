@@ -1,5 +1,9 @@
 use super::*;
 impl EntityInputHandler for Editor {
+    fn paste(&mut self, item: ClipboardItem, _: &mut Window, cx: &mut Context<Self>) {
+        self.paste_content(item.text(), cx);
+    }
+
     fn text_for_range(
         &mut self,
         range: Range<usize>,

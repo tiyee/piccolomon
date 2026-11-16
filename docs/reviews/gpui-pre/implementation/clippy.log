@@ -1,0 +1,6 @@
+warning: `/Users/jiangtao/.cargo/config` is deprecated in favor of `config.toml`
+  |
+  = help: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+    Checking ryne-ui v0.2.9 (/Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui)
+    Checking ryne-app v0.2.9 (/Users/jiangtao/code/github.com/piccolomon)
+    Finished `dev` profile [unoptimized] target(s) in 7.19s

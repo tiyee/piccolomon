@@ -26,8 +26,8 @@ $target = @{
 if (-not $PackageName) { $PackageName = "Ryne-windows-$Architecture" }
 $cargoCommand = if ($env:CARGO) { $env:CARGO } else { 'cargo' }
 
-# GPUI 0.2.2 compiles release shaders with fxc.exe. Discover the installed
-# Windows SDK instead of relying on GPUI's hard-coded SDK version fallback.
+# gpui-pre-windows compiles release shaders with fxc.exe. Keep explicit SDK
+# discovery for x64 build hosts, including cross-compiling x86/ARM64 packages.
 if ($Profile -eq 'release') {
     if (-not $env:GPUI_FXC_PATH) {
         $sdkBin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/bin'

@@ -1,0 +1,15 @@
+warning: `/Users/jiangtao/.cargo/config` is deprecated in favor of `config.toml`
+  |
+  = help: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+    Finished `dev` profile [unoptimized] target(s) in 1.05s
+     Running `target/debug/ryne --smoke-test`
+GUI smoke stage 0
+GUI smoke stage 395
+GUI smoke stage 396
+GUI smoke stage 397
+GUI smoke stage 398
+GUI smoke stage 399
+GUI smoke stage 400
+GUI smoke stage 401
+GUI smoke stage 402
+Block math GUI passed: centered vector geometry, SVG icon, click and arrow reveal, source mode, IME cancellation and unchanged history

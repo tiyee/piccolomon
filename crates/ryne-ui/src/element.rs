@@ -750,7 +750,7 @@ impl Render for Editor {
                     }))
                     .on_mouse_up(MouseButton::Left, cx.listener(Self::mouse_up))
                     .on_mouse_up_out(MouseButton::Left, cx.listener(Self::mouse_up))
-                    .on_scroll_wheel(cx.listener(Self::scroll))
+                    .on_scroll(cx.listener(Self::scroll))
                     .child(EditorElement {
                         editor: cx.entity(),
                     }),

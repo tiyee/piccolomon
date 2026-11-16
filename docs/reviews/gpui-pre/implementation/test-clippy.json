@@ -1,0 +1,34 @@
+{
+  "date": "2026-11-16",
+  "host": "x86_64-apple-darwin / macOS 15.8.1",
+  "rustc": "1.99.1 (58cf8f9c3 2026-10-13) (Homebrew)",
+  "cargo_lock_sha256": "3b3d6b1f3c4e04ec4712107bd40f0a6a5633f6a6b8f4e79863f0d534c91a681b",
+  "checks": [
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked"
+      ],
+      "exit_code": 0,
+      "passed": 466,
+      "failed": 0,
+      "ignored": 2,
+      "log": "test.log"
+    },
+    {
+      "command": [
+        "/usr/local/opt/rust/bin/cargo-clippy",
+        "clippy",
+        "--locked",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "log": "clippy.log"
+    }
+  ],
+  "note": "Re-run after the final smoke-driver fixes; both commands use the common Cargo environment documented in checks.json. Existing ignored tests were not changed."
+}

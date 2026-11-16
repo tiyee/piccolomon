@@ -1,0 +1,14 @@
+$ plutil -lint /Users/jiangtao/code/github.com/piccolomon/target/Ryne.app/Contents/Info.plist
+/Users/jiangtao/code/github.com/piccolomon/target/Ryne.app/Contents/Info.plist: OK
+$ codesign --verify --deep --strict /Users/jiangtao/code/github.com/piccolomon/target/Ryne.app
+$ lipo -archs /Users/jiangtao/code/github.com/piccolomon/target/Ryne.app/Contents/MacOS/Ryne
+x86_64
+$ file /Users/jiangtao/code/github.com/piccolomon/target/Ryne.app/Contents/MacOS/Ryne
+/Users/jiangtao/code/github.com/piccolomon/target/Ryne.app/Contents/MacOS/Ryne: Mach-O 64-bit executable x86_64
+Verified resource: Ryne.icns 291500 bytes
+Verified resource: stix-two-math/OFL.txt 4519 bytes
+Verified resource: stix-two-math/FONTLOG.txt 42578 bytes
+Verified resource: lete-sans-math/OFL.txt 4579 bytes
+UUID: A9FF49F0-6C8F-336B-AA05-052DC4458435 (x86_64) /Users/jiangtao/code/github.com/piccolomon/target/debug/ryne
+UUID: A9FF49F0-6C8F-336B-AA05-052DC4458435 (x86_64) /Users/jiangtao/code/github.com/piccolomon/target/Ryne.app/Contents/MacOS/Ryne
+Build UUID and architecture match. Ad-hoc signing changes executable bytes.

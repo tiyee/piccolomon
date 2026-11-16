@@ -16,10 +16,10 @@ fn theme_action_repaints_without_changing_document_geometry_or_ime(cx: &mut Test
             editor.document.services(),
         );
         editor.refresh(cx);
-        window.focus(&editor.focus);
+        window.focus(&editor.focus, cx);
         editor
     });
-    cx.update(|window, cx| window.draw(cx).clear());
+    cx.update(|window, cx| window.draw(cx).clear(cx));
     let original = editor.read_with(cx, |e, _| e.viewport.geometry.clone().unwrap());
     let source = editor.read_with(cx, |e, _| e.document.source.id());
     let display = editor.read_with(cx, |e, _| e.viewport.display.clone());
@@ -28,7 +28,7 @@ fn theme_action_repaints_without_changing_document_geometry_or_ime(cx: &mut Test
             window.dispatch_action(Box::new(menus::SelectTheme { mode }), cx);
         });
         cx.run_until_parked();
-        cx.update(|window, cx| window.draw(cx).clear());
+        cx.update(|window, cx| window.draw(cx).clear(cx));
         editor.read_with(cx, |e, cx| {
             assert_eq!(theme::selected(cx), mode);
             assert_eq!(
@@ -65,7 +65,7 @@ fn theme_action_repaints_without_changing_document_geometry_or_ime(cx: &mut Test
         cx.update_global::<Settings, _>(|s, _| s.system = WindowAppearance::Dark);
         cx.refresh_windows();
     });
-    cx.update(|window, cx| window.draw(cx).clear());
+    cx.update(|window, cx| window.draw(cx).clear(cx));
     editor.read_with(cx, |e, _| {
         assert_eq!(
             e.viewport.geometry.as_ref().unwrap().text_layout.key.colors,
@@ -90,6 +90,6 @@ fn theme_action_repaints_without_changing_document_geometry_or_ime(cx: &mut Test
         });
         cx.update_global::<Settings, _>(|s, _| s.system = WindowAppearance::Dark);
         assert_eq!(theme::palette(cx), Palette::LIGHT);
-        window.draw(cx).clear();
+        window.draw(cx).clear(cx);
     });
 }

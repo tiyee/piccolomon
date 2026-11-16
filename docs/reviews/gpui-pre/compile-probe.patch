@@ -1,0 +1,765 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -18,7 +18,8 @@
+ serde_json = "=1.0.154"
+ semver = "=1.0.28"
+ base64 = "=0.22.1"
+-gpui = { version = "=0.2.2", features = ["runtime_shaders"] }
++gpui = { package = "gpui-pre", version = "=0.3.12", default-features = false }
++gpui_platform = { package = "gpui-pre-platform", version = "=0.3.12", default-features = false, features = ["font-kit", "runtime_shaders"] }
+ async-channel = "=2.5.0"
+ url = "=2.5.8"
+ data-url = "=0.3.2"
+--- a/crates/ryne-ui/Cargo.toml
++++ b/crates/ryne-ui/Cargo.toml
+@@ -16,6 +16,7 @@
+ ryne-extensions.workspace = true
+ ryne-parser.workspace = true
+ gpui.workspace = true
++gpui_platform.workspace = true
+ async-channel.workspace = true
+ url.workspace = true
+ unicode-segmentation.workspace = true
+--- a/crates/ryne-ui/src/element.rs
++++ b/crates/ryne-ui/src/element.rs
+@@ -750,7 +750,7 @@
+                     }))
+                     .on_mouse_up(MouseButton::Left, cx.listener(Self::mouse_up))
+                     .on_mouse_up_out(MouseButton::Left, cx.listener(Self::mouse_up))
+-                    .on_scroll_wheel(cx.listener(Self::scroll))
++                    .on_scroll(cx.listener(Self::scroll))
+                     .child(EditorElement {
+                         editor: cx.entity(),
+                     }),
+--- a/crates/ryne-ui/src/files.rs
++++ b/crates/ryne-ui/src/files.rs
+@@ -70,7 +70,7 @@
+         if let Some(path) = self.document.files.path.clone() {
+             self.remember_file(&path, cx);
+         }
+-        window.focus(&self.focus);
++        window.focus(&self.focus, cx);
+         self.refresh(cx);
+     }
+     fn replace_document(
+--- a/crates/ryne-ui/src/layout.rs
++++ b/crates/ryne-ui/src/layout.rs
+@@ -3,7 +3,7 @@
+ pub(super) const BLOCK_CONTROL_HEIGHT: f32 = 24.;
+ #[derive(Clone)]
+ pub(super) struct Line {
+-    pub(super) shaped: WrappedLine,
++    pub(super) shaped: std::sync::Arc<WrappedLine>,
+     pub(super) start: usize,
+     pub(super) top: Pixels,
+     pub(super) line_height: Pixels,
+@@ -64,7 +64,7 @@
+ 
+ #[derive(Clone)]
+ pub(super) struct TypesetLine {
+-    pub(super) shaped: WrappedLine,
++    pub(super) shaped: std::sync::Arc<WrappedLine>,
+     pub(super) start: usize,
+     pub(super) line_height: Pixels,
+     pub(super) mixed: Option<MixedLine>,
+@@ -129,7 +129,7 @@
+                         shaped.unwrapped_layout.ascent + shaped.unwrapped_layout.descent + px(4.),
+                     )
+                 },
+-                shaped,
++                shaped: std::sync::Arc::new(shaped),
+                 start: range.start,
+                 mixed: None,
+             })
+@@ -155,7 +155,7 @@
+     let mut boundaries = vec![range.start];
+     boundaries.extend(
+         wrapper
+-            .wrap_line(&fragments, width)
++            .wrap_line(&fragments, width, IndentAdjustment::SameIndent)
+             .map(|b| display.snap(range.start + b.ix))
+             .filter(|b| range.start < *b && *b < range.end),
+     );
+@@ -243,7 +243,7 @@
+             px(line_height).max(ascent + descent + px(4.))
+         };
+         output.push(TypesetLine {
+-            shaped,
++            shaped: std::sync::Arc::new(shaped),
+             start: row.start,
+             line_height: height,
+             mixed: Some(MixedLine {
+--- a/crates/ryne-ui/src/lib.rs
++++ b/crates/ryne-ui/src/lib.rs
+@@ -230,7 +230,7 @@
+                 self.caret_state.preferred_x = None;
+                 self.caret_state.caret_affinity = Affinity::Downstream;
+                 self.viewport.ensure_caret = true;
+-                window.focus(&self.focus);
++                window.focus(&self.focus, cx);
+             }
+             Err(_) => self.status = Text::AppendFailed.into(),
+         }
+@@ -271,7 +271,7 @@
+                 self.caret_state.preferred_x = None;
+                 self.caret_state.caret_affinity = Affinity::Downstream;
+                 self.viewport.ensure_caret = true;
+-                window.focus(&self.focus);
++                window.focus(&self.focus, cx);
+             }
+             Err(_) => self.status = Text::InsertFailed.into(),
+         }
+@@ -1056,7 +1056,7 @@
+                 cx.notify();
+             }
+         }
+-        self.focus.focus(window);
++        self.focus.focus(window, cx);
+     }
+     fn toggle_source(&mut self, _: &ToggleSource, _: &mut Window, cx: &mut Context<Self>) {
+         if !self.commit_composition(cx) {
+@@ -1130,7 +1130,7 @@
+         if !self.commit_composition(cx) {
+             return;
+         }
+-        window.focus(&self.focus);
++        window.focus(&self.focus, cx);
+         if let Some(geometry) = &self.viewport.geometry {
+             if !geometry.is_current(self) {
+                 return;
+@@ -1345,7 +1345,7 @@
+         self.refresh(cx);
+         self.update_block_hover(event.position, cx);
+     }
+-    fn scroll(&mut self, event: &ScrollWheelEvent, _: &mut Window, cx: &mut Context<Self>) {
++    fn scroll(&mut self, event: &ScrollEvent, _: &mut Window, cx: &mut Context<Self>) {
+         self.menus.render_menu = None;
+         self.menus.hovered_render = None;
+         self.menus.append_hovered = false;
+@@ -1456,7 +1456,7 @@
+             Err(e) => eprintln!("Ryne file activation: {e}"),
+         }
+     }
+-    let application = Application::new().with_assets(crate::assets::Assets {
++    let application = gpui_platform::application().with_assets(crate::assets::Assets {
+         formulas: formulas.clone(),
+     });
+     application.on_open_urls(move |urls| {
+@@ -1540,7 +1540,8 @@
+                     }
+                     editor
+                 });
+-                window.focus(&editor.read(cx).focus);
++                let focus = editor.read(cx).focus.clone();
++                window.focus(&focus, cx);
+                 let weak = editor.downgrade();
+                 window.on_window_should_close(cx, move |window, cx| {
+                     weak.update(cx, |editor, cx| editor.request_close(window, cx))
+@@ -1577,7 +1578,7 @@
+             }
+         })
+         .detach();
+-        cx.on_window_closed(|cx| {
++        cx.on_window_closed(|cx, _window_id| {
+             if cx.windows().is_empty() {
+                 cx.quit();
+             }
+--- a/crates/ryne-ui/src/menus.rs
++++ b/crates/ryne-ui/src/menus.rs
+@@ -69,15 +69,15 @@
+     recent.push(MenuItem::separator());
+     recent.push(MenuItem::action(text(Text::ClearRecent), ClearRecent));
+     vec![
+-        Menu {
++        Menu { disabled: false,
+             name: "Ryne".into(),
+             items: vec![
+                 MenuItem::action(text(Text::About), About),
+-                MenuItem::submenu(Menu {
++                MenuItem::submenu(Menu { disabled: false,
+                     name: text(Text::Language).into(),
+                     items: languages,
+                 }),
+-                MenuItem::submenu(Menu {
++                MenuItem::submenu(Menu { disabled: false,
+                     name: text(Text::MathFont).into(),
+                     items: MathFont::ALL
+                         .into_iter()
+@@ -93,7 +93,7 @@
+                         })
+                         .collect(),
+                 }),
+-                MenuItem::submenu(Menu {
++                MenuItem::submenu(Menu { disabled: false,
+                     name: text(Text::Theme).into(),
+                     items: theme::Mode::ALL
+                         .into_iter()
+@@ -117,13 +117,13 @@
+                 MenuItem::action(text(Text::Quit), Quit),
+             ],
+         },
+-        Menu {
++        Menu { disabled: false,
+             name: text(Text::File).into(),
+             items: vec![
+                 MenuItem::action(text(Text::New), New),
+                 MenuItem::action(text(Text::Open), Open),
+                 MenuItem::action(text(Text::OpenFolder), OpenFolder),
+-                MenuItem::submenu(Menu {
++                MenuItem::submenu(Menu { disabled: false,
+                     name: text(Text::Recent).into(),
+                     items: recent,
+                 }),
+@@ -438,7 +438,7 @@
+                         if enabled {
+                             this.menus.top_menu = None;
+                             this.menus.top_submenu = None;
+-                            window.focus(&this.focus);
++                            window.focus(&this.focus, cx);
+                             window.dispatch_action(action.boxed_clone(), cx);
+                             cx.notify();
+                         }
+--- a/crates/ryne-ui/src/paint.rs
++++ b/crates/ryne-ui/src/paint.rs
+@@ -68,12 +68,7 @@
+                     && panel.bounds.top() + px(6.) < bounds.bottom()
+                     && panel.bounds.top() + px(26.) > bounds.top()
+                 {
+-                    let _ = label.paint(
+-                        panel.bounds.origin + point(px(16.), px(6.)),
+-                        px(20.),
+-                        window,
+-                        cx,
+-                    );
++                    let _ = label.paint(panel.bounds.origin + point(px(16.), px(6.)), px(20.), TextAlign::Left, None, window, cx);
+                 }
+             }
+             for i in frame
+@@ -96,34 +91,17 @@
+                         // Preserve the enclosing viewport clip for long and narrow alerts.
+                         clip = clip.intersect(&bounds);
+                         window.with_content_mask(Some(ContentMask { bounds: clip }), |window| {
+-                            let _ = window.paint_svg(
+-                                icon,
+-                                format!("icon:{}", ryne_projection::alert::icon(alert.source.kind))
+-                                    .into(),
+-                                TransformationMatrix::default(),
+-                                rgb(ryne_projection::alert::color(
++                            let _ = window.paint_svg(icon, format!("icon:{}", ryne_projection::alert::icon(alert.source.kind))
++                                    .into(), None, TransformationMatrix::default(), rgb(ryne_projection::alert::color(
+                                     alert.source.kind,
+                                     colors == theme::Palette::DARK,
+                                 ))
+-                                .into(),
+-                                cx,
+-                            );
+-                            let _ = title.paint(
+-                                panel.title_origin + quote_origin,
+-                                px(theme::BODY.1),
+-                                window,
+-                                cx,
+-                            );
++                                .into(), cx);
++                            let _ = title.paint(panel.title_origin + quote_origin, px(theme::BODY.1), TextAlign::Left, None, window, cx);
+                         });
+                     }
+                 } else {
+-                    let _ = window.paint_svg(
+-                        icon,
+-                        "icon:quoter".into(),
+-                        TransformationMatrix::default(),
+-                        rgb(colors.muted).into(),
+-                        cx,
+-                    );
++                    let _ = window.paint_svg(icon, "icon:quoter".into(), None, TransformationMatrix::default(), rgb(colors.muted).into(), cx);
+                 }
+             }
+             for view in &frame.geometry.display.image_failures {
+@@ -138,13 +116,7 @@
+                 );
+                 if icon.intersects(&bounds)
+                     && window
+-                        .paint_svg(
+-                            icon,
+-                            "icon:image_failed".into(),
+-                            TransformationMatrix::default(),
+-                            rgb(colors.muted).into(),
+-                            cx,
+-                        )
++                        .paint_svg(icon, "icon:image_failed".into(), None, TransformationMatrix::default(), rgb(colors.muted).into(), cx)
+                         .is_ok()
+                 {
+                     frame.geometry.failed_images_painted += 1;
+@@ -154,7 +126,7 @@
+                 if origin.y + *height < bounds.top() || origin.y > bounds.bottom() {
+                     continue;
+                 }
+-                let _ = label.paint(*origin, *height, window, cx);
++                let _ = label.paint(*origin, *height, TextAlign::Left, None, window, cx);
+             }
+             for selection in frame.selections.drain(..) {
+                 window.paint_quad(selection);
+@@ -178,16 +150,13 @@
+                     continue;
+                 }
+                 if let Some(index) = line.diagram {
+-                    let result = window.paint_image(
+-                        Bounds::new(
++                    let result = window.paint_image(Bounds::new(
+                             origin + point(px(0.), px(12.)),
+                             size(line.width, line.line_height - px(24.)),
+-                        ),
+-                        Corners::default(),
+-                        frame.geometry.diagram_images[index].clone(),
+-                        0,
+-                        false,
+-                    );
++                        ), Bounds::new(
++                            origin + point(px(0.), px(12.)),
++                            size(line.width, line.line_height - px(24.)),
++                        ), Corners::default(), frame.geometry.diagram_images[index].clone(), 0, false);
+                     match result {
+                         Ok(()) => frame.geometry.diagrams_painted += 1,
+                         Err(error) => {
+@@ -206,7 +175,7 @@
+                         if let InlineContent::Text(text) = &piece.content {
+                             let at = origin + point(piece.x, mixed.baseline - text.ascent);
+                             let _ =
+-                                text.paint_background(at, text.ascent + text.descent, window, cx);
++                                text.paint_background(at, text.ascent + text.descent, TextAlign::Left, None, window, cx);
+                         }
+                     }
+                     for piece in &mixed.pieces {
+@@ -214,7 +183,7 @@
+                             InlineContent::Text(text) => {
+                                 let at = origin + point(piece.x, mixed.baseline - text.ascent);
+                                 let height = text.ascent + text.descent;
+-                                let _ = text.paint(at, height, window, cx);
++                                let _ = text.paint(at, height, TextAlign::Left, None, window, cx);
+                             }
+                             InlineContent::Math(formula) => {
+                                 let at = origin
+@@ -222,20 +191,14 @@
+                                         piece.x,
+                                         mixed.baseline - px(formula.ascent * mixed.font_size),
+                                     );
+-                                match window.paint_svg(
+-                                    Bounds::new(
++                                match window.paint_svg(Bounds::new(
+                                         at,
+                                         size(
+                                             piece.width,
+                                             px((formula.ascent + formula.descent)
+                                                 * mixed.font_size),
+                                         ),
+-                                    ),
+-                                    formula.path.clone().into(),
+-                                    TransformationMatrix::default(),
+-                                    rgb(colors.ink).into(),
+-                                    cx,
+-                                ) {
++                                    ), formula.path.clone().into(), None, TransformationMatrix::default(), rgb(colors.ink).into(), cx) {
+                                     Ok(()) => frame.geometry.math_painted += 1,
+                                     Err(error) => {
+                                         frame.geometry.math_error = Some(error.to_string())
+--- a/crates/ryne-ui/src/render_controls.rs
++++ b/crates/ryne-ui/src/render_controls.rs
+@@ -189,7 +189,7 @@
+         self.menus.append_menu = None;
+         self.menus.top_menu = None;
+         self.menus.top_submenu = None;
+-        window.focus(&self.focus);
++        window.focus(&self.focus, cx);
+         cx.notify();
+     }
+     fn run_render_item(
+@@ -213,7 +213,7 @@
+         }
+         self.caret_state.preferred_x = None;
+         self.viewport.ensure_caret = true;
+-        window.focus(&self.focus);
++        window.focus(&self.focus, cx);
+         self.refresh(cx);
+     }
+     pub(super) fn activate_render_control(
+@@ -607,7 +607,7 @@
+         .cursor_default()
+         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+         .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+-        .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
++        .on_scroll(|_, _, cx| cx.stop_propagation())
+ }
+ pub(super) fn prepaint_render_controls(
+     editor: &RenderViewState,
+--- a/crates/ryne-ui/src/sidebar/chrome.rs
++++ b/crates/ryne-ui/src/sidebar/chrome.rs
+@@ -148,7 +148,8 @@
+             self.select_pane(Pane::List, window, cx);
+             &self.sidebar.filter
+         };
+-        window.focus(&input.read(cx).focus);
++        let focus = input.read(cx).focus.clone();
++        window.focus(&focus, cx);
+         cx.notify();
+     }
+     pub(super) fn sidebar_footer(&self, root: &Path, pane: Pane, cx: &mut Context<Self>) -> Div {
+--- a/crates/ryne-ui/src/sidebar/filter.rs
++++ b/crates/ryne-ui/src/sidebar/filter.rs
+@@ -78,7 +78,7 @@
+             .graphemes(true)
+             .next()
+             .map_or(self.head, |s| self.head + s.len());
+-        match (mods.secondary(), key) {
++        match (mods.secondary(cx), key) {
+             (true, "a") => {
+                 self.anchor = 0;
+                 self.head = self.value.len();
+@@ -231,7 +231,7 @@
+             .on_mouse_down(
+                 MouseButton::Left,
+                 cx.listener(|s, e: &MouseDownEvent, window, cx| {
+-                    window.focus(&s.focus);
++                    window.focus(&s.focus, cx);
+                     if s.marked.is_none() {
+                         s.head = s.hit(e.position).unwrap_or(s.head);
+                         if !e.modifiers.shift {
+@@ -308,7 +308,7 @@
+                                         Hsla::from(rgb(colors.link)).opacity(0.2),
+                                     ));
+                                 }
+-                                let _ = line.paint(origin, bounds.size.height, window, cx);
++                                let _ = line.paint(origin, bounds.size.height, TextAlign::Left, None, window, cx);
+                                 if focused {
+                                     window.paint_quad(fill(
+                                         Bounds::new(
+--- a/crates/ryne-ui/src/sidebar/mod.rs
++++ b/crates/ryne-ui/src/sidebar/mod.rs
+@@ -276,9 +276,9 @@
+         self.sidebar.folder_menu = false;
+         self.sidebar.prefs.visible = !self.sidebar.prefs.visible;
+         if self.sidebar.prefs.visible {
+-            window.focus(&self.sidebar.focus)
++            window.focus(&self.sidebar.focus, cx)
+         } else {
+-            window.focus(&self.focus)
++            window.focus(&self.focus, cx)
+         }
+         self.sidebar_geometry(window);
+         self.persist_sidebar();
+@@ -307,7 +307,7 @@
+         if pane != Pane::Outline {
+             self.sidebar.prefs.list = pane == Pane::List
+         }
+-        window.focus(&self.sidebar.focus);
++        window.focus(&self.sidebar.focus, cx);
+         self.persist_sidebar();
+         cx.notify();
+     }
+@@ -357,7 +357,7 @@
+         self.sidebar.browse_focus[pane.index()] = Some(path.clone());
+         if kind != EntryKind::Document {
+             if kind == EntryKind::Directory && !self.sidebar_protected() {
+-                window.focus(&self.sidebar.focus);
++                window.focus(&self.sidebar.focus, cx);
+                 if !self.sidebar.browser.expanded.insert(path.clone()) {
+                     self.sidebar.browser.expanded.remove(&path);
+                     if self
+@@ -384,7 +384,7 @@
+             if self.sidebar.overlay(window) {
+                 self.sidebar_toggle(&ToggleSidebar, window, cx)
+             }
+-            window.focus(&self.focus);
++            window.focus(&self.focus, cx);
+             return;
+         }
+         if !self.operations.blocks_document_replacement() {
+@@ -419,7 +419,7 @@
+         if self.sidebar.overlay(window) {
+             self.sidebar_toggle(&ToggleSidebar, window, cx)
+         }
+-        window.focus(&self.focus);
++        window.focus(&self.focus, cx);
+         cx.notify();
+     }
+     pub(super) fn follow_outline(&mut self, geometry: &Geometry, cx: &mut Context<Self>) {
+--- a/crates/ryne-ui/src/sidebar/tests.rs
++++ b/crates/ryne-ui/src/sidebar/tests.rs
+@@ -145,11 +145,11 @@
+         e.document.select(1, false, true);
+         e.document.select(15, true, true);
+         e.refresh(cx);
+-        window.focus(&e.focus);
++        window.focus(&e.focus, cx);
+         e
+     });
+     cx.simulate_resize(size(px(920.), px(680.)));
+-    cx.update(|w, cx| w.draw(cx).clear());
++    cx.update(|w, cx| w.draw(cx).clear(cx));
+     let before = editor.read_with(cx, |e, _| {
+         (
+             e.document.source.id(),
+@@ -170,7 +170,7 @@
+     assert_eq!(toggle.center().y, mode.center().y);
+     assert_eq!(cx.debug_bounds("document-titlebar").unwrap().left(), px(0.));
+     cx.simulate_click(toggle.center(), Modifiers::default());
+-    cx.update(|w, cx| w.draw(cx).clear());
++    cx.update(|w, cx| w.draw(cx).clear(cx));
+     let cap = cx.debug_bounds("sidebar-titlebar").unwrap();
+     let panel = cx.debug_bounds("sidebar").unwrap();
+     assert_eq!(cap.top(), px(0.));
+@@ -189,7 +189,7 @@
+     });
+     let heading = cx.debug_bounds("sidebar-row-1").unwrap();
+     cx.simulate_click(heading.center(), Modifiers::default());
+-    cx.update(|w, cx| w.draw(cx).clear());
++    cx.update(|w, cx| w.draw(cx).clear(cx));
+     editor.read_with(cx, |e, _| {
+         assert!(e.viewport.scroll > px(500.));
+         assert_eq!(e.sidebar.active, Some(1));
+@@ -204,7 +204,7 @@
+         );
+     });
+     cx.simulate_resize(size(px(520.), px(560.)));
+-    cx.update(|w, cx| w.draw(cx).clear());
++    cx.update(|w, cx| w.draw(cx).clear(cx));
+     let panel = cx.debug_bounds("sidebar").unwrap();
+     assert_eq!(
+         cx.debug_bounds("sidebar-titlebar").unwrap().right(),
+@@ -214,7 +214,7 @@
+         assert_eq!(e.viewport.geometry.as_ref().unwrap().bounds.left(), px(0.))
+     });
+     click(cx, "sidebar-row-0");
+-    cx.update(|w, cx| w.draw(cx).clear());
++    cx.update(|w, cx| w.draw(cx).clear(cx));
+     assert_eq!(cx.debug_bounds("document-titlebar").unwrap().left(), px(0.));
+     editor.read_with(cx, |e, _| {
+         assert!(!e.sidebar.prefs.visible);
+@@ -531,7 +531,7 @@
+         let t = std::time::Instant::now();
+         cx.update(|w, cx| {
+             editor.update(cx, |e, _| e.viewport.scroll = px(i as f32 * 1500.));
+-            w.draw(cx).clear();
++            w.draw(cx).clear(cx);
+         });
+         frames.push(t.elapsed());
+     }
+@@ -593,7 +593,7 @@
+ fn resizing_rejects_stale_geometry_and_ime_blocks_panel_navigation(cx: &mut TestAppContext) {
+     let (editor, cx) = cx.add_window_view(|w, cx| {
+         let e = test_editor(cx);
+-        w.focus(&e.focus);
++        w.focus(&e.focus, cx);
+         e
+     });
+     cx.simulate_resize(size(px(920.), px(680.)));
+@@ -606,7 +606,7 @@
+             e.sidebar_toggle(&ToggleSidebar, w, cx);
+         })
+     });
+-    cx.update(|w, cx| w.draw(cx).clear());
++    cx.update(|w, cx| w.draw(cx).clear(cx));
+     let geometry = editor.read_with(cx, |e, _| e.viewport.geometry.clone().unwrap());
+     let divider = cx.debug_bounds("sidebar-divider").unwrap().center();
+     cx.simulate_mouse_down(divider, gpui::MouseButton::Left, Modifiers::default());
+@@ -620,7 +620,7 @@
+         gpui::MouseButton::Left,
+         Modifiers::default(),
+     );
+-    cx.update(|w, cx| w.draw(cx).clear());
++    cx.update(|w, cx| w.draw(cx).clear(cx));
+     assert_eq!(
+         cx.debug_bounds("sidebar-titlebar").unwrap().right(),
+         px(310.)
+@@ -700,7 +700,7 @@
+         );
+         e.document = e.document.fork(&raw);
+         e.refresh(cx);
+-        w.focus(&e.focus);
++        w.focus(&e.focus, cx);
+         e
+     });
+     let original_selection = editor.read_with(cx, |e, _| e.document.selection());
+--- a/crates/ryne-ui/src/sidebar/view.rs
++++ b/crates/ryne-ui/src/sidebar/view.rs
+@@ -74,7 +74,7 @@
+                     self.sidebar.heading_search = false;
+                     self.sidebar.heading_filter.update(cx, |f, cx| f.reset(cx));
+                 }
+-                window.focus(&self.sidebar.focus);
++                window.focus(&self.sidebar.focus, cx);
+                 cx.stop_propagation();
+                 cx.notify();
+             }
+@@ -90,7 +90,7 @@
+             if self.sidebar.overlay(window) {
+                 self.sidebar_toggle(&ToggleSidebar, window, cx)
+             } else {
+-                window.focus(&self.focus)
++                window.focus(&self.focus, cx)
+             }
+             cx.stop_propagation();
+             cx.notify();
+@@ -512,7 +512,7 @@
+                         .collect()
+                 })
+             })
+-            .track_scroll(self.sidebar.scroll[pane.index()].clone())
++            .track_scroll(&self.sidebar.scroll[pane.index()])
+             .h_full();
+             panel.child(div().min_h_0().flex_1().child(rows))
+         } else {
+--- a/crates/ryne-ui/src/smoke.rs
++++ b/crates/ryne-ui/src/smoke.rs
+@@ -195,7 +195,7 @@
+                 for _ in 0..40 {
+                     if let Err(error) = cx.update(|window, cx| {
+                         window.refresh();
+-                        window.draw(cx).clear();
++                        window.draw(cx).clear(cx);
+                     }) {
+                         eprintln!("GUI smoke redraw failed at stage {stage}: {error}");
+                         std::process::exit(1);
+@@ -1543,10 +1543,10 @@
+                         105 => {
+                             editor.viewport.dragging = false;
+                             let other = cx.focus_handle();
+-                            window.focus(&other);
++                            window.focus(&other, cx);
+                             editor.sync_caret_blink(window, cx);
+                             check!(editor.caret_state.caret_blink_task.is_none());
+-                            window.focus(&editor.focus);
++                            window.focus(&editor.focus, cx);
+                             editor.reset_caret_blink();
+                             editor.sync_caret_blink(window, cx);
+                             check!(editor.caret_state.caret_visible);
+@@ -1699,7 +1699,7 @@
+                             editor.menus.hovered_render = None;
+                             let end = editor.document.source.text().len()-2;
+                             editor.move_to(end,false,cx);
+-                            window.focus(&editor.focus);
++                            window.focus(&editor.focus, cx);
+                         }
+                         134 => {
+                             check_eq!(geometry.render_regions.len(),6);
+@@ -1750,7 +1750,7 @@
+                         139 => {
+                             check_eq!(geometry.render_buttons.len(),1);
+                             check!(editor.menus.hovered_render.is_none());
+-                            editor.render_shortcut(&KeyDownEvent {keystroke:Keystroke {key:"down".into(),modifiers:Modifiers {control:true,platform:cfg!(target_os="macos"),..Default::default()},..Default::default()},is_held:false},window,cx);
++                            editor.render_shortcut(&KeyDownEvent { prefer_character_input: false,keystroke:Keystroke {key:"down".into(),modifiers:Modifiers {control:true,platform:cfg!(target_os="macos"),..Default::default()},..Default::default()},is_held:false},window,cx);
+                             check_eq!(editor.document.history_len(false),1);
+                         }
+                         140 => {
+@@ -1861,7 +1861,7 @@
+                             check_eq!(control.center().y,first.trigger.center().y);
+                             check!(control.left()>=geometry.bounds.left());
+                             check!(control.right()+px(4.)<=first.trigger.left());
+-                            editor.render_shortcut(&KeyDownEvent{keystroke:Keystroke{key:"enter".into(),modifiers:Modifiers{alt:true,..Default::default()},..Default::default()},is_held:false},window,cx);
++                            editor.render_shortcut(&KeyDownEvent { prefer_character_input: false,keystroke:Keystroke{key:"enter".into(),modifiers:Modifiers{alt:true,..Default::default()},..Default::default()},is_held:false},window,cx);
+                             let menu=editor.menus.render_menu.as_ref().ok_or("missing nested list menu")?;
+                             let marker=editor.document.source.text().find("- child").ok_or("missing child marker")?;
+                             check!(menu.rows.iter().all(|r|matches!(r,RenderMenuRow::Action(i) if i.request.target.part==[marker])));
+--- a/crates/ryne-ui/src/text_layout.rs
++++ b/crates/ryne-ui/src/text_layout.rs
+@@ -321,7 +321,7 @@
+                     .next()
+                     .unwrap_or_default();
+                 lines.push(Line {
+-                    shaped,
++                    shaped: std::sync::Arc::new(shaped),
+                     start,
+                     top,
+                     line_height: height,
+--- a/crates/ryne-ui/src/theme_tests.rs
++++ b/crates/ryne-ui/src/theme_tests.rs
+@@ -16,10 +16,10 @@
+             editor.document.services(),
+         );
+         editor.refresh(cx);
+-        window.focus(&editor.focus);
++        window.focus(&editor.focus, cx);
+         editor
+     });
+-    cx.update(|window, cx| window.draw(cx).clear());
++    cx.update(|window, cx| window.draw(cx).clear(cx));
+     let original = editor.read_with(cx, |e, _| e.viewport.geometry.clone().unwrap());
+     let source = editor.read_with(cx, |e, _| e.document.source.id());
+     let display = editor.read_with(cx, |e, _| e.viewport.display.clone());
+@@ -28,7 +28,7 @@
+             window.dispatch_action(Box::new(menus::SelectTheme { mode }), cx);
+         });
+         cx.run_until_parked();
+-        cx.update(|window, cx| window.draw(cx).clear());
++        cx.update(|window, cx| window.draw(cx).clear(cx));
+         editor.read_with(cx, |e, cx| {
+             assert_eq!(theme::selected(cx), mode);
+             assert_eq!(
+@@ -65,7 +65,7 @@
+         cx.update_global::<Settings, _>(|s, _| s.system = WindowAppearance::Dark);
+         cx.refresh_windows();
+     });
+-    cx.update(|window, cx| window.draw(cx).clear());
++    cx.update(|window, cx| window.draw(cx).clear(cx));
+     editor.read_with(cx, |e, _| {
+         assert_eq!(
+             e.viewport.geometry.as_ref().unwrap().text_layout.key.colors,
+@@ -90,6 +90,6 @@
+         });
+         cx.update_global::<Settings, _>(|s, _| s.system = WindowAppearance::Dark);
+         assert_eq!(theme::palette(cx), Palette::LIGHT);
+-        window.draw(cx).clear();
++        window.draw(cx).clear(cx);
+     });
+ }
+--- a/crates/ryne-ui/src/window_controls_tests.rs
++++ b/crates/ryne-ui/src/window_controls_tests.rs
+@@ -44,11 +44,11 @@
+ fn titlebar_preserves_native_mouse_handling_and_document_focus(cx: &mut TestAppContext) {
+     let (editor, cx) = cx.add_window_view(|window, cx| {
+         let editor = test_editor(cx);
+-        window.focus(&editor.focus);
++        window.focus(&editor.focus, cx);
+         editor
+     });
+     cx.update(|window, cx| {
+-        window.draw(cx).clear();
++        window.draw(cx).clear(cx);
+         cx.bind_keys([KeyBinding::new("cmd-a", SelectAll, Some("MarkdownEditor"))]);
+     });
+     let before = editor.read_with(cx, |editor, _| {
+@@ -95,7 +95,7 @@
+         assert!(menu.bottom() <= menu_bar.bottom());
+         cx.simulate_click(menu.center(), Modifiers::default());
+         assert_eq!(editor.read_with(cx, |e, _| e.menus.top_menu), Some(index));
+-        cx.update(|window, cx| window.draw(cx).clear());
++        cx.update(|window, cx| window.draw(cx).clear(cx));
+         let popup = cx.debug_bounds("app-menu-popup").expect("open menu");
+         assert!(popup.top() >= menu.bottom());
+     }
+@@ -149,7 +149,7 @@
+     // independently of the caption controls above it.
+     for width in [520., 920.] {
+         cx.simulate_resize(size(px(width), px(680.)));
+-        cx.update(|window, cx| window.draw(cx).clear());
++        cx.update(|window, cx| window.draw(cx).clear(cx));
+         let mode = cx.debug_bounds("toggle-source").unwrap();
+         let sidebar = cx.debug_bounds("toggle-sidebar").unwrap();
+         let menu = cx.debug_bounds("app-menu-1").unwrap();
+@@ -159,7 +159,7 @@
+         assert!(mode.top() >= caption.bottom());
+         for expected in [true, false] {
+             cx.simulate_click(mode.center(), Modifiers::default());
+-            cx.update(|window, cx| window.draw(cx).clear());
++            cx.update(|window, cx| window.draw(cx).clear(cx));
+             assert_eq!(
+                 editor.read_with(cx, |e, _| e.document.source_mode),
+                 expected
+@@ -183,7 +183,7 @@
+             .position(2)
+             + point(px(1.), px(8.))
+     });
+-    cx.update(|window, _| window.blur());
++    cx.update(|window, cx| window.blur(cx));
+     cx.simulate_mouse_move(position, None, Modifiers::default());
+     cx.simulate_mouse_down(position, MouseButton::Left, Modifiers::default());
+     assert!(cx.update(|window, _| window.default_prevented()));

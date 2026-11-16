@@ -321,7 +321,7 @@ impl TextLayout {
                     .next()
                     .unwrap_or_default();
                 lines.push(Line {
-                    shaped,
+                    shaped: std::sync::Arc::new(shaped),
                     start,
                     top,
                     line_height: height,

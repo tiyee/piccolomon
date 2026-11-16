@@ -70,14 +70,17 @@ pub(super) fn application_menus(
     recent.push(MenuItem::action(text(Text::ClearRecent), ClearRecent));
     vec![
         Menu {
+            disabled: false,
             name: "Ryne".into(),
             items: vec![
                 MenuItem::action(text(Text::About), About),
                 MenuItem::submenu(Menu {
+                    disabled: false,
                     name: text(Text::Language).into(),
                     items: languages,
                 }),
                 MenuItem::submenu(Menu {
+                    disabled: false,
                     name: text(Text::MathFont).into(),
                     items: MathFont::ALL
                         .into_iter()
@@ -94,6 +97,7 @@ pub(super) fn application_menus(
                         .collect(),
                 }),
                 MenuItem::submenu(Menu {
+                    disabled: false,
                     name: text(Text::Theme).into(),
                     items: theme::Mode::ALL
                         .into_iter()
@@ -118,12 +122,14 @@ pub(super) fn application_menus(
             ],
         },
         Menu {
+            disabled: false,
             name: text(Text::File).into(),
             items: vec![
                 MenuItem::action(text(Text::New), New),
                 MenuItem::action(text(Text::Open), Open),
                 MenuItem::action(text(Text::OpenFolder), OpenFolder),
                 MenuItem::submenu(Menu {
+                    disabled: false,
                     name: text(Text::Recent).into(),
                     items: recent,
                 }),
@@ -438,7 +444,7 @@ fn window_menu_item(item: MenuItem, cx: &mut Context<Editor>) -> AnyElement {
                         if enabled {
                             this.menus.top_menu = None;
                             this.menus.top_submenu = None;
-                            window.focus(&this.focus);
+                            window.focus(&this.focus, cx);
                             window.dispatch_action(action.boxed_clone(), cx);
                             cx.notify();
                         }

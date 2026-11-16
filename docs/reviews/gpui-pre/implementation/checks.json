@@ -1,0 +1,209 @@
+{
+  "common_env": {
+    "CARGO_HOME": "/tmp/ryne-upgrade-cargo-home",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0"
+  },
+  "results": [
+    {
+      "name": "architecture",
+      "command": [
+        "python3",
+        "scripts/check-architecture.py"
+      ],
+      "env": {},
+      "exit_code": 0,
+      "expected": 0,
+      "seconds": 0.296
+    },
+    {
+      "name": "architecture-tests",
+      "command": [
+        "python3",
+        "scripts/test-check-architecture.py"
+      ],
+      "env": {},
+      "exit_code": 0,
+      "expected": 0,
+      "seconds": 0.135
+    },
+    {
+      "name": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "env": {},
+      "exit_code": 0,
+      "expected": 0,
+      "seconds": 3.307
+    },
+    {
+      "name": "check",
+      "command": [
+        "cargo",
+        "check",
+        "--locked",
+        "--workspace",
+        "--all-targets"
+      ],
+      "env": {},
+      "exit_code": 0,
+      "expected": 0,
+      "seconds": 7.034
+    },
+    {
+      "name": "smoke",
+      "command": [
+        "cargo",
+        "run",
+        "--locked",
+        "--",
+        "--smoke-test"
+      ],
+      "env": {},
+      "exit_code": 0,
+      "expected": 0,
+      "seconds": 605.249
+    },
+    {
+      "name": "smoke-failure",
+      "command": [
+        "cargo",
+        "run",
+        "--locked",
+        "--",
+        "--smoke-test-failure"
+      ],
+      "env": {},
+      "exit_code": 1,
+      "expected": 1,
+      "seconds": 5.695
+    },
+    {
+      "name": "smoke-images",
+      "command": [
+        "cargo",
+        "run",
+        "--locked",
+        "--",
+        "--smoke-test"
+      ],
+      "env": {
+        "RYNE_SMOKE_IMAGES_ONLY": "1"
+      },
+      "exit_code": 0,
+      "expected": 0,
+      "seconds": 6.961
+    },
+    {
+      "name": "smoke-block-math",
+      "command": [
+        "cargo",
+        "run",
+        "--locked",
+        "--",
+        "--smoke-test"
+      ],
+      "env": {
+        "RYNE_SMOKE_BLOCK_MATH_ONLY": "1"
+      },
+      "exit_code": 0,
+      "expected": 0,
+      "seconds": 6.577
+    },
+    {
+      "name": "smoke-alerts",
+      "command": [
+        "cargo",
+        "run",
+        "--locked",
+        "--",
+        "--smoke-test"
+      ],
+      "env": {
+        "RYNE_SMOKE_ALERTS_ONLY": "1"
+      },
+      "exit_code": 0,
+      "expected": 0,
+      "seconds": 6.588
+    },
+    {
+      "name": "smoke-theme",
+      "command": [
+        "cargo",
+        "run",
+        "--locked",
+        "--",
+        "--smoke-test"
+      ],
+      "env": {
+        "RYNE_SMOKE_THEME_ONLY": "1"
+      },
+      "exit_code": 0,
+      "expected": 0,
+      "seconds": 5.338
+    },
+    {
+      "name": "smoke-code-language",
+      "command": [
+        "cargo",
+        "run",
+        "--locked",
+        "--",
+        "--smoke-test"
+      ],
+      "env": {
+        "RYNE_SMOKE_CODE_LANGUAGE_ONLY": "1"
+      },
+      "exit_code": 0,
+      "expected": 0,
+      "seconds": 10.081
+    },
+    {
+      "name": "smoke-export-menu",
+      "command": [
+        "cargo",
+        "run",
+        "--locked",
+        "--",
+        "--smoke-test"
+      ],
+      "env": {
+        "RYNE_SMOKE_EXPORT_MENU_ONLY": "1"
+      },
+      "exit_code": 0,
+      "expected": 0,
+      "seconds": 5.264
+    },
+    {
+      "name": "smoke-block-tree",
+      "command": [
+        "cargo",
+        "run",
+        "--locked",
+        "--",
+        "--smoke-test"
+      ],
+      "env": {
+        "RYNE_SMOKE_BLOCK_TREE_ONLY": "1"
+      },
+      "exit_code": 0,
+      "expected": 0,
+      "seconds": 5.43
+    },
+    {
+      "name": "bundle-debug",
+      "command": [
+        "sh",
+        "scripts/bundle-macos.sh",
+        "debug"
+      ],
+      "env": {},
+      "exit_code": 0,
+      "expected": 0,
+      "seconds": 14.645
+    }
+  ]
+}

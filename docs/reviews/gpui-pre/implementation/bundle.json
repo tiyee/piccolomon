@@ -1,0 +1,12 @@
+{
+  "architecture": "x86_64",
+  "profile": "debug",
+  "bundle": "/Users/jiangtao/code/github.com/piccolomon/target/Ryne.app",
+  "executable_bytes": 211145856,
+  "executable_sha256": "3b831877244c3427e34acbbde50a1b06ce5b33b362fffb814fbbb569ec1df664",
+  "build_uuid": "A9FF49F0-6C8F-336B-AA05-052DC4458435",
+  "verification_exit_code": 0,
+  "signed_bundle_image_smoke_exit_code": 0,
+  "log": "bundle-verify.log",
+  "launch_log": "bundle-launch.log"
+}

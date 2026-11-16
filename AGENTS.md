@@ -99,7 +99,8 @@
   PDF 经独立只读导出快照在后台生成分页 A4，支持标题、行内格式、列表、代码背景、表格、公式和 Mermaid；
   不支持的结构保留当前源码回退，不改文档路径、dirty、选区、历史或源码模式，导出前确认 IME。
   使用 krilla 0.8.2、krilla-svg 0.8.1，保留可选择正文与矢量公式，Mermaid 仍为位图；系统字体缺字报错。
-  适配器内部使用 usvg/resvg 0.47，与编辑器的 0.45 并存，不修改 GPUI、解析器或 grapheme 锁定；
+  适配器内部使用 usvg/resvg 0.47，与服务层 0.45 和 GPUI pre 的 0.46 并存；
+  PDF 接入不修改解析器或 grapheme 锁定；
   默认文件名无额外后缀，未增加新段落引擎或出版级分页。
   限制源码 4 MiB、500 页及图表 32 块/32 MiB；长代码/单元格可跨页，代码无高亮，链接无 PDF 点击动作。
   检查更新使用后台有超时、响应大小限制的 ureq 请求，不下载/安装。
@@ -211,7 +212,7 @@
   PDF 导出快照固定数学字体，两种字体许可随 macOS/Windows 包分发。实现与对照见
   `docs/23_Math_Font_Selection.md`；
   RaTeX 已从编辑器依赖移除，仅独立历史评估工具保留。解析库提供可选数学节点，
-  GPUI 0.2.2 使用自包含 SVG、基线混排、动态行高及原子源码映射。点击或方向键
+  GPUI pre 0.3.12 使用自包含 SVG、基线混排、动态行高及原子源码映射。点击或方向键
   进入后编辑原始 LaTeX，离开收起；支持列表与表格单元格，显隐不产生 dirty。
   失败、缺字（含公式内中文）、不支持的变体或 MathML 降级、超过 4096 字节或布局上限、
   多行单美元公式保留源码；独立双美元公式支持见下文。二维编辑尚未实现。布局按 18 px 计算，放大 SVG 坐标后生成字形路径，
@@ -358,6 +359,15 @@
 
 ## 代码与资料
 
+- 2026-11-16 已正式适配 `gpui-pre` / `gpui-pre-platform =0.3.12`，源码别名分别为 `gpui`、
+  `gpui_platform`。使用平台入口初始化，并在 platform 上启用 `font-kit`、`runtime_shaders`。
+  已适配共享 WrappedLine、App 焦点、绘制、滚动、菜单及关闭接口；平台粘贴与快捷键共用源码事务，
+  正文与侧栏尊重字符输入优先标志。依赖守卫识别 core/platform 别名及后端包族。
+  方案见 `docs/50_GPUI_Pre_Upgrade_Plan.md`，实际测试、平台覆盖和剩余发布门槛见
+  `docs/reviews/gpui-pre/implementation/README.md`。本机 Intel macOS 的 466 项测试、完整与七组专项
+  原生冒烟、编译/Clippy、签名 debug 应用包均已通过；Windows、ARM64、人工 IME 和发布包仍待验收。
+  历史探针不能代替当前分支验收。
+
 - 2026-11-15 规划补充，尚未实现：区块树 B3 明确正文输入宿主持续挂载、屏外光标/IME 必需布局单元
   独立保留并与视口去重，阅读滚动不强制回到光标；不得精排焦点到视口之间的全部内容。
   设计与验收见 `docs/reviews/block_tree/DESIGN.md`、`IMPLEMENTATION.md`；这不是阶段 D 的焦点覆盖。
@@ -473,7 +483,8 @@
   用户后续明确指令优先，尤其保留标题仅点击显示标记、悬停不展开的要求。
 - `docs/12_Editable_Markdown_Parser_0.0.3_Review.md` 记录解析包评估；完整架构
   文档不等于当前功能已经实现。GUI 交互由编辑器各层负责，解析与源码编辑原语在本仓库维护。
-- 保持现有依赖锁定：GPUI `0.2.2`（启用 `runtime_shaders`）、
+- 保持现有依赖锁定：`gpui-pre =0.3.12`（源码别名 `gpui`）与
+  `gpui-pre-platform =0.3.12`（别名 `gpui_platform`，启用 `font-kit`、`runtime_shaders`），
   `ryne-parser` 使用 `pulldown-cmark =0.13.6`（编辑器启用可选公式 API，未启用 wikilink）、
   `unicode-segmentation =1.13.3`（与解析器统一使用 Unicode 17）；
   不再依赖相邻解析库仓库的本地源码。其余版本调整须有具体必要性。
@@ -481,6 +492,7 @@
 ## 开发与验证
 
 - 使用支持 edition 2024 的当前 stable Rust；已有开发环境使用 Rust 1.99。
+  `rustfmt.toml` 固定既有的 2021 排版风格，不改变 Rust 2024 语言 edition；使用配套的当前 rustfmt。
   Cargo 镜像未同步依赖时使用独立的 Cargo 配置或官方源，不擅自修改全局配置。
   若 `cargo clippy` 意外使用旧驱动，先核对 cargo、rustc 与 clippy-driver 的版本和路径，
   使用与当前 stable 配套的驱动重试，不通过降低依赖版本解决工具链路径问题；本机已验证
@@ -492,6 +504,7 @@
 
   ```sh
   python3 scripts/check-architecture.py
+  python3 scripts/test-check-architecture.py
   cargo fmt --check
   cargo test --locked
   cargo clippy --locked --all-targets -- -D warnings

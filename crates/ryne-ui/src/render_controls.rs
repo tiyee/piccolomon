@@ -189,7 +189,7 @@ impl Editor {
         self.menus.append_menu = None;
         self.menus.top_menu = None;
         self.menus.top_submenu = None;
-        window.focus(&self.focus);
+        window.focus(&self.focus, cx);
         cx.notify();
     }
     fn run_render_item(
@@ -213,7 +213,7 @@ impl Editor {
         }
         self.caret_state.preferred_x = None;
         self.viewport.ensure_caret = true;
-        window.focus(&self.focus);
+        window.focus(&self.focus, cx);
         self.refresh(cx);
     }
     pub(super) fn activate_render_control(
@@ -375,7 +375,7 @@ impl Editor {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if !self.render_available() {
+        if event.prefer_character_input || !self.render_available() {
             return;
         }
         let stroke = &event.keystroke;
@@ -607,7 +607,7 @@ fn popup(colors: theme::Palette, id: &'static str, width: Pixels, height: Pixels
         .cursor_default()
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .on_mouse_up(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-        .on_scroll_wheel(|_, _, cx| cx.stop_propagation())
+        .on_scroll(|_, _, cx| cx.stop_propagation())
 }
 pub(super) fn prepaint_render_controls(
     editor: &RenderViewState,

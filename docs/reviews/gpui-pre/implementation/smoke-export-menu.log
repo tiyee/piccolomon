@@ -1,0 +1,8 @@
+warning: `/Users/jiangtao/.cargo/config` is deprecated in favor of `config.toml`
+  |
+  = help: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+    Finished `dev` profile [unoptimized] target(s) in 1.00s
+     Running `target/debug/ryne --smoke-test`
+GUI smoke stage 0
+GUI smoke stage 205
+Export menu GUI passed: one localized PDF entry

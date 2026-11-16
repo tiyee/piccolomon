@@ -1,0 +1,16 @@
+warning: `/Users/jiangtao/.cargo/config` is deprecated in favor of `config.toml`
+  |
+  = help: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+    Finished `dev` profile [unoptimized] target(s) in 0.93s
+     Running `target/debug/ryne --smoke-test`
+GUI smoke stage 0
+GUI smoke stage 259
+GUI smoke stage 260
+GUI smoke stage 261
+GUI smoke stage 262
+GUI smoke stage 263
+GUI smoke stage 264
+GUI smoke stage 265
+Code language menu passed: header geometry, empty-source auto, removed empty choice, popup hides block controls, keyboard selection, literal CRLF source edits, atomic undo, source/IME suppression
+GUI smoke stage 266
+Code language GUI smoke passed

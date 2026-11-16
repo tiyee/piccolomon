@@ -3,7 +3,7 @@ use ryne_syntax::block::BlockKind;
 pub(super) const BLOCK_CONTROL_HEIGHT: f32 = 24.;
 #[derive(Clone)]
 pub(super) struct Line {
-    pub(super) shaped: WrappedLine,
+    pub(super) shaped: std::sync::Arc<WrappedLine>,
     pub(super) start: usize,
     pub(super) top: Pixels,
     pub(super) line_height: Pixels,
@@ -64,7 +64,7 @@ impl Line {
 
 #[derive(Clone)]
 pub(super) struct TypesetLine {
-    pub(super) shaped: WrappedLine,
+    pub(super) shaped: std::sync::Arc<WrappedLine>,
     pub(super) start: usize,
     pub(super) line_height: Pixels,
     pub(super) mixed: Option<MixedLine>,
@@ -129,7 +129,7 @@ pub(super) fn shape_inline(
                         shaped.unwrapped_layout.ascent + shaped.unwrapped_layout.descent + px(4.),
                     )
                 },
-                shaped,
+                shaped: std::sync::Arc::new(shaped),
                 start: range.start,
                 mixed: None,
             })
@@ -155,7 +155,7 @@ pub(super) fn shape_inline(
     let mut boundaries = vec![range.start];
     boundaries.extend(
         wrapper
-            .wrap_line(&fragments, width)
+            .wrap_line(&fragments, width, IndentAdjustment::SameIndent)
             .map(|b| display.snap(range.start + b.ix))
             .filter(|b| range.start < *b && *b < range.end),
     );
@@ -243,7 +243,7 @@ pub(super) fn shape_inline(
             px(line_height).max(ascent + descent + px(4.))
         };
         output.push(TypesetLine {
-            shaped,
+            shaped: std::sync::Arc::new(shaped),
             start: row.start,
             line_height: height,
             mixed: Some(MixedLine {

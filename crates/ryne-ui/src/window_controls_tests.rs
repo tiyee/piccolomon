@@ -44,11 +44,11 @@ pub(super) fn test_editor(cx: &mut Context<Editor>) -> Editor {
 fn titlebar_preserves_native_mouse_handling_and_document_focus(cx: &mut TestAppContext) {
     let (editor, cx) = cx.add_window_view(|window, cx| {
         let editor = test_editor(cx);
-        window.focus(&editor.focus);
+        window.focus(&editor.focus, cx);
         editor
     });
     cx.update(|window, cx| {
-        window.draw(cx).clear();
+        window.draw(cx).clear(cx);
         cx.bind_keys([KeyBinding::new("cmd-a", SelectAll, Some("MarkdownEditor"))]);
     });
     let before = editor.read_with(cx, |editor, _| {
@@ -95,7 +95,7 @@ fn titlebar_preserves_native_mouse_handling_and_document_focus(cx: &mut TestAppC
         assert!(menu.bottom() <= menu_bar.bottom());
         cx.simulate_click(menu.center(), Modifiers::default());
         assert_eq!(editor.read_with(cx, |e, _| e.menus.top_menu), Some(index));
-        cx.update(|window, cx| window.draw(cx).clear());
+        cx.update(|window, cx| window.draw(cx).clear(cx));
         let popup = cx.debug_bounds("app-menu-popup").expect("open menu");
         assert!(popup.top() >= menu.bottom());
     }
@@ -149,7 +149,7 @@ fn titlebar_preserves_native_mouse_handling_and_document_focus(cx: &mut TestAppC
     // independently of the caption controls above it.
     for width in [520., 920.] {
         cx.simulate_resize(size(px(width), px(680.)));
-        cx.update(|window, cx| window.draw(cx).clear());
+        cx.update(|window, cx| window.draw(cx).clear(cx));
         let mode = cx.debug_bounds("toggle-source").unwrap();
         let sidebar = cx.debug_bounds("toggle-sidebar").unwrap();
         let menu = cx.debug_bounds("app-menu-1").unwrap();
@@ -159,7 +159,7 @@ fn titlebar_preserves_native_mouse_handling_and_document_focus(cx: &mut TestAppC
         assert!(mode.top() >= caption.bottom());
         for expected in [true, false] {
             cx.simulate_click(mode.center(), Modifiers::default());
-            cx.update(|window, cx| window.draw(cx).clear());
+            cx.update(|window, cx| window.draw(cx).clear(cx));
             assert_eq!(
                 editor.read_with(cx, |e, _| e.document.source_mode),
                 expected
@@ -183,7 +183,7 @@ fn titlebar_preserves_native_mouse_handling_and_document_focus(cx: &mut TestAppC
             .position(2)
             + point(px(1.), px(8.))
     });
-    cx.update(|window, _| window.blur());
+    cx.update(|window, cx| window.blur(cx));
     cx.simulate_mouse_move(position, None, Modifiers::default());
     cx.simulate_mouse_down(position, MouseButton::Left, Modifiers::default());
     assert!(cx.update(|window, _| window.default_prevented()));

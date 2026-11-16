@@ -70,7 +70,7 @@ impl Editor {
         if let Some(path) = self.document.files.path.clone() {
             self.remember_file(&path, cx);
         }
-        window.focus(&self.focus);
+        window.focus(&self.focus, cx);
         self.refresh(cx);
     }
     fn replace_document(

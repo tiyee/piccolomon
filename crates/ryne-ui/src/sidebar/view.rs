@@ -60,7 +60,10 @@ impl Editor {
         cx: &mut Context<Self>,
     ) {
         let key = event.keystroke.key.as_str();
-        if self.sidebar_protected() || event.keystroke.modifiers.modified() {
+        if event.prefer_character_input
+            || self.sidebar_protected()
+            || event.keystroke.modifiers.modified()
+        {
             return;
         }
         let filter = if self.sidebar.pane() == Pane::Outline {
@@ -74,7 +77,7 @@ impl Editor {
                     self.sidebar.heading_search = false;
                     self.sidebar.heading_filter.update(cx, |f, cx| f.reset(cx));
                 }
-                window.focus(&self.sidebar.focus);
+                window.focus(&self.sidebar.focus, cx);
                 cx.stop_propagation();
                 cx.notify();
             }
@@ -90,7 +93,7 @@ impl Editor {
             if self.sidebar.overlay(window) {
                 self.sidebar_toggle(&ToggleSidebar, window, cx)
             } else {
-                window.focus(&self.focus)
+                window.focus(&self.focus, cx)
             }
             cx.stop_propagation();
             cx.notify();
@@ -512,7 +515,7 @@ impl Editor {
                         .collect()
                 })
             })
-            .track_scroll(self.sidebar.scroll[pane.index()].clone())
+            .track_scroll(&self.sidebar.scroll[pane.index()])
             .h_full();
             panel.child(div().min_h_0().flex_1().child(rows))
         } else {

@@ -71,6 +71,8 @@ impl EditorElement {
                     let _ = label.paint(
                         panel.bounds.origin + point(px(16.), px(6.)),
                         px(20.),
+                        TextAlign::Left,
+                        None,
                         window,
                         cx,
                     );
@@ -100,6 +102,7 @@ impl EditorElement {
                                 icon,
                                 format!("icon:{}", ryne_projection::alert::icon(alert.source.kind))
                                     .into(),
+                                None,
                                 TransformationMatrix::default(),
                                 rgb(ryne_projection::alert::color(
                                     alert.source.kind,
@@ -111,6 +114,8 @@ impl EditorElement {
                             let _ = title.paint(
                                 panel.title_origin + quote_origin,
                                 px(theme::BODY.1),
+                                TextAlign::Left,
+                                None,
                                 window,
                                 cx,
                             );
@@ -120,6 +125,7 @@ impl EditorElement {
                     let _ = window.paint_svg(
                         icon,
                         "icon:quoter".into(),
+                        None,
                         TransformationMatrix::default(),
                         rgb(colors.muted).into(),
                         cx,
@@ -141,6 +147,7 @@ impl EditorElement {
                         .paint_svg(
                             icon,
                             "icon:image_failed".into(),
+                            None,
                             TransformationMatrix::default(),
                             rgb(colors.muted).into(),
                             cx,
@@ -154,7 +161,7 @@ impl EditorElement {
                 if origin.y + *height < bounds.top() || origin.y > bounds.bottom() {
                     continue;
                 }
-                let _ = label.paint(*origin, *height, window, cx);
+                let _ = label.paint(*origin, *height, TextAlign::Left, None, window, cx);
             }
             for selection in frame.selections.drain(..) {
                 window.paint_quad(selection);
@@ -178,11 +185,15 @@ impl EditorElement {
                     continue;
                 }
                 if let Some(index) = line.diagram {
+                    let image_bounds = Bounds::new(
+                        origin + point(px(0.), px(12.)),
+                        size(line.width, line.line_height - px(24.)),
+                    );
+                    // The viewport content mask clips the full image placement;
+                    // do not rescale a partially visible image to its clipped area.
                     let result = window.paint_image(
-                        Bounds::new(
-                            origin + point(px(0.), px(12.)),
-                            size(line.width, line.line_height - px(24.)),
-                        ),
+                        image_bounds,
+                        image_bounds,
                         Corners::default(),
                         frame.geometry.diagram_images[index].clone(),
                         0,
@@ -205,8 +216,14 @@ impl EditorElement {
                     for piece in &mixed.pieces {
                         if let InlineContent::Text(text) = &piece.content {
                             let at = origin + point(piece.x, mixed.baseline - text.ascent);
-                            let _ =
-                                text.paint_background(at, text.ascent + text.descent, window, cx);
+                            let _ = text.paint_background(
+                                at,
+                                text.ascent + text.descent,
+                                TextAlign::Left,
+                                None,
+                                window,
+                                cx,
+                            );
                         }
                     }
                     for piece in &mixed.pieces {
@@ -214,7 +231,7 @@ impl EditorElement {
                             InlineContent::Text(text) => {
                                 let at = origin + point(piece.x, mixed.baseline - text.ascent);
                                 let height = text.ascent + text.descent;
-                                let _ = text.paint(at, height, window, cx);
+                                let _ = text.paint(at, height, TextAlign::Left, None, window, cx);
                             }
                             InlineContent::Math(formula) => {
                                 let at = origin
@@ -232,6 +249,7 @@ impl EditorElement {
                                         ),
                                     ),
                                     formula.path.clone().into(),
+                                    None,
                                     TransformationMatrix::default(),
                                     rgb(colors.ink).into(),
                                     cx,

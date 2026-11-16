@@ -1,0 +1,19 @@
+gpui-pre-apple v0.3.12
+├── gpui-pre-apple feature "default"
+│   └── gpui-pre-macos v0.3.12
+│       └── gpui-pre-platform v0.3.12
+│           ├── gpui-pre-platform feature "font-kit"
+│           │   └── ryne-ui v0.2.9 (/Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui)
+│           │       └── ryne-ui feature "default" (command-line)
+│           │           └── ryne-app v0.2.9 (/Users/jiangtao/code/github.com/piccolomon)
+│           │               └── ryne-app feature "default" (command-line)
+│           └── gpui-pre-platform feature "runtime_shaders"
+│               └── ryne-ui v0.2.9 (/Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui) (*)
+│       ├── gpui-pre-macos feature "font-kit"
+│       │   └── gpui-pre-platform feature "font-kit" (*)
+│       └── gpui-pre-macos feature "runtime_shaders"
+│           └── gpui-pre-platform feature "runtime_shaders" (*)
+├── gpui-pre-apple feature "font-kit"
+│   └── gpui-pre-macos feature "font-kit" (*)
+└── gpui-pre-apple feature "runtime_shaders"
+    └── gpui-pre-macos feature "runtime_shaders" (*)

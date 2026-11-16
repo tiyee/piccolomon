@@ -1,0 +1,12 @@
+warning: `/Users/jiangtao/.cargo/config` is deprecated in favor of `config.toml`
+  |
+  = help: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+    Finished `dev` profile [unoptimized] target(s) in 0.95s
+     Running `target/debug/ryne --smoke-test`
+GUI smoke stage 0
+GUI smoke stage 390
+GUI smoke stage 391
+GUI smoke stage 392
+GUI smoke stage 393
+GUI smoke stage 394
+Block directory/cache GUI passed: cross-version shaping reuse, full glyph/geometry differential for Unicode, nested quote/list/code/table/formula, atomic undo, action-only layout reuse and stale-control rejection

@@ -1,0 +1,15 @@
+warning: `/Users/jiangtao/.cargo/config` is deprecated in favor of `config.toml`
+  |
+  = help: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+    Finished `dev` profile [unoptimized] target(s) in 1.03s
+     Running `target/debug/ryne --smoke-test`
+GUI smoke stage 0
+GUI smoke stage 403
+GUI smoke stage 404
+GUI smoke stage 405
+GUI smoke stage 406
+GUI smoke stage 407
+GUI smoke stage 408
+GUI smoke stage 409
+GUI smoke stage 410
+Alerts GUI passed: five titles and tinted panels, both themes, ordinary quote isolation, header click/source reveal, body editing and undo, source mode and unchanged bytes

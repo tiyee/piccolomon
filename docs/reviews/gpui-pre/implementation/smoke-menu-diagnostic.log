@@ -1,0 +1,76 @@
+warning: `/Users/jiangtao/.cargo/config` is deprecated in favor of `config.toml`
+  |
+  = help: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+   Compiling ryne-ui v0.2.9 (/Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui)
+   Compiling ryne-app v0.2.9 (/Users/jiangtao/code/github.com/piccolomon)
+    Finished `dev` profile [unoptimized] target(s) in 17.42s
+     Running `target/debug/ryne --smoke-test`
+GUI smoke stage 0
+GUI smoke stage 10
+GUI smoke stage 20
+GUI smoke stage 30
+GUI smoke stage 40
+GUI smoke stage 50
+GUI smoke stage 60
+GUI smoke stage 70
+GUI smoke stage 80
+GUI smoke stage 81
+GUI smoke stage 82
+GUI smoke stage 83
+GUI smoke stage 84
+GUI smoke stage 85
+GUI smoke stage 86
+GUI smoke stage 87
+GUI smoke stage 88
+GUI smoke stage 89
+GUI smoke stage 90
+GUI smoke stage 91
+GUI smoke stage 92
+GUI smoke stage 93
+GUI smoke stage 94
+GUI smoke stage 95
+GUI smoke stage 96
+GUI smoke stage 97
+GUI smoke stage 98
+GUI smoke stage 99
+GUI smoke stage 100
+GUI smoke stage 101
+GUI smoke stage 102
+GUI smoke stage 103
+GUI smoke stage 104
+GUI smoke stage 105
+GUI smoke stage 106
+GUI smoke stage 107
+GUI smoke stage 108
+GUI smoke stage 109
+GUI smoke stage 110
+GUI smoke stage 111
+GUI smoke stage 112
+GUI smoke stage 113
+GUI smoke stage 114
+GUI smoke stage 115
+GUI smoke stage 116
+GUI smoke stage 117
+GUI smoke stage 118
+GUI smoke stage 119
+GUI smoke stage 120
+GUI smoke stage 121
+GUI smoke stage 122
+GUI smoke stage 123
+GUI smoke stage 124
+GUI smoke stage 125
+GUI smoke stage 126
+GUI smoke stage 127
+GUI smoke stage 128
+GUI smoke stage 129
+GUI smoke stage 130
+GUI smoke stage 131
+GUI smoke stage 132
+GUI smoke stage 133
+GUI smoke stage 134
+GUI smoke stage 135
+GUI smoke stage 136
+GUI smoke stage 137
+Cell menu before Right: selected=2, submenu=None, mouse=Point { x: 769.72546px, y: 259.3958px }
+GUI smoke stage 138
+GUI smoke failed at stage 138: cell submenu geometry: bounds=1, menu=Some((2, None, 0)), mouse=Point { x: 769.72546px, y: 259.3958px }

@@ -16,6 +16,7 @@ ryne-projection.workspace = true
 ryne-extensions.workspace = true
 ryne-parser.workspace = true
 gpui.workspace = true
+gpui_platform.workspace = true
 async-channel.workspace = true
 url.workspace = true
 unicode-segmentation.workspace = true

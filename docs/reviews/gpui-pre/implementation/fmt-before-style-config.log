@@ -1,0 +1,2538 @@
+warning: `/Users/jiangtao/.cargo/config` is deprecated in favor of `config.toml`
+  |
+  = help: if you need to support cargo 1.38 or earlier, you can symlink `config` to `config.toml`
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-extensions/src/lib.rs:2:
+ use ryne_core::{DocumentKey, PreparedEdit, SourceRange};
+ use ryne_parser::{Error, Session, Source};
+ use ryne_projection::{Class, DiagramOutcome, DiagramViewInput, Display, Formula};
+-use ryne_syntax::code_block::CodeBlock;
+ use ryne_syntax::ParseSnapshot;
++use ryne_syntax::code_block::CodeBlock;
+ use std::{
+     ops::Range,
+     path::Path,
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-extensions/src/lib.rs:10:
+     sync::{
+-        atomic::{AtomicBool, Ordering},
+         Arc, Mutex, Weak,
++        atomic::{AtomicBool, Ordering},
+     },
+     time::{Duration, Instant},
+ };
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-extensions/src/lib.rs:484:
+ mod preview;
+ pub use preview::PreviewCache;
+ mod host;
+-pub use host::{catch_callback, DiagnosticLog, GuardedFeatureEngine};
++pub use host::{DiagnosticLog, GuardedFeatureEngine, catch_callback};
+ #[cfg(test)]
+ mod cancellation_tests;
+ #[cfg(test)]
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-extensions/src/lib.rs:518:
+ pub mod directory;
+ 
+ mod projection;
+-pub use projection::{project_checked, ProjectionBatch};
++pub use projection::{ProjectionBatch, project_checked};
+ 
+ mod export;
+ pub use export::{ArtifactStore, ExportDescriptor, ExportRegistry};
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-extensions/src/preview.rs:1:
+ //! Source candidates are cached separately from live visibility and renderer jobs.
+ use crate::{
+-    catch_callback, Diagnostic, EditingState, PreviewBatch, PreviewInput, PreviewProvider,
++    Diagnostic, EditingState, PreviewBatch, PreviewInput, PreviewProvider, catch_callback,
+ };
+ use std::{
+     collections::{BTreeMap, BTreeSet},
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-extensions/src/preview_tests.rs:227:
+     assert_eq!(cached.inputs.len(), 32);
+     assert_eq!(summary(&cached), summary(&registry.batch(&state)));
+     assert!(cache.entries.values().all(|e| e.candidates.len() <= 32));
+-    assert!(cached
+-        .inputs
+-        .iter()
+-        .enumerate()
+-        .all(|(i, p)| p.feature == if i % 2 == 0 { "first" } else { "second" }));
++    assert!(
++        cached
++            .inputs
++            .iter()
++            .enumerate()
++            .all(|(i, p)| p.feature == if i % 2 == 0 { "first" } else { "second" })
++    );
+ }
+ 
+ #[test]
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-extensions/src/projection.rs:1:
+ //! Host boundary for disposable presentation. Failures never alter the source snapshot.
+ use crate::*;
+-use std::panic::{catch_unwind, AssertUnwindSafe};
++use std::panic::{AssertUnwindSafe, catch_unwind};
+ 
+ pub struct ProjectionBatch {
+     pub display: Display,
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-extensions/src/registration_tests.rs:95:
+     r.templates(c.clone(), vec![("original", InsertBlock::Quote)])
+         .unwrap();
+     let staged = r.staged.len();
+-    assert!(r
+-        .templates(c, vec![("rejected", InsertBlock::Paragraph)])
+-        .is_err());
++    assert!(
++        r.templates(c, vec![("rejected", InsertBlock::Paragraph)])
++            .is_err()
++    );
+     assert_eq!(r.templates["templates"][0].0, "original");
+     assert_eq!(r.staged.len(), staged);
+ }
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-extensions/src/registry_tests.rs:186:
+ #[test]
+ fn a_module_publishes_controls_templates_preview_and_ui_atomically() {
+     use std::sync::{
+-        atomic::{AtomicUsize, Ordering},
+         Arc,
++        atomic::{AtomicUsize, Ordering},
+     };
+     struct Bundle {
+         calls: Arc<AtomicUsize>,
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-extensions/src/render_cache_tests.rs:163:
+             let fresh = registry.control_batch(&state);
+             for controls in [&*batch.controls, &fresh.controls] {
+                 let control = controls.iter().find(|c| c.provider == "stable").unwrap();
+-                assert!(registry
+-                    .plan(
+-                        &state,
+-                        &RenderActionRequest {
+-                            provider: "stable",
+-                            target: control.target.clone(),
+-                            command: "stable.run",
+-                        }
+-                    )
+-                    .is_ok());
++                assert!(
++                    registry
++                        .plan(
++                            &state,
++                            &RenderActionRequest {
++                                provider: "stable",
++                                target: control.target.clone(),
++                                command: "stable.run",
++                            }
++                        )
++                        .is_ok()
++                );
+             }
+             for diagnostic in batch.diagnostics.iter().chain(&fresh.diagnostics) {
+                 assert_eq!(diagnostic.feature, "dynamic");
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-extensions/src/render_cache_tests.rs:370:
+         planning: Default::default(),
+     };
+     let mut state = EditingState::new(ryne_parser::Source::new("abc"));
+-    assert!(Registry::build(&[&Primary(false)])
+-        .unwrap()
+-        .presentation_key(&state, &services)
+-        .is_none());
++    assert!(
++        Registry::build(&[&Primary(false)])
++            .unwrap()
++            .presentation_key(&state, &services)
++            .is_none()
++    );
+     let registry = Registry::build(&[&Primary(true)]).unwrap();
+     let first = registry.presentation_key(&state, &services).unwrap();
+     state.anchor = 3;
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-features/src/presentation.rs:898:
+         let local = build_with_heading(&parse, None, false, None, Some(&scope));
+         let second = local.text.find("second").unwrap();
+         assert!(local.flow[local.flow_at(second).unwrap()].raw);
+-        assert!(local
+-            .spans
+-            .iter()
+-            .filter(|span| scope.start <= span.source.start && span.source.start < scope.end)
+-            .all(|span| span.style.source && !span.style.bold));
++        assert!(
++            local
++                .spans
++                .iter()
++                .filter(|span| scope.start <= span.source.start && span.source.start < scope.end)
++                .all(|span| span.style.source && !span.style.bold)
++        );
+         let title = local.text.find("标题").unwrap();
+         assert!(!local.flow[local.flow_at(title).unwrap()].raw);
+         assert_eq!(
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-features/src/presentation.rs:961:
+                     .depth,
+                 2
+             );
+-            assert!(display
+-                .quote_at(display.text.find("outside").unwrap())
+-                .is_none());
++            assert!(
++                display
++                    .quote_at(display.text.find("outside").unwrap())
++                    .is_none()
++            );
+             for needle in [
+                 "中",
+                 "😀",
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-features/src/presentation.rs:1011:
+                 .quote_at(display.text.find("first").unwrap())
+                 .unwrap();
+             assert_eq!(quote.inset, if raw.starts_with('-') { 64 } else { 32 });
+-            assert!(display
+-                .quote_at(display.text.find("outside").unwrap())
+-                .is_none());
++            assert!(
++                display
++                    .quote_at(display.text.find("outside").unwrap())
++                    .is_none()
++            );
+             if let Some(lazy) = display.text.find("lazy") {
+                 assert_eq!(display.quote_at(lazy), Some(quote));
+             }
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-features/src/presentation.rs:1333:
+         assert_eq!(active, 0..raw.len());
+         let open = build(&parse, Some(&active), false);
+         assert_eq!(open.text, raw);
+-        assert!(open
+-            .spans
+-            .iter()
+-            .filter(|s| s.source.contains(&raw.find("frac").unwrap()))
+-            .all(|s| s.style.code));
++        assert!(
++            open.spans
++                .iter()
++                .filter(|s| s.source.contains(&raw.find("frac").unwrap()))
++                .all(|s| s.style.code)
++        );
+     }
+ 
+     #[test]
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-features/src/target_action_tests.rs:22:
+         );
+         let mut wrong = target.clone();
+         wrong.part = vec![usize::MAX];
+-        assert!(provider
+-            .controls_for_target(&state, &wrong)
+-            .unwrap()
+-            .unwrap()
+-            .is_empty());
++        assert!(
++            provider
++                .controls_for_target(&state, &wrong)
++                .unwrap()
++                .unwrap()
++                .is_empty()
++        );
+     }
+ }
+ #[test]
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-features/src/templates.rs:24:
+ 
+ pub trait MarkdownTemplate: Sized {
+     fn template_with_labels(self, newline: &str, labels: &TemplateLabels)
+-        -> (String, Range<usize>);
++    -> (String, Range<usize>);
+     fn template(self, newline: &str) -> (String, Range<usize>) {
+         self.template_with_labels(newline, &TemplateLabels::default())
+     }
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/highlight.rs:534:
+ mod tests {
+     use super::*;
+     use ryne_parser::Source;
+-    use ryne_syntax::code_block;
+     use ryne_syntax::ParseSnapshot;
++    use ryne_syntax::code_block;
+ 
+     #[test]
+     fn partial_budget_timeout_retries_real_detection_with_a_fresh_budget() {
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/highlight.rs:573:
+         for attempt in 1..=MAX_FULL_DETECTION_TIMEOUTS {
+             h.begin_frame();
+             assert!(h.detect_language("slow", |_, _| Deferred).is_none());
+-            assert!(h
+-                .detect_language("later", |_, _| panic!("spent budget"))
+-                .is_none());
++            assert!(
++                h.detect_language("later", |_, _| panic!("spent budget"))
++                    .is_none()
++            );
+             h.end_frame();
+             assert!(h.deferred); // later content still needs a pass
+             assert!(
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/highlight.rs:584:
+             );
+         }
+         h.begin_frame();
+-        assert!(h
+-            .detect_language("slow", |_, _| panic!("terminal content retried"))
+-            .is_none());
+-        assert!(h
+-            .detect_language("later", |_, _| Detected("rust"))
+-            .is_some());
++        assert!(
++            h.detect_language("slow", |_, _| panic!("terminal content retried"))
++                .is_none()
++        );
++        assert!(
++            h.detect_language("later", |_, _| Detected("rust"))
++                .is_some()
++        );
+         h.end_frame();
+         assert!(!h.deferred);
+         assert_eq!(h.detection_attempts, 1);
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/highlight.rs:625:
+         h.begin_frame();
+         // Completed ambiguity never needs another inference attempt.
+         h.detect_language("new earlier", |_, _| panic!("negative cache miss"));
+-        assert!(h
+-            .detect_language("pending", |_, _| Detected("python"))
+-            .is_some());
++        assert!(
++            h.detect_language("pending", |_, _| Detected("python"))
++                .is_some()
++        );
+         h.end_frame();
+         assert!(!h.deferred);
+         h.begin_frame();
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/highlight.rs:759:
+                         raw.is_char_boundary(span.range.start)
+                             && raw.is_char_boundary(span.range.end)
+                     );
+-                    assert!(blocks[0]
+-                        .rows
+-                        .iter()
+-                        .any(|row| row.content.start <= span.range.start
+-                            && span.range.end <= row.content.end));
++                    assert!(
++                        blocks[0]
++                            .rows
++                            .iter()
++                            .any(|row| row.content.start <= span.range.start
++                                && span.range.end <= row.content.end)
++                    );
+                 }
+             }
+         }
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/highlight.rs:808:
+         assert_eq!(highlighter.detections.len(), 1);
+         assert!(spans(&mut highlighter, "```auto\nx = 1\n```").is_empty());
+         assert_eq!(highlighter.detection_attempts, 0);
+-        assert!(spans(
+-            &mut highlighter,
+-            &format!(
+-                "```auto\n{}\n```",
+-                "x".repeat(crate::language::MAX_DETECTION_BYTES)
++        assert!(
++            spans(
++                &mut highlighter,
++                &format!(
++                    "```auto\n{}\n```",
++                    "x".repeat(crate::language::MAX_DETECTION_BYTES)
++                )
+             )
+-        )
+-        .is_empty());
++            .is_empty()
++        );
+         assert!(highlighter.detections.is_empty());
+     }
+ 
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/images/ftp.rs:2:
+ use super::*;
+ use std::{
+     net::{Shutdown, SocketAddr, TcpStream, ToSocketAddrs},
+-    sync::{mpsc, Mutex},
++    sync::{Mutex, mpsc},
+ };
+-use suppaftp::{types::FileType, FtpError, FtpStream, Mode};
++use suppaftp::{FtpError, FtpStream, Mode, types::FileType};
+ 
+ pub(super) fn load(url: &url::Url, control: &CancelControl) -> Result<Vec<u8>, String> {
+     if url.query().is_some() {
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/images/tests/network.rs:120:
+     for (credentials, expected) in [("user%20name:p%40ss", "PASS p@ss"), ("user%20name", "PASS")] {
+         let (root, server) = ftp_server(png(1, 1), true, true, false);
+         let address = root.replacen("ftp://", &format!("ftp://{credentials}@"), 1) + "/a.png";
+-        assert!(ImageRenderer
+-            .render(&address, CancelControl::default())
+-            .is_ok());
++        assert!(
++            ImageRenderer
++                .render(&address, CancelControl::default())
++                .is_ok()
++        );
+         let commands = server.join().unwrap();
+         assert!(commands.contains(&"USER user name".into()));
+         assert!(commands.contains(&expected.into()));
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/images/tests/network.rs:132:
+ fn ftp_rejects_truncated_oversized_and_stalled_transfers() {
+     for (bytes, completed) in [(png(1, 1), false), (vec![0; MAX_DOWNLOAD + 1], true)] {
+         let (root, server) = ftp_server(bytes, true, completed, false);
+-        assert!(ImageRenderer
+-            .render(&(root + "/a.png"), CancelControl::default())
+-            .is_err());
++        assert!(
++            ImageRenderer
++                .render(&(root + "/a.png"), CancelControl::default())
++                .is_err()
++        );
+         server.join().unwrap();
+     }
+     let (root, server) = ftp_server(Vec::new(), true, true, true);
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/images/tests.rs:1:
+ use super::*;
+-use base64::{engine::general_purpose::STANDARD, Engine};
++use base64::{Engine, engine::general_purpose::STANDARD};
+ use std::time::Duration;
+ 
+ const SVG: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" width="20" height="10"><rect width="20" height="10" fill="#ff0000" fill-opacity="0.5"/></svg>"##;
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/images/tests.rs:56:
+         data(SVG.as_bytes(), false, "image/svg+xml;charset=UTF-8").replacen("data:", "DATA:", 1),
+         format!("{}#fragment", data(&png(1, 1), true, "image/png")),
+     ] {
+-        assert!(ImageRenderer
+-            .render(&address, CancelControl::default())
+-            .is_ok());
++        assert!(
++            ImageRenderer
++                .render(&address, CancelControl::default())
++                .is_ok()
++        );
+     }
+ }
+ #[test]
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/images/tests.rs:67:
+     for base64 in [true, false] {
+         let address = data(svg.as_bytes(), base64, "image/svg+xml");
+         assert!(address.len() > 8192);
+-        assert!(ImageRenderer
+-            .render(&address, CancelControl::default())
+-            .is_ok());
++        assert!(
++            ImageRenderer
++                .render(&address, CancelControl::default())
++                .is_ok()
++        );
+     }
+     let oversized = data(&vec![0; MAX_DOWNLOAD + 1], true, "image/png");
+-    assert!(ImageRenderer
+-        .render(
+-            &oversized,
+-            CancelControl::with_timeout(Duration::from_secs(10))
+-        )
+-        .unwrap_err()
+-        .contains("8 MiB"));
++    assert!(
++        ImageRenderer
++            .render(
++                &oversized,
++                CancelControl::with_timeout(Duration::from_secs(10))
++            )
++            .unwrap_err()
++            .contains("8 MiB")
++    );
+     let huge_header = format!("data:{};base64,AA==", "x".repeat(8193));
+-    assert!(ImageRenderer
+-        .render(&huge_header, CancelControl::default())
+-        .is_err());
++    assert!(
++        ImageRenderer
++            .render(&huge_header, CancelControl::default())
++            .is_err()
++    );
+ }
+ #[test]
+ fn invalid_oversized_and_cancelled_sources_fail_without_partial_images() {
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/images/tests.rs:115:
+         "https://user:password@example.org/a.png".into(),
+         "ftp://example.org/image%0D%0ADELE%20file.png".into(),
+     ] {
+-        assert!(ImageRenderer
+-            .render(&source, CancelControl::default())
+-            .is_err());
++        assert!(
++            ImageRenderer
++                .render(&source, CancelControl::default())
++                .is_err()
++        );
+     }
+     let control = CancelControl::default();
+     control.cancel();
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/images/tests.rs:124:
+-    assert!(ImageRenderer
+-        .render(&data(SVG.as_bytes(), true, "image/svg+xml"), control)
+-        .is_err());
++    assert!(
++        ImageRenderer
++            .render(&data(SVG.as_bytes(), true, "image/svg+xml"), control)
++            .is_err()
++    );
+ }
+ #[test]
+ fn svg_resources_are_self_contained_and_complexity_is_bounded() {
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/images/tests.rs:146:
+         &format!("{}{}{}", "<g>".repeat(65), "</g>".repeat(65), "</svg>"),
+     );
+     assert!(decode(deep.as_bytes(), &CancelControl::default()).is_err());
+-    assert!(decode(
+-        SVG.replace("width=\"20\"", "width=\"5000\"").as_bytes(),
+-        &CancelControl::default()
+-    )
+-    .is_err());
+-    assert!(decode(
+-        include_bytes!("../../../../assets/icons/image_failed.svg"),
+-        &CancelControl::default()
+-    )
+-    .is_ok());
++    assert!(
++        decode(
++            SVG.replace("width=\"20\"", "width=\"5000\"").as_bytes(),
++            &CancelControl::default()
++        )
++        .is_err()
++    );
++    assert!(
++        decode(
++            include_bytes!("../../../../assets/icons/image_failed.svg"),
++            &CancelControl::default()
++        )
++        .is_ok()
++    );
+ }
+ #[test]
+ fn large_images_are_downsampled_without_changing_the_layout_aspect_ratio() {
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/math.rs:1:
+ //! Disposable inline math views. Markdown bytes remain owned by Document.
+ 
+-use formulary::{ast::Node as MathNode, Item, MathFont};
++use formulary::{Item, MathFont, ast::Node as MathNode};
+ use ryne_extensions::MathFont as FontChoice;
+ pub use ryne_projection::Formula;
+ use std::sync::atomic::{AtomicU8, Ordering};
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/mermaid.rs:276:
+             "    flowchart LR\n    A-->B\n",
+         ] {
+             let parse = ParseSnapshot::new(Source::new(raw));
+-            assert!(ryne_syntax::code_block::blocks(&parse)
+-                .iter()
+-                .all(|b| source(raw, b).is_none()));
++            assert!(
++                ryne_syntax::code_block::blocks(&parse)
++                    .iter()
++                    .all(|b| source(raw, b).is_none())
++            );
+         }
+     }
+     #[test]
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/mermaid.rs:289:
+         )
+         .expect("valid diagram");
+         assert!(diagram.width > 0. && diagram.height > 0.);
+-        assert!(diagram
+-            .pixels
+-            .as_chunks::<4>()
+-            .0
+-            .iter()
+-            .any(|p| p[2] > 240 && p[0] < 20 && p[1] < 20));
++        assert!(
++            diagram
++                .pixels
++                .as_chunks::<4>()
++                .0
++                .iter()
++                .any(|p| p[2] > 240 && p[0] < 20 && p[1] < 20)
++        );
+         assert!(render("flowchart LR\nA[Unclosed --> B", control()).is_err());
+         assert!(render("classDiagram", control()).is_err());
+         assert!(render("unknown\nA-->B", control()).is_err());
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/mermaid.rs:302:
+         let cancelled = control();
+         cancelled.cancel();
+         assert!(render("flowchart LR\nA-->B", cancelled).is_err());
+-        assert!(render(
+-            "flowchart LR\nA-->B",
+-            Control::with_timeout(std::time::Duration::ZERO)
+-        )
+-        .is_err());
++        assert!(
++            render(
++                "flowchart LR\nA-->B",
++                Control::with_timeout(std::time::Duration::ZERO)
++            )
++            .is_err()
++        );
+     }
+     #[test]
+     fn basic_diagram_families_render_through_the_pinned_backend() {
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/mermaid.rs:329:
+                 "empty raster: {source}"
+             );
+         }
+-        assert!(render(
+-            &format!("flowchart LR\n{}", "subgraph X\n".repeat(300)),
+-            control()
+-        )
+-        .is_err());
+-        assert!(render(
+-            &format!("flowchart LR\nA{}x{}", "[".repeat(40), "]".repeat(40)),
+-            control()
+-        )
+-        .is_err());
++        assert!(
++            render(
++                &format!("flowchart LR\n{}", "subgraph X\n".repeat(300)),
++                control()
++            )
++            .is_err()
++        );
++        assert!(
++            render(
++                &format!("flowchart LR\nA{}x{}", "[".repeat(40), "]".repeat(40)),
++                control()
++            )
++            .is_err()
++        );
+     }
+ 
+     #[test]
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/pdf.rs:1:
+ //! Krilla PDF backend over the shared immutable A4 print layout.
+ //! SVG is an intermediate drawing scene, not a screenshot: text stays embedded,
+ //! formula paths stay vector, and Mermaid retains its existing bitmap resource.
+-use crate::print_layout::{layout_pages, FONTS, HEIGHT, WIDTH};
+-use krilla::{geom::Size, page::PageSettings, Document};
++use crate::print_layout::{FONTS, HEIGHT, WIDTH, layout_pages};
++use krilla::{Document, geom::Size, page::PageSettings};
+ use krilla_svg::{SurfaceExt, SvgSettings};
+ use ryne_projection::Display;
+ 
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/print_layout.rs:1:
+ //! Paginated A4 export from a folded, immutable editor projection.
+ //! SVG text is shaped with system fallback fonts and embedded into the PDF.
+-use base64::{engine::general_purpose::STANDARD, Engine};
++use base64::{Engine, engine::general_purpose::STANDARD};
+ use resvg::usvg::fontdb;
+ use ryne_projection::{Display, Formula, Style, TableView};
+ use std::{
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-services/src/updates.rs:71:
+             UpdateStatus::Available { .. }
+         ));
+         assert!(parse_release(&release("unknown"), "0.1.0").is_err());
+-        assert!(parse_release(
+-            r#"{"tag_name":"v9.0.0","draft":true,"prerelease":false}"#,
+-            "0.1.0"
+-        )
+-        .is_err());
++        assert!(
++            parse_release(
++                r#"{"tag_name":"v9.0.0","draft":true,"prerelease":false}"#,
++                "0.1.0"
++            )
++            .is_err()
++        );
+         assert!(parse_release("{}", "0.1.0").is_err());
+     }
+ }
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/adjacent_block_tests.rs:1:
+ use super::*;
+ use crate::regression_tests::new_document;
+-use ryne_features::templates::{MarkdownTemplate, ITEMS};
++use ryne_features::templates::{ITEMS, MarkdownTemplate};
+ use ryne_syntax::block;
+ 
+ fn insert(
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/adjacent_block_tests.rs:173:
+     let stale = doc.source.id();
+     doc.insert_text(0..0, "new ").unwrap();
+     let source = doc.source.clone();
+-    assert!(doc
+-        .dispatch(EditIntent::InsertAdjacent {
++    assert!(
++        doc.dispatch(EditIntent::InsertAdjacent {
+             block: ryne_core::SourceRange::new(stale, target.range),
+             before: false,
+             template: InsertBlock::Paragraph,
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/adjacent_block_tests.rs:181:
+             labels: TemplateLabels::default(),
+         })
+-        .is_err());
++        .is_err()
++    );
+     assert_eq!(doc.source.id(), source.id());
+     assert_eq!(doc.history_len(false), 1);
+     let target = block::at(&doc.parse, doc.source.text().find("target").unwrap()).unwrap();
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/architecture_tests.rs:360:
+             command: "list.toggle-task",
+         })
+         .unwrap();
+-        assert!(doc
+-            .source
+-            .text()
+-            .ends_with(&format!("- [x] 中😀 999{newline}")));
++        assert!(
++            doc.source
++                .text()
++                .ends_with(&format!("- [x] 中😀 999{newline}"))
++        );
+         assert_eq!(doc.history_len(false), 1);
+         doc.undo(false);
+         assert_eq!(doc.source.text(), raw);
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/code_render_action_tests.rs:72:
+     doc.execute_render_action(&request(&doc, "code.language-rust"))
+         .unwrap();
+     assert!(doc.source.text().starts_with("```rust\n"));
+-    assert!(doc
+-        .highlighted_display(&mut highlighter)
+-        .spans
+-        .iter()
+-        .any(|s| s.style.syntax == Some(Class::Keyword)));
++    assert!(
++        doc.highlighted_display(&mut highlighter)
++            .spans
++            .iter()
++            .any(|s| s.style.syntax == Some(Class::Keyword))
++    );
+     let at = doc.source.text().find("fn main").unwrap();
+     doc.select(at, false, false);
+     doc.line_break(false).unwrap();
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/code_render_action_tests.rs:88:
+     doc.save(&path).unwrap();
+     assert_eq!(std::fs::read(&path).unwrap(), auto.as_bytes());
+     let reopened = doc.open_with(&path).unwrap();
+-    assert!(reopened
+-        .render_controls()
+-        .unwrap()
+-        .iter()
+-        .find(|c| c.provider == "code")
+-        .unwrap()
+-        .actions
+-        .iter()
+-        .any(|a| a.checked && a.command == "code.language-auto"));
++    assert!(
++        reopened
++            .render_controls()
++            .unwrap()
++            .iter()
++            .find(|c| c.provider == "code")
++            .unwrap()
++            .actions
++            .iter()
++            .any(|a| a.checked && a.command == "code.language-auto")
++    );
+     std::fs::remove_file(path).unwrap();
+ }
+ #[test]
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/code_render_action_tests.rs:109:
+             .into_iter()
+             .find(|c| c.provider == "code")
+             .unwrap();
+-        assert!(control
+-            .actions
+-            .iter()
+-            .any(|a| a.checked && a.command.ends_with(selected)));
++        assert!(
++            control
++                .actions
++                .iter()
++                .any(|a| a.checked && a.command.ends_with(selected))
++        );
+         let req = request(&doc, "code.language-json");
+         doc.select(doc.source.text().find("body").unwrap(), false, false);
+         doc.update_composition(None, "预编辑", None).unwrap();
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/code_render_action_tests.rs:119:
+         assert!(doc.execute_render_action(&req).is_err());
+         doc.cancel_composition();
+         assert!(doc.toggle_block_source());
+-        assert!(doc
+-            .execute_render_action(&request_from(control, "code.language-json"))
+-            .is_err());
+-        assert!(doc
+-            .render_controls()
+-            .unwrap()
+-            .iter()
+-            .all(|c| c.provider != "code"));
++        assert!(
++            doc.execute_render_action(&request_from(control, "code.language-json"))
++                .is_err()
++        );
++        assert!(
++            doc.render_controls()
++                .unwrap()
++                .iter()
++                .all(|c| c.provider != "code")
++        );
+         doc.set_source_mode(true);
+         assert!(doc.render_controls().unwrap().is_empty());
+     }
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/code_render_action_tests.rs:179:
+         "    ```rust\n    literal\n",
+         ">     ~~~python\n>     literal\n",
+     ] {
+-        assert!(new_document(raw)
+-            .render_controls()
+-            .unwrap()
+-            .iter()
+-            .all(|c| c.provider != "code"));
++        assert!(
++            new_document(raw)
++                .render_controls()
++                .unwrap()
++                .iter()
++                .all(|c| c.provider != "code")
++        );
+     }
+     let mut doc = new_document("~~~python\n**literal**\n");
+     doc.execute_render_action(&request(&doc, "code.language-rust"))
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/code_render_action_tests.rs:204:
+             let removed = request(&doc, "code.language-empty");
+             assert!(doc.execute_render_action(&removed).is_err());
+             assert!(!doc.dirty());
+-            assert!(doc
+-                .render_controls()
+-                .unwrap()
+-                .iter()
+-                .filter(|c| c.provider == "code")
+-                .flat_map(|c| &c.actions)
+-                .all(|a| a.fallback != "<empty>"));
++            assert!(
++                doc.render_controls()
++                    .unwrap()
++                    .iter()
++                    .filter(|c| c.provider == "code")
++                    .flat_map(|c| &c.actions)
++                    .all(|a| a.fallback != "<empty>")
++            );
+             doc.execute_render_action(&request(&doc, "code.language-auto"))
+                 .unwrap();
+             assert_eq!(doc.source.text(), raw.replacen(info, "", 1));
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/code_render_action_tests.rs:217:
+-            assert!(ryne_syntax::code_block::blocks(&doc.parse)[0]
+-                .language
+-                .trim()
+-                .is_empty());
++            assert!(
++                ryne_syntax::code_block::blocks(&doc.parse)[0]
++                    .language
++                    .trim()
++                    .is_empty()
++            );
+             assert_eq!(
+                 &doc.source.text()[doc.head..doc.head + "中😀".len()],
+                 "中😀"
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/contract_tests.rs:3:
+ use ryne_core::PreparedEdit;
+ use ryne_parser::Edit;
+ use std::sync::{
+-    atomic::{AtomicUsize, Ordering},
+     Mutex,
++    atomic::{AtomicUsize, Ordering},
+ };
+ struct Reject {
+     calls: Arc<AtomicUsize>,
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/contract_tests.rs:91:
+     assert!(doc.publish_plan(foreign).is_err());
+     let mut invalid = doc.state.clone();
+     invalid.head = usize::MAX;
+-    assert!(doc
+-        .publish_plan(CommandPlan::Select {
++    assert!(
++        doc.publish_plan(CommandPlan::Select {
+             base: key,
+             state: invalid,
+             handled: true
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/contract_tests.rs:99:
+         })
+-        .is_err());
++        .is_err()
++    );
+     assert_eq!(record.0.lock().unwrap().as_slice(), [(1, "ac".into())]);
+ }
+ #[test]
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/contract_tests.rs:119:
+ fn invalid_multi_edit_and_selection_plans_never_partially_update() {
+     let mut doc = new_document("a中\r\nb");
+     let before = doc.source.id();
+-    assert!(PreparedEdit::prepare(
+-        &doc.source,
+-        vec![
+-            Edit {
+-                range: 0..1,
+-                replacement: "x".into()
+-            },
+-            Edit {
+-                range: 2..3,
+-                replacement: "y".into()
+-            }
+-        ]
+-    )
+-    .is_err());
++    assert!(
++        PreparedEdit::prepare(
++            &doc.source,
++            vec![
++                Edit {
++                    range: 0..1,
++                    replacement: "x".into()
++                },
++                Edit {
++                    range: 2..3,
++                    replacement: "y".into()
++                }
++            ]
++        )
++        .is_err()
++    );
+     assert_eq!(doc.source.id(), before);
+     let prepared = PreparedEdit::prepare(
+         &doc.source,
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/contract_tests.rs:144:
+     .unwrap();
+     let mut state = EditingState::new(prepared.applied().source.clone());
+     state.head = 2;
+-    assert!(doc
+-        .publish_plan(CommandPlan::Edit {
++    assert!(
++        doc.publish_plan(CommandPlan::Edit {
+             prepared,
+             state,
+             handled: true
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/contract_tests.rs:152:
+         })
+-        .is_err());
++        .is_err()
++    );
+     assert_eq!(doc.source.id(), before);
+     assert_eq!(doc.history_len(false), 0);
+     let mut invalid_checkpoint = doc.state.clone();
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/contract_tests.rs:157:
+     invalid_checkpoint.closers.push(2..3); // Inside the UTF-8 character.
+-    assert!(doc
+-        .publish_plan(CommandPlan::Select {
++    assert!(
++        doc.publish_plan(CommandPlan::Select {
+             base: before,
+             state: invalid_checkpoint,
+             handled: true,
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/contract_tests.rs:163:
+         })
+-        .is_err());
++        .is_err()
++    );
+     let mut stale_reveal = doc.state.clone();
+     stale_reveal.reveal = Some(ryne_parser::Session::new(&Source::new("a"), 0..1).unwrap());
+-    assert!(doc
+-        .publish_plan(CommandPlan::View {
++    assert!(
++        doc.publish_plan(CommandPlan::View {
+             base: before,
+             state: stale_reveal,
+             handled: true,
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/contract_tests.rs:172:
+         })
+-        .is_err());
++        .is_err()
++    );
+     assert_eq!(doc.source.id(), before);
+     assert!(!doc.dirty());
+ }
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/contract_tests.rs:336:
+     let mut doc = new_document("中文");
+     let other = new_document("中文");
+     let before = doc.source.id();
+-    assert!(doc
+-        .dispatch(EditIntent::Insert {
++    assert!(
++        doc.dispatch(EditIntent::Insert {
+             range: ryne_core::SourceRange::new(other.source.id(), 0..0),
+             text: "x".into(),
+             origin: InputOrigin::Paste,
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/contract_tests.rs:344:
+         })
+-        .is_err());
++        .is_err()
++    );
+     assert_eq!(doc.source.id(), before);
+     assert_eq!(doc.history_len(false), 0);
+     assert!(!doc.dirty());
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/file_binding_tests.rs:40:
+         let completion = doc.complete_save(request.run());
+         assert!(completion.error.is_none() && !completion.clean);
+         assert_eq!(doc.files.path.as_ref(), Some(&link));
+-        assert!(std::fs::symlink_metadata(&link)
+-            .unwrap()
+-            .file_type()
+-            .is_symlink());
++        assert!(
++            std::fs::symlink_metadata(&link)
++                .unwrap()
++                .file_type()
++                .is_symlink()
++        );
+         assert_eq!(std::fs::read_to_string(&target).unwrap(), format!("x{raw}"));
+         doc.save(&link).unwrap();
+         assert!(!doc.dirty());
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/file_binding_tests.rs:83:
+     std::fs::remove_file(&b).unwrap();
+     assert!(doc.save(&link).is_err());
+     assert!(EditorSession::open(&link, regression_tests::services()).is_err());
+-    assert!(std::fs::symlink_metadata(&link)
+-        .unwrap()
+-        .file_type()
+-        .is_symlink());
++    assert!(
++        std::fs::symlink_metadata(&link)
++            .unwrap()
++            .file_type()
++            .is_symlink()
++    );
+     std::fs::write(&b, "restored").unwrap();
+     doc.save(&link).unwrap();
+     assert_eq!(std::fs::read_to_string(&b).unwrap(), "new");
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/file_binding_tests.rs:100:
+     std::os::unix::fs::symlink(&target, &link).unwrap();
+     let store = ryne_services::files::AtomicFileStore;
+     store.write(&link, &Source::new("after\r\n")).unwrap();
+-    assert!(std::fs::symlink_metadata(&link)
+-        .unwrap()
+-        .file_type()
+-        .is_symlink());
++    assert!(
++        std::fs::symlink_metadata(&link)
++            .unwrap()
++            .file_type()
++            .is_symlink()
++    );
+     assert_eq!(std::fs::read(&target).unwrap(), b"after\r\n");
+     let path = dir.0.join("new.md");
+     store.write(&path, &Source::new("new")).unwrap();
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/file_binding_tests.rs:110:
+     assert_eq!(std::fs::read_to_string(path).unwrap(), "new");
+     let wrong = dir.0.join("wrong.md");
+-    assert!(store
+-        .write_bound(&link, &wrong, &Source::new("wrong"))
+-        .is_err());
++    assert!(
++        store
++            .write_bound(&link, &wrong, &Source::new("wrong"))
++            .is_err()
++    );
+     let directory = dir.0.join("directory");
+     std::fs::create_dir(&directory).unwrap();
+     assert!(store.write(&directory, &Source::new("fail")).is_err());
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/file_binding_tests.rs:118:
+-    assert!(std::fs::symlink_metadata(&link)
+-        .unwrap()
+-        .file_type()
+-        .is_symlink());
++    assert!(
++        std::fs::symlink_metadata(&link)
++            .unwrap()
++            .file_type()
++            .is_symlink()
++    );
+     assert_eq!(std::fs::read_to_string(&target).unwrap(), "after\r\n");
+     assert_eq!(std::fs::read_dir(&dir.0).unwrap().count(), 4);
+ }
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/format_tests.rs:253:
+         format(&mut doc).unwrap_or_else(|e| panic!("{raw:?}: {e}"));
+         let table = ryne_syntax::table::tables(&doc.parse).remove(0);
+         assert_eq!(doc.head, table.rows[1].cells[1].content.end, "{raw:?}");
+-        assert!(doc
+-            .block_source
+-            .as_ref()
+-            .unwrap()
+-            .visible(&doc.source)
+-            .is_ok());
++        assert!(
++            doc.block_source
++                .as_ref()
++                .unwrap()
++                .visible(&doc.source)
++                .is_ok()
++        );
+         let result = doc.source.text().to_owned();
+         format(&mut doc).unwrap();
+         assert_eq!(doc.source.text(), result);
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/history_policy_tests.rs:90:
+     let before = fingerprint(&doc);
+     doc.undo(false);
+     assert_eq!(fingerprint(&doc), before);
+-    assert!(doc
+-        .diagnostics
+-        .entries()
+-        .iter()
+-        .any(|d| d.feature == "history"));
++    assert!(
++        doc.diagnostics
++            .entries()
++            .iter()
++            .any(|d| d.feature == "history")
++    );
+     let mut doc = regression_tests::new_document("plain");
+     doc.replace(0..0, "x").unwrap();
+     doc.add_validator(Arc::new(Policy {
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/image_tests.rs:44:
+ 
+ #[test]
+ fn real_file_and_embedded_svg_previews_survive_editing_and_pdf_export() {
+-    use base64::{engine::general_purpose::STANDARD, Engine};
++    use base64::{Engine, engine::general_purpose::STANDARD};
+     let directory = tempfile::tempdir().unwrap();
+     let path = directory.path().join("图片 # 100%.svg");
+     let svg = format!(
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/jobs.rs:1:
+ //! Bounded serial content jobs; cache keys include feature and renderer generation.
+ use ryne_core::DocumentKey;
+ use ryne_extensions::{
+-    catch_callback, CancelControl, DiagnosticLog, DiagramRenderer, EditingState, PreviewInput,
++    CancelControl, DiagnosticLog, DiagramRenderer, EditingState, PreviewInput, catch_callback,
+ };
+ use ryne_projection::{DiagramOutcome, DiagramViewInput};
+ use std::{collections::HashMap, ops::Range, sync::Arc};
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/list_render_action_tests.rs:33:
+         let doc = new_document(raw);
+         let controls = doc.render_controls().unwrap();
+         assert!(!controls.is_empty(), "{raw:?}");
+-        assert!(controls
+-            .iter()
+-            .filter(|c| c.placement == RenderControlPlacement::Leading)
+-            .all(|c| c.placement == RenderControlPlacement::Leading
+-                && c.trailing_space == 0.
+-                && c.actions.len() == 7));
++        assert!(
++            controls
++                .iter()
++                .filter(|c| c.placement == RenderControlPlacement::Leading)
++                .all(|c| c.placement == RenderControlPlacement::Leading
++                    && c.trailing_space == 0.
++                    && c.actions.len() == 7)
++        );
+         assert!(!doc.dirty());
+         assert_eq!(doc.history_len(false), 0);
+     }
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/list_render_action_tests.rs:45:
+-    assert!(new_document("```\n- literal\n1. literal\n```\n")
+-        .render_controls()
+-        .unwrap()
+-        .iter()
+-        .all(|c| c.provider != "list"));
++    assert!(
++        new_document("```\n- literal\n1. literal\n```\n")
++            .render_controls()
++            .unwrap()
++            .iter()
++            .all(|c| c.provider != "list")
++    );
+ }
+ #[test]
+ fn insert_siblings_preserves_prefix_newlines_subtree_and_missing_final_newline() {
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/list_render_action_tests.rs:73:
+                         };
+                         assert_eq!(doc.source.text(), expected, "{command}");
+                         assert_eq!(doc.history_len(false), 1);
+-                        assert!(ryne_syntax::list::items(&doc.parse)
+-                            .iter()
+-                            .any(|i| i.body == doc.head));
++                        assert!(
++                            ryne_syntax::list::items(&doc.parse)
++                                .iter()
++                                .any(|i| i.body == doc.head)
++                        );
+                         doc.undo(false);
+                         assert_eq!(doc.source.text(), raw);
+                         assert!(!doc.dirty());
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/list_render_action_tests.rs:285:
+         doc.execute_render_action(&request(&doc, "first", "list.insert-before"))
+             .unwrap();
+         assert_eq!(ryne_syntax::list::items(&doc.parse).len(), count + 1);
+-        assert!(!doc
+-            .parse
+-            .nodes
+-            .iter()
+-            .any(|n| matches!(n.kind, ryne_parser::NodeKind::Heading(_))));
++        assert!(
++            !doc.parse
++                .nodes
++                .iter()
++                .any(|n| matches!(n.kind, ryne_parser::NodeKind::Heading(_)))
++        );
+         doc.undo(false);
+         assert_eq!(doc.source.text(), raw);
+     }
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/list_render_action_tests.rs:436:
+         );
+     }
+     let mut doc = new_document("- ordinary\n");
+-    assert!(doc
+-        .execute_render_action(&request(&doc, "ordinary", "list.toggle-task"))
+-        .is_err());
++    assert!(
++        doc.execute_render_action(&request(&doc, "ordinary", "list.toggle-task"))
++            .is_err()
++    );
+ }
+ 
+ #[test]
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/list_render_action_tests.rs:464:
+             assert!(!doc.display().text.contains("[ ]"));
+         }
+         doc.set_block_source(Some(item.scope.clone()));
+-        assert!(doc
+-            .render_controls()
+-            .unwrap()
+-            .iter()
+-            .all(|c| !matches!(c.placement, RenderControlPlacement::Marker { .. })));
++        assert!(
++            doc.render_controls()
++                .unwrap()
++                .iter()
++                .all(|c| !matches!(c.placement, RenderControlPlacement::Marker { .. }))
++        );
+         assert!(doc.display().text.contains(&raw[task.marker.clone()]));
+         doc.set_block_source(None);
+         doc.set_source_mode(true);
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/p1_tests.rs:168:
+             doc.update_composition(None, "预编辑😀", None).unwrap();
+             let composition = doc.composition().cloned();
+             let (state, views) = doc.projection_state(&[]);
+-            assert!(!doc
+-                .cached_project_batch(&state, None, &views)
+-                .diagnostics
+-                .is_empty());
++            assert!(
++                !doc.cached_project_batch(&state, None, &views)
++                    .diagnostics
++                    .is_empty()
++            );
+             assert_eq!(doc.composition(), composition.as_ref());
+             assert_eq!(doc.source.id(), source);
+             doc.cancel_composition();
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/presentation_cache.rs:230:
+             projected(&doc);
+             doc.set_source_mode(true);
+             let source = projected(&doc);
+-            assert!(doc
+-                .cached_render_control_batch(&doc)
+-                .unwrap()
+-                .controls
+-                .is_empty());
++            assert!(
++                doc.cached_render_control_batch(&doc)
++                    .unwrap()
++                    .controls
++                    .is_empty()
++            );
+             doc.select(0, false, false);
+             let source_again = projected(&doc);
+             assert!(Arc::ptr_eq(&source, &source_again));
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/quote_tests.rs:35:
+             assert_eq!(display.quotes.iter().filter(|q| q.depth == 1).count(), 1);
+             doc.insert_text(doc.selection(), "new").unwrap();
+             assert_eq!(doc.source.text(), format!("{expected}new"));
+-            assert!(doc
+-                .display()
+-                .quote_at(doc.display().text.find("new").unwrap())
+-                .is_some());
++            assert!(
++                doc.display()
++                    .quote_at(doc.display().text.find("new").unwrap())
++                    .is_some()
++            );
+             doc.undo(false);
+             doc.undo(false);
+             assert_eq!(doc.source.text(), raw);
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/regression_tests.rs:1:
+ use super::*;
+-use ryne_features::templates::{MarkdownTemplate, ITEMS};
++use ryne_features::templates::{ITEMS, MarkdownTemplate};
+ use ryne_parser::{Affinity, NodeKind};
+ use ryne_services::highlight::{Class, CodeHighlighter};
+ use ryne_syntax::{code_block, list, table};
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/regression_tests.rs:130:
+                 assert_eq!(doc.history_len(false), 1);
+                 assert!(code_block::blocks(&doc.parse)[0].language.is_empty());
+                 let mut highlights = CodeHighlighter::default();
+-                assert!(doc
+-                    .highlighted_display(&mut highlights)
+-                    .spans
+-                    .iter()
+-                    .any(|s| s.style.syntax == Some(Class::Keyword)));
++                assert!(
++                    doc.highlighted_display(&mut highlights)
++                        .spans
++                        .iter()
++                        .any(|s| s.style.syntax == Some(Class::Keyword))
++                );
+                 doc.undo(false);
+                 assert_eq!(doc.source.text(), raw);
+                 assert_eq!(doc.selection(), caret..caret);
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/regression_tests.rs:294:
+         for raw in ["```rust\nlet a = 1;", "~~~\ncode", "<!-- unfinished"] {
+             let mut document = new_document(raw);
+             let snapshot = document.source.id();
+-            assert!(document
+-                .append_block(ryne_extensions::InsertBlock::Heading(2))
+-                .is_err());
++            assert!(
++                document
++                    .append_block(ryne_extensions::InsertBlock::Heading(2))
++                    .is_err()
++            );
+             assert_eq!(document.source.id(), snapshot);
+             assert_eq!(document.source.text(), raw);
+             assert!(!document.dirty());
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/regression_tests.rs:323:
+             .unwrap();
+         document.insert_text(document.selection(), "新列").unwrap();
+         assert_eq!(table::tables(&document.parse).len(), 1);
+-        assert!(document
+-            .source
+-            .text()
+-            .ends_with("| 新列 | 列二 |\n| --- | --- |\n|  |  |"));
++        assert!(
++            document
++                .source
++                .text()
++                .ends_with("| 新列 | 列二 |\n| --- | --- |\n|  |  |")
++        );
+     }
+     #[test]
+     fn inline_input_completes_after_body_and_keeps_caret_inside() {
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/regression_tests.rs:404:
+         document.insert_text(document.selection(), "**").unwrap();
+         assert_eq!(document.source.text(), "**粗 _斜_**");
+         assert_eq!(document.display().text, "粗 斜");
+-        assert!(document
+-            .display()
+-            .spans
+-            .iter()
+-            .any(|span| span.style.bold && span.style.italic));
++        assert!(
++            document
++                .display()
++                .spans
++                .iter()
++                .any(|span| span.style.bold && span.style.italic)
++        );
+ 
+         let mut document = new_document("before ");
+         document.select(7, false, false);
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/regression_tests.rs:554:
+                     document
+                         .insert_text(document.selection(), "_literal_")
+                         .unwrap();
+-                    assert!(document
+-                        .source
+-                        .text()
+-                        .contains(&format!("**literal**{newline}{continuation}_literal_")));
++                    assert!(
++                        document
++                            .source
++                            .text()
++                            .contains(&format!("**literal**{newline}{continuation}_literal_"))
++                    );
+                     assert_eq!(code_block::blocks(&document.parse).len(), 1);
+                     for _ in 0..4 {
+                         document.undo(false);
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/regression_tests.rs:890:
+                 assert_eq!(document.head, raw.len());
+                 assert_eq!(document.display().text, first.trim_start());
+                 assert!(document.heading_reveal.is_none());
+-                assert!(document
+-                    .display()
+-                    .spans
+-                    .iter()
+-                    .any(|span| span.style.heading == level as u8));
++                assert!(
++                    document
++                        .display()
++                        .spans
++                        .iter()
++                        .any(|span| span.style.heading == level as u8)
++                );
+                 assert_eq!(document.history_len(false), level + 1);
+                 assert_ne!(document.source.id(), snapshot);
+                 let display = document.display();
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/regression_tests.rs:1032:
+         document.insert_text(document.selection(), "正文").unwrap();
+         assert_eq!(document.source.text(), "#######正文");
+         assert_eq!(document.display().text, "#######正文");
+-        assert!(document
+-            .parse
+-            .nodes
+-            .iter()
+-            .all(|node| !matches!(node.kind, NodeKind::Heading(_))));
++        assert!(
++            document
++                .parse
++                .nodes
++                .iter()
++                .all(|node| !matches!(node.kind, NodeKind::Heading(_)))
++        );
+ 
+         let mut document = new_document("## existing");
+         document.select(2, false, false);
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/regression_tests.rs:1091:
+             let snapshot = document.source.id();
+             document.reveal_clicked_heading();
+             assert!(document.heading_reveal.is_some());
+-            assert!(document.display().text.contains(
+-                &heading
+-                    .trim_start_matches("- ")
+-                    .trim_end()
+-                    .replace("\r\n", "\n")
+-            ));
++            assert!(
++                document.display().text.contains(
++                    &heading
++                        .trim_start_matches("- ")
++                        .trim_end()
++                        .replace("\r\n", "\n")
++                )
++            );
+             assert_eq!(document.source.id(), snapshot);
+             assert!(!document.dirty());
+             document.select(title + "标".len(), false, false);
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/regression_tests.rs:1316:
+             assert!(document.indent_list(false).unwrap());
+             assert_eq!(document.source.text(), expected);
+             assert_eq!(list::items(&document.parse).len(), 2);
+-            assert!(!document
+-                .parse
+-                .nodes
+-                .iter()
+-                .any(|n| matches!(n.kind, NodeKind::Heading(_))));
++            assert!(
++                !document
++                    .parse
++                    .nodes
++                    .iter()
++                    .any(|n| matches!(n.kind, NodeKind::Heading(_)))
++            );
+             document.line_break(false).unwrap();
+             assert!(document.source.text().ends_with("- "));
+             assert_eq!(list::items(&document.parse).last().unwrap().parent, None);
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/regression_tests.rs:1399:
+             document.select(raw.find("ab").unwrap() + 1, false, false);
+             document.line_break(false).unwrap();
+             assert_eq!(document.source.text(), expected);
+-            assert!(list::items(&document.parse)
+-                .last()
+-                .unwrap()
+-                .parent
+-                .is_some());
++            assert!(
++                list::items(&document.parse)
++                    .last()
++                    .unwrap()
++                    .parent
++                    .is_some()
++            );
+             document.undo(false);
+             assert_eq!(document.source.text(), raw);
+         }
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/regression_tests.rs:1613:
+                 });
+                 let export = frozen.render().unwrap();
+                 assert_eq!(export.formulas.len(), 3);
+-                assert!(export
+-                    .formulas
+-                    .iter()
+-                    .all(|f| f.formula.path.starts_with(&format!("math:{}:", font.id()))));
++                assert!(
++                    export
++                        .formulas
++                        .iter()
++                        .all(|f| f.formula.path.starts_with(&format!("math:{}:", font.id())))
++                );
+                 assert!(export.text.contains(r"$\eqref{missing}$"));
+                 let pdf = ryne_services::pdf::PdfExporter.export(&export).unwrap();
+                 assert!(pdf.starts_with(b"%PDF-1.7") && pdf.ends_with(b"%%EOF"));
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/regression_tests.rs:1708:
+                     plain.position_at(position)
+                 );
+             }
+-            assert!(highlighted
+-                .spans
+-                .iter()
+-                .any(|span| span.style.syntax == Some(Class::String)));
++            assert!(
++                highlighted
++                    .spans
++                    .iter()
++                    .any(|span| span.style.syntax == Some(Class::String))
++            );
+             assert_eq!(document.selection(), selection);
+             assert_eq!(document.source.revision(), revision);
+             assert!(!document.dirty());
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/regression_tests.rs:1721:
+         let local = document.highlighted_display(&mut highlighter);
+         assert_eq!(local.text, document.display().text);
+         assert!(local.text.contains("> ```rust"));
+-        assert!(local
+-            .spans
+-            .iter()
+-            .any(|span| span.style.syntax == Some(Class::String)));
++        assert!(
++            local
++                .spans
++                .iter()
++                .any(|span| span.style.syntax == Some(Class::String))
++        );
+         assert!(document.toggle_block_source());
+         assert_eq!(document.source.revision(), revision);
+         assert!(!document.dirty());
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/regression_tests.rs:1731:
+         document.replace(at..at + "\"中😀\"".len(), "42").unwrap();
+         let changed = document.highlighted_display(&mut highlighter);
+-        assert!(changed
+-            .spans
+-            .iter()
+-            .any(|span| &changed.text[span.display.clone()] == "42"
+-                && span.style.syntax == Some(Class::Constant)));
++        assert!(
++            changed
++                .spans
++                .iter()
++                .any(|span| &changed.text[span.display.clone()] == "42"
++                    && span.style.syntax == Some(Class::Constant))
++        );
+         document.undo(false);
+         assert_eq!(document.source.text(), raw);
+         assert!(!document.dirty());
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/regression_tests.rs:1741:
+-        assert!(document
+-            .highlighted_display(&mut highlighter)
+-            .spans
+-            .iter()
+-            .any(|span| span.style.syntax == Some(Class::String)));
++        assert!(
++            document
++                .highlighted_display(&mut highlighter)
++                .spans
++                .iter()
++                .any(|span| span.style.syntax == Some(Class::String))
++        );
+         document.undo(true);
+-        assert!(document
+-            .highlighted_display(&mut highlighter)
+-            .spans
+-            .iter()
+-            .any(|span| span.style.syntax == Some(Class::Constant)));
++        assert!(
++            document
++                .highlighted_display(&mut highlighter)
++                .spans
++                .iter()
++                .any(|span| span.style.syntax == Some(Class::Constant))
++        );
+     }
+ }
+ 
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/regression_tests.rs:1796:
+         let raw = "```rust\nfn main() {\n    let s = \"未完成😀\n";
+         let document = new_document(raw);
+         let display = document.highlighted_display(&mut highlighter);
+-        assert!(display
+-            .spans
+-            .iter()
+-            .any(|span| span.style.syntax == Some(Class::Keyword)
+-                && display.text[span.display.clone()].contains("fn")));
++        assert!(
++            display
++                .spans
++                .iter()
++                .any(|span| span.style.syntax == Some(Class::Keyword)
++                    && display.text[span.display.clone()].contains("fn"))
++        );
+         assert!(display.text.contains("未完成😀"));
+         assert_eq!(document.source.text(), raw);
+ 
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/regression_tests.rs:1808:
+         let document = new_document(raw);
+         let display = document.highlighted_display(&mut highlighter);
+         assert_eq!(display.code_blocks.len(), 3);
+-        assert!(display
+-            .spans
+-            .iter()
+-            .any(|span| span.style.syntax == Some(Class::Comment)
+-                && display.text[span.display.clone()].contains("注释😀")));
++        assert!(
++            display
++                .spans
++                .iter()
++                .any(|span| span.style.syntax == Some(Class::Comment)
++                    && display.text[span.display.clone()].contains("注释😀"))
++        );
+         let unknown = &display.code_blocks[2].source.range;
+-        assert!(display
+-            .spans
+-            .iter()
+-            .filter(|span| unknown.contains(&span.source.start))
+-            .all(|span| span.style.syntax.is_none() && !span.style.bold));
+-        assert!(display
+-            .spans
+-            .iter()
+-            .filter(|span| span.style.code)
+-            .all(|span| span.style.syntax.is_none()));
++        assert!(
++            display
++                .spans
++                .iter()
++                .filter(|span| unknown.contains(&span.source.start))
++                .all(|span| span.style.syntax.is_none() && !span.style.bold)
++        );
++        assert!(
++            display
++                .spans
++                .iter()
++                .filter(|span| span.style.code)
++                .all(|span| span.style.syntax.is_none())
++        );
+         assert!(display.text.contains("**plain**"));
+         assert_eq!(highlighter.cache_entries(), 2);
+         assert!(!document.dirty());
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/render_action_tests.rs:230:
+     assert_eq!(doc.selection(), selection);
+     assert!(!doc.dirty());
+     assert_eq!(doc.history_len(false), 0);
+-    assert!(new_document("|a|b|\n|---|---|\n|short|\n")
+-        .render_controls()
+-        .unwrap()
+-        .is_empty());
+-    assert!(new_document("A | B\n--- | ---\na | \n")
+-        .render_controls()
+-        .unwrap()
+-        .is_empty());
++    assert!(
++        new_document("|a|b|\n|---|---|\n|short|\n")
++            .render_controls()
++            .unwrap()
++            .is_empty()
++    );
++    assert!(
++        new_document("A | B\n--- | ---\na | \n")
++            .render_controls()
++            .unwrap()
++            .is_empty()
++    );
+ }
+ struct Custom;
+ #[test]
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/render_action_tests.rs:289:
+     doc.add_validator(Arc::new(Reject));
+     let key = doc.source.id();
+     let selection = doc.selection();
+-    assert!(doc
+-        .execute_render_action(&request(&doc, 1, 1, "table.delete-column"))
+-        .is_err());
++    assert!(
++        doc.execute_render_action(&request(&doc, 1, 1, "table.delete-column"))
++            .is_err()
++    );
+     assert_eq!(doc.source.id(), key);
+     assert_eq!(doc.source.text(), RAW);
+     assert_eq!(doc.selection(), selection);
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/third_batch_tests.rs:62:
+         assert!(!Arc::ptr_eq(&a, &b));
+         assert_eq!(*b, doc.display());
+         doc.set_block_source(Some(0..raw.len()));
+-        assert!(doc
+-            .cached_render_control_batch(&doc)
+-            .unwrap()
+-            .controls
+-            .is_empty());
++        assert!(
++            doc.cached_render_control_batch(&doc)
++                .unwrap()
++                .controls
++                .is_empty()
++        );
+         let source = doc.cached_project_batch(&doc, None, &[]).display;
+         assert_eq!(*source, doc.display());
+         doc.set_block_source(None);
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-session/src/third_batch_tests.rs:78:
+             controls.len()
+         );
+         doc.set_source_mode(true);
+-        assert!(doc
+-            .cached_render_control_batch(&doc)
+-            .unwrap()
+-            .controls
+-            .is_empty());
++        assert!(
++            doc.cached_render_control_batch(&doc)
++                .unwrap()
++                .controls
++                .is_empty()
++        );
+         doc.set_source_mode(false);
+         doc.select(raw.len(), false, false);
+         let before = doc.cached_render_control_batch(&doc).unwrap().controls;
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-syntax/examples/block-directory.rs:1:
+ //! Headless stage characterization; samples are not UI latency measurements.
+ use ryne_parser::{Edit, Source};
+-use ryne_syntax::{directory::BlockDirectory, ParseSnapshot};
++use ryne_syntax::{ParseSnapshot, directory::BlockDirectory};
+ use std::{hint::black_box, time::Instant};
+ 
+ fn main() -> Result<(), String> {
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-syntax/examples/block-query-perf.rs:1:
+ //! Isolated release block queries. Arguments: sizes in KiB, samples, rounds, corpus.
+ use ryne_parser::Source;
+-use ryne_syntax::{block, ParseSnapshot};
++use ryne_syntax::{ParseSnapshot, block};
+ use std::{hint::black_box, time::Instant};
+ 
+ struct Allocator;
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-syntax/examples/block-query-perf.rs:65:
+             let started = Instant::now();
+             black_box(block::at(&parse, raw.len() - 3));
+             let cold_ms = started.elapsed().as_secs_f64() * 1000.;
+-            println!("{{\"corpus\":\"{kind}\",\"bytes\":{},\"parse_ms\":{parse_ms:.4},\"cold_query_ms\":{cold_ms:.4}}}", raw.len());
++            println!(
++                "{{\"corpus\":\"{kind}\",\"bytes\":{},\"parse_ms\":{parse_ms:.4},\"cold_query_ms\":{cold_ms:.4}}}",
++                raw.len()
++            );
+             #[cfg(feature = "query-metrics")]
+             {
+                 let after = ryne_syntax::query_metrics::snapshot();
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-syntax/examples/block-query-perf.rs:96:
+                         max_bytes = max_bytes.max(ALLOCATIONS.with(|c| c.replace(None).unwrap().1));
+                     }
+                     times.sort_by(f64::total_cmp);
+-                    println!("{{\"corpus\":\"{kind}\",\"bytes\":{},\"position\":\"{label}\",\"round\":{round},\"samples\":{samples},\"p50_ms\":{:.6},\"p95_ms\":{:.6},\"p99_ms\":{:.6}}}",raw.len(),times[samples/2],times[(samples*95/100).min(samples-1)],times[(samples*99/100).min(samples-1)]);
+-                    println!("{{\"corpus\":\"{kind}\",\"bytes\":{},\"position\":\"{label}\",\"round\":{round},\"max_hot_allocated_bytes\":{max_bytes}}}",raw.len());
++                    println!(
++                        "{{\"corpus\":\"{kind}\",\"bytes\":{},\"position\":\"{label}\",\"round\":{round},\"samples\":{samples},\"p50_ms\":{:.6},\"p95_ms\":{:.6},\"p99_ms\":{:.6}}}",
++                        raw.len(),
++                        times[samples / 2],
++                        times[(samples * 95 / 100).min(samples - 1)],
++                        times[(samples * 99 / 100).min(samples - 1)]
++                    );
++                    println!(
++                        "{{\"corpus\":\"{kind}\",\"bytes\":{},\"position\":\"{label}\",\"round\":{round},\"max_hot_allocated_bytes\":{max_bytes}}}",
++                        raw.len()
++                    );
+                     #[cfg(feature = "query-metrics")]
+                     {
+                         let after = ryne_syntax::query_metrics::snapshot();
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-syntax/examples/block-query-perf.rs:104:
+                         assert_eq!(before.directories, after.directories);
+                         assert_eq!(before.semantic_indexes, after.semantic_indexes);
+                         assert_eq!(before.physical_lines, after.physical_lines);
+-                        println!("{{\"queries\":{},\"comparisons\":{},\"candidates\":{},\"new_directories\":0,\"new_line_arrays\":0}}", after.queries-before.queries,after.comparisons-before.comparisons,after.candidates-before.candidates);
++                        println!(
++                            "{{\"queries\":{},\"comparisons\":{},\"candidates\":{},\"new_directories\":0,\"new_line_arrays\":0}}",
++                            after.queries - before.queries,
++                            after.comparisons - before.comparisons,
++                            after.candidates - before.candidates
++                        );
+                     }
+                     if cfg!(feature = "query-metrics") && amount >= 1024 {
+                         assert!(
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-syntax/src/block.rs:407:
+     #[test]
+     fn block_and_insertion_queries_at_every_character_boundary() {
+         let samples = [
+-            "", "\n\n", "# a\n\ntext\n", "title\n===\n\n![alt](x)\n\n---\n\n<div>raw</div>\n",
++            "",
++            "\n\n",
++            "# a\n\ntext\n",
++            "title\n===\n\n![alt](x)\n\n---\n\n<div>raw</div>\n",
+             "- first\n  - [ ] nested\n- last\n\noutside\n\n1. next\n2. end\n",
+             "> first\n>\n> > nested\n> > text\n>\n> ## heading\n>\n> - item\n>   - [x] task\n\ntail\n",
+             "> - a\n>   > quote\n>   >\n>   > second\n>\n> - ```rust\n>   literal\n>   ```\n",
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-syntax/src/block.rs:465:
+             let list = (0..depth)
+                 .map(|d| format!("{}- level {d}\n", "  ".repeat(d)))
+                 .collect::<String>();
+-            for raw in [format!("{quote}first\n{quote}\n{quote}## heading\n{quote}\n{quote}| a |\n{quote}| --- |\n{quote}| $x$ |\n\nend"),format!("{list}\nend")] {
+-                let parse=ParseSnapshot::with_math(Source::new(&raw));
+-                for p in raw.char_indices().map(|(p,_)|p).chain(std::iter::once(raw.len())) {
+-                    assert_eq!(at(&parse,p),oracle::at(&parse,p),"depth {depth}, offset {p}");
++            for raw in [
++                format!(
++                    "{quote}first\n{quote}\n{quote}## heading\n{quote}\n{quote}| a |\n{quote}| --- |\n{quote}| $x$ |\n\nend"
++                ),
++                format!("{list}\nend"),
++            ] {
++                let parse = ParseSnapshot::with_math(Source::new(&raw));
++                for p in raw
++                    .char_indices()
++                    .map(|(p, _)| p)
++                    .chain(std::iter::once(raw.len()))
++                {
++                    assert_eq!(
++                        at(&parse, p),
++                        oracle::at(&parse, p),
++                        "depth {depth}, offset {p}"
++                    );
+                 }
+             }
+         }
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-syntax/src/block.rs:530:
+             for (body, kind) in [
+                 (
+                     "  9. ### title\n     > > 中😀\n\n     | col |\n     | --- |\n     | cell |\n\n  10. last",
+-                    BlockKind::List { ordered: true, task: false },
++                    BlockKind::List {
++                        ordered: true,
++                        task: false,
++                    },
+                 ),
+                 (
+                     "> - [ ] task\n>   - nested\n>\n> ```mermaid\n> graph LR\n> ```\n>\n> ![alt](url)",
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-syntax/src/block.rs:537:
+                     BlockKind::Quote,
+                 ),
+-                ("- ```rs\n  literal\n  ```", BlockKind::List { ordered: false, task: false }),
++                (
++                    "- ```rs\n  literal\n  ```",
++                    BlockKind::List {
++                        ordered: false,
++                        task: false,
++                    },
++                ),
+                 ("> | col |\n> | --- |\n> | cell |", BlockKind::Quote),
+             ] {
+                 let body = body.replace('\n', ending);
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-syntax/src/block.rs:548:
+                 assert_eq!(owner.range.start, prefix.len());
+                 assert_eq!(owner.range, owner.scope);
+                 for (byte, _) in body.char_indices() {
+-                    assert_eq!(outermost_at(&parse, prefix.len() + byte).as_ref(), Some(&owner), "{text:?}, {byte}");
++                    assert_eq!(
++                        outermost_at(&parse, prefix.len() + byte).as_ref(),
++                        Some(&owner),
++                        "{text:?}, {byte}"
++                    );
+                 }
+-                assert_eq!(outermost_at(&parse, text.len()).unwrap().kind, BlockKind::Paragraph);
++                assert_eq!(
++                    outermost_at(&parse, text.len()).unwrap().kind,
++                    BlockKind::Paragraph
++                );
+                 assert_eq!(outermost_at(&parse, prefix.len() - 1), None);
+             }
+         }
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-syntax/src/directory_tests.rs:62:
+     assert_eq!(paragraphs(&pasted)[..2], paragraphs(&old)[1..]);
+     assert!(!paragraphs(&old).contains(paragraphs(&pasted).last().unwrap()));
+     let reopened = BlockDirectory::new(&parse(old.source.text()));
+-    assert!(reopened
+-        .entries
+-        .iter()
+-        .all(|e| !old.ids.contains_key(&e.id)));
++    assert!(
++        reopened
++            .entries
++            .iter()
++            .all(|e| !old.ids.contains_key(&e.id))
++    );
+     assert_eq!(
+         old.entries(reopened.snapshot()).err(),
+         Some(Error::StaleSnapshot)
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-syntax/src/list.rs:1:
+-use crate::code_block;
+ use crate::ParseSnapshot;
++use crate::code_block;
+ use ryne_parser::{NodeKind, TokenKind};
+ use std::ops::Range;
+ 
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-syntax/src/query.rs:72:
+             let (boundary, _) = query.insertion_context(&block).unwrap();
+             assert!(query.source_text(parse.source().id(), boundary).is_some());
+             assert!(query.source_text(Source::new(&raw).id(), 0..1).is_none());
+-            assert!(query
+-                .source_text(parse.source().id(), 0..raw.len() + 1)
+-                .is_none());
++            assert!(
++                query
++                    .source_text(parse.source().id(), 0..raw.len() + 1)
++                    .is_none()
++            );
+             assert_eq!(query.list_items().len(), 1);
+             assert_eq!(parse.source().text(), raw);
+         }
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-syntax/src/table.rs:1:
+-use crate::list;
+ use crate::ParseSnapshot;
++use crate::list;
+ use ryne_parser::{Alignment, NodeKind, TokenKind};
+ use std::ops::Range;
+ 
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/block_query_cache.rs:1:
+ //! One focus result and one menu availability result; both bind the full snapshot.
+ use ryne_parser::SnapshotId;
+ use ryne_syntax::{
+-    block::{self, Block},
+     ParseSnapshot,
++    block::{self, Block},
+ };
+ use std::cell::RefCell;
+ 
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/block_tree_smoke.rs:2:
+ use super::*;
+ 
+ pub(super) fn sample() -> String {
+-    (0..100).map(|i| format!("paragraph {i} 中😀 é words\n\n")).collect::<String>()
++    (0..100)
++        .map(|i| format!("paragraph {i} 中😀 é words\n\n"))
++        .collect::<String>()
+         + "> - nested **bold**\n>   continuation\n>\n>   ```rust\n>   let x = 1;\n>   ```\n\n| left | right |\n| --- | ---: |\n| $x^2$ | text<br>more |\n"
+ }
+ 
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/i18n.rs:458:
+ 
+     fn translations(self) -> [&'static str; 7] {
+         match self {
+-            Self::FileTreeView => ["切换到文件树视图", "切換至檔案樹檢視", "Switch to file tree", "ファイルツリーに切り替え", "파일 트리로 전환", "Afficher l’arborescence", "Mostrar árbol de archivos"],
+-            Self::OutlineView => ["切换到大纲视图", "切換至大綱檢視", "Switch to outline", "アウトラインに切り替え", "개요로 전환", "Afficher le plan", "Mostrar esquema"],
+-            Self::FileListView => ["切换到文档列表", "切換至文件列表", "Switch to file list", "ファイル一覧に切り替え", "파일 목록으로 전환", "Afficher la liste des fichiers", "Mostrar lista de archivos"],
+-            Self::NoMatches => ["没有匹配结果","沒有符合的結果","No matches","一致する項目はありません","일치하는 결과가 없습니다","Aucun résultat","Sin coincidencias"],
+-            Self::FilterHeadings => ["筛选标题", "篩選標題", "Filter headings", "見出しを絞り込み", "제목 필터", "Filtrer les titres", "Filtrar títulos"],
+-            Self::FolderOptions => ["目录选项", "資料夾選項", "Folder options", "フォルダのオプション", "폴더 옵션", "Options du dossier", "Opciones de carpeta"],
+-            Self::Sidebar => ["侧边栏", "側邊欄", "Sidebar", "サイドバー", "사이드바", "Barre latérale", "Barra lateral"],
+-            Self::Directory => ["文件", "檔案", "Files", "ファイル", "파일", "Fichiers", "Archivos"],
+-            Self::Outline => ["大纲", "大綱", "Outline", "アウトライン", "개요", "Plan", "Esquema"],
+-            Self::OpenFolder => ["打开文件夹…", "開啟資料夾…", "Open Folder…", "フォルダを開く…", "폴더 열기…", "Ouvrir un dossier…", "Abrir carpeta…"],
+-            Self::DirectoryFailed => ["读取目录失败", "讀取目錄失敗", "Could not read folder", "フォルダを読み込めません", "폴더를 읽을 수 없음", "Lecture du dossier impossible", "No se pudo leer la carpeta"],
+-            Self::Refresh => ["刷新", "重新整理", "Refresh", "再読み込み", "새로 고침", "Actualiser", "Actualizar"],
+-            Self::Scanning => ["正在读取…", "正在讀取…", "Loading…", "読み込み中…", "읽는 중…", "Chargement…", "Cargando…"],
+-            Self::Partial => ["仅显示部分结果", "僅顯示部分結果", "Showing partial results", "結果の一部を表示", "일부 결과만 표시", "Résultats partiels", "Resultados parciales"],
+-            Self::FilterFiles => ["筛选名称或路径", "篩選名稱或路徑", "Filter by name or path", "名前・パスで絞り込み", "이름 또는 경로로 필터", "Filtrer par nom ou chemin", "Filtrar por nombre o ruta"],
+-            Self::EmptyOutline => ["文档中还没有标题", "文件中還沒有標題", "No headings in this document", "見出しはありません", "문서에 제목이 없습니다", "Aucun titre dans ce document", "Este documento no tiene títulos"],
+-            Self::EmptyFiles => ["没有可显示的文档", "沒有可顯示的文件", "No documents to show", "表示する文書はありません", "표시할 문서가 없습니다", "Aucun document à afficher", "No hay documentos que mostrar"],
+-            Self::EmptyHeading => ["无标题", "無標題", "Untitled heading", "無題の見出し", "제목 없음", "Titre vide", "Sin título"],
+-            Self::SaveOpen => ["保存并打开", "儲存並開啟", "Save and Open", "保存して開く", "저장하고 열기", "Enregistrer et ouvrir", "Guardar y abrir"],
++            Self::FileTreeView => [
++                "切换到文件树视图",
++                "切換至檔案樹檢視",
++                "Switch to file tree",
++                "ファイルツリーに切り替え",
++                "파일 트리로 전환",
++                "Afficher l’arborescence",
++                "Mostrar árbol de archivos",
++            ],
++            Self::OutlineView => [
++                "切换到大纲视图",
++                "切換至大綱檢視",
++                "Switch to outline",
++                "アウトラインに切り替え",
++                "개요로 전환",
++                "Afficher le plan",
++                "Mostrar esquema",
++            ],
++            Self::FileListView => [
++                "切换到文档列表",
++                "切換至文件列表",
++                "Switch to file list",
++                "ファイル一覧に切り替え",
++                "파일 목록으로 전환",
++                "Afficher la liste des fichiers",
++                "Mostrar lista de archivos",
++            ],
++            Self::NoMatches => [
++                "没有匹配结果",
++                "沒有符合的結果",
++                "No matches",
++                "一致する項目はありません",
++                "일치하는 결과가 없습니다",
++                "Aucun résultat",
++                "Sin coincidencias",
++            ],
++            Self::FilterHeadings => [
++                "筛选标题",
++                "篩選標題",
++                "Filter headings",
++                "見出しを絞り込み",
++                "제목 필터",
++                "Filtrer les titres",
++                "Filtrar títulos",
++            ],
++            Self::FolderOptions => [
++                "目录选项",
++                "資料夾選項",
++                "Folder options",
++                "フォルダのオプション",
++                "폴더 옵션",
++                "Options du dossier",
++                "Opciones de carpeta",
++            ],
++            Self::Sidebar => [
++                "侧边栏",
++                "側邊欄",
++                "Sidebar",
++                "サイドバー",
++                "사이드바",
++                "Barre latérale",
++                "Barra lateral",
++            ],
++            Self::Directory => [
++                "文件",
++                "檔案",
++                "Files",
++                "ファイル",
++                "파일",
++                "Fichiers",
++                "Archivos",
++            ],
++            Self::Outline => [
++                "大纲",
++                "大綱",
++                "Outline",
++                "アウトライン",
++                "개요",
++                "Plan",
++                "Esquema",
++            ],
++            Self::OpenFolder => [
++                "打开文件夹…",
++                "開啟資料夾…",
++                "Open Folder…",
++                "フォルダを開く…",
++                "폴더 열기…",
++                "Ouvrir un dossier…",
++                "Abrir carpeta…",
++            ],
++            Self::DirectoryFailed => [
++                "读取目录失败",
++                "讀取目錄失敗",
++                "Could not read folder",
++                "フォルダを読み込めません",
++                "폴더를 읽을 수 없음",
++                "Lecture du dossier impossible",
++                "No se pudo leer la carpeta",
++            ],
++            Self::Refresh => [
++                "刷新",
++                "重新整理",
++                "Refresh",
++                "再読み込み",
++                "새로 고침",
++                "Actualiser",
++                "Actualizar",
++            ],
++            Self::Scanning => [
++                "正在读取…",
++                "正在讀取…",
++                "Loading…",
++                "読み込み中…",
++                "읽는 중…",
++                "Chargement…",
++                "Cargando…",
++            ],
++            Self::Partial => [
++                "仅显示部分结果",
++                "僅顯示部分結果",
++                "Showing partial results",
++                "結果の一部を表示",
++                "일부 결과만 표시",
++                "Résultats partiels",
++                "Resultados parciales",
++            ],
++            Self::FilterFiles => [
++                "筛选名称或路径",
++                "篩選名稱或路徑",
++                "Filter by name or path",
++                "名前・パスで絞り込み",
++                "이름 또는 경로로 필터",
++                "Filtrer par nom ou chemin",
++                "Filtrar por nombre o ruta",
++            ],
++            Self::EmptyOutline => [
++                "文档中还没有标题",
++                "文件中還沒有標題",
++                "No headings in this document",
++                "見出しはありません",
++                "문서에 제목이 없습니다",
++                "Aucun titre dans ce document",
++                "Este documento no tiene títulos",
++            ],
++            Self::EmptyFiles => [
++                "没有可显示的文档",
++                "沒有可顯示的文件",
++                "No documents to show",
++                "表示する文書はありません",
++                "표시할 문서가 없습니다",
++                "Aucun document à afficher",
++                "No hay documentos que mostrar",
++            ],
++            Self::EmptyHeading => [
++                "无标题",
++                "無標題",
++                "Untitled heading",
++                "無題の見出し",
++                "제목 없음",
++                "Titre vide",
++                "Sin título",
++            ],
++            Self::SaveOpen => [
++                "保存并打开",
++                "儲存並開啟",
++                "Save and Open",
++                "保存して開く",
++                "저장하고 열기",
++                "Enregistrer et ouvrir",
++                "Guardar y abrir",
++            ],
+             Self::About => [
+                 "关于 Ryne",
+                 "關於 Ryne",
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/i18n.rs:514:
+                 "Salir de Ryne",
+             ],
+             Self::MinimizeWindow => [
+-                "最小化", "最小化", "Minimize", "最小化", "최소화", "Réduire", "Minimizar",
++                "最小化",
++                "最小化",
++                "Minimize",
++                "最小化",
++                "최소화",
++                "Réduire",
++                "Minimizar",
+             ],
+             Self::MaximizeWindow => [
+-                "最大化", "最大化", "Maximize", "最大化", "최대화", "Agrandir", "Maximizar",
++                "最大化",
++                "最大化",
++                "Maximize",
++                "最大化",
++                "최대화",
++                "Agrandir",
++                "Maximizar",
+             ],
+             Self::RestoreWindow => [
+-                "还原", "還原", "Restore", "元に戻す", "이전 크기로", "Restaurer", "Restaurar",
++                "还原",
++                "還原",
++                "Restore",
++                "元に戻す",
++                "이전 크기로",
++                "Restaurer",
++                "Restaurar",
+             ],
+             Self::CloseWindow => [
+-                "关闭", "關閉", "Close", "閉じる", "닫기", "Fermer", "Cerrar",
++                "关闭",
++                "關閉",
++                "Close",
++                "閉じる",
++                "닫기",
++                "Fermer",
++                "Cerrar",
+             ],
+             Self::File => [
+                 "文件",
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/i18n.rs:1188:
+             ],
+             Self::Theme => ["主题", "主題", "Theme", "テーマ", "테마", "Thème", "Tema"],
+             Self::ThemeSystem => [
+-                "跟随系统", "跟隨系統", "Follow system", "システムに合わせる", "시스템 설정 따르기",
+-                "Suivre le système", "Seguir el sistema",
++                "跟随系统",
++                "跟隨系統",
++                "Follow system",
++                "システムに合わせる",
++                "시스템 설정 따르기",
++                "Suivre le système",
++                "Seguir el sistema",
+             ],
+-            Self::Dark => ["暗色", "深色", "Dark", "ダーク", "어둡게", "Sombre", "Oscuro"],
++            Self::Dark => [
++                "暗色",
++                "深色",
++                "Dark",
++                "ダーク",
++                "어둡게",
++                "Sombre",
++                "Oscuro",
++            ],
+             Self::Light => ["亮色", "淺色", "Light", "ライト", "밝게", "Clair", "Claro"],
+             Self::ThemePreferenceFailed => [
+-                "主题已切换，但偏好保存失败", "主題已切換，但偏好儲存失敗",
++                "主题已切换，但偏好保存失败",
++                "主題已切換，但偏好儲存失敗",
+                 "Theme changed, but the preference could not be saved",
+                 "テーマは変更されましたが、設定を保存できませんでした",
+                 "테마가 변경되었지만 설정을 저장하지 못했습니다",
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/i18n.rs:1550:
+             Self::Table => ["表格", "表格", "Table", "表", "표", "Tableau", "Tabla"],
+             Self::Image => ["图片", "圖片", "Image", "画像", "이미지", "Image", "Imagen"],
+             Self::BlockFormula => [
+-                "块级公式", "區塊公式", "Block equation", "ブロック数式", "블록 수식", "Équation en bloc", "Ecuación en bloque",
++                "块级公式",
++                "區塊公式",
++                "Block equation",
++                "ブロック数式",
++                "블록 수식",
++                "Équation en bloc",
++                "Ecuación en bloque",
+             ],
+             Self::Formula => [
+                 "行内公式",
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/i18n.rs:1796:
+                         "Mise en garde",
+                         "Precaución",
+                     ],
+-                }[self as usize]
++                }[self as usize];
+             }
+             Some(Quote) => Text::Quote,
+             Some(Code) => Text::Code,
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/i18n.rs:1907:
+                     "{language:?}: {key:?}"
+                 );
+             }
+-            assert!(language
+-                .insert_label(ryne_extensions::InsertBlock::Heading(6))
+-                .starts_with("H6"));
++            assert!(
++                language
++                    .insert_label(ryne_extensions::InsertBlock::Heading(6))
++                    .starts_with("H6")
++            );
+         }
+         assert_eq!(Language::Fr.text(Text::Save), "Enregistrer");
+         assert_eq!(Language::ZhHant.text(Text::Save), "儲存");
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/image_smoke.rs:118:
+             {
+                 return Err("image preview changed source/history or ignored source mode".into());
+             }
+-            println!("Image GUI checks passed: actual paint, proportional fit, click-to-source, refold and full source mode; CRLF source and history unchanged");
++            println!(
++                "Image GUI checks passed: actual paint, proportional fit, click-to-source, refold and full source mode; CRLF source and history unchanged"
++            );
+         }
+         378 => {
+             // Oversized display labels still retain the complete editable address.
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/image_smoke.rs:217:
+             if geometry.display.image_failures.len() != 1 || geometry.failed_images_painted != 1 {
+                 return Err("failed image preview did not return after leaving source mode".into());
+             }
+-            println!("Failed-image icon GUI checks passed: inline SVG and red struck-through truncated address, wrapped address/icon click-to-source, complete source, refold and source-mode suppression without history changes");
++            println!(
++                "Failed-image icon GUI checks passed: inline SVG and red struck-through truncated address, wrapped address/icon click-to-source, complete source, refold and source-mode suppression without history changes"
++            );
+         }
+         _ => (),
+     }
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/image_smoke.rs:300:
+             || (f32::from(image_height) - image.height * f32::from(line.width) / image.width).abs()
+                 > 0.001
+         {
+-            return Err(format!("image exceeds content width or changes aspect ratio: column={width}, inset={:?}, image={:?}", line.inset, line.width));
++            return Err(format!(
++                "image exceeds content width or changes aspect ratio: column={width}, inset={:?}, image={:?}",
++                line.inset, line.width
++            ));
+         }
+     }
+     if editor.document.source.id() != source
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/image_smoke.rs:309:
+     {
+         return Err("fitting image widths modified source/history".into());
+     }
+-    println!("Image width checks passed: 1/16/39/40/120/320/760 px columns, container inset, proportional downscaling and original small-image size");
++    println!(
++        "Image width checks passed: 1/16/39/40/120/320/760 px columns, container inset, proportional downscaling and original small-image size"
++    );
+     Ok(())
+ }
+ 
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/navigation_index.rs:44:
+             .iter()
+             .map(|&(id, top, bottom, _)| (bottom, (top, id)))
+             .collect::<Vec<_>>();
+-        ends.sort_by(|a, b| compare(&(a.0, a.1 .1), &(b.0, b.1 .1)));
++        ends.sort_by(|a, b| compare(&(a.0, a.1.1), &(b.0, b.1.1)));
+         // Eligibility is by bottom, but the old upward scan selects the maximum
+         // top (last source row on ties). Sorting by bottom alone is insufficient.
+         let mut best = None;
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/profile.rs:31:
+ }
+ pub(super) fn shape_work(work: crate::inline_layout_cache::ShapeWork) {
+     if enabled() {
+-        eprintln!("RYNE_PROFILE {{\"metric\":\"shape_work\",\"hits\":{},\"misses\":{},\"shaped_bytes\":{}}}",
+-            work.hits, work.misses, work.shaped_bytes);
++        eprintln!(
++            "RYNE_PROFILE {{\"metric\":\"shape_work\",\"hits\":{},\"misses\":{},\"shaped_bytes\":{}}}",
++            work.hits, work.misses, work.shaped_bytes
++        );
+     }
+ }
+ /// Counters are per process; IDs distinguish successive documents in a window.
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/recovery/tests.rs:1:
+-use super::{store, Draft, Slot};
++use super::{Draft, Slot, store};
+ use crate::window_controls_tests::test_editor;
+-use crate::{welcome, Save};
++use crate::{Save, welcome};
+ use gpui::{TestAppContext, VisualTestContext};
+ use std::{
+     fs,
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/sidebar/mod.rs:17:
+     collections::{HashMap, VecDeque},
+     path::Path,
+     sync::{
+-        atomic::{AtomicBool, Ordering},
+         Arc,
++        atomic::{AtomicBool, Ordering},
+     },
+     time::SystemTime,
+ };
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/sidebar/tasks.rs:1:
+ use super::*;
+-use std::panic::{catch_unwind, AssertUnwindSafe};
++use std::panic::{AssertUnwindSafe, catch_unwind};
+ 
+ pub(super) enum Notice {
+     Batch(Vec<DirectoryEntry>),
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/sidebar/tests.rs:1:
+-use super::{browser, view, Browser};
++use super::{Browser, browser, view};
+ use crate::window_controls_tests::test_editor;
+ use crate::{Document, Language, Text, ToggleSidebar};
+-use gpui::{px, size, EntityInputHandler, Modifiers, TestAppContext, VisualTestContext};
++use gpui::{EntityInputHandler, Modifiers, TestAppContext, VisualTestContext, px, size};
+ use ryne_extensions::directory::*;
+ use std::{fs, io, time::Duration};
+ use std::{
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/sidebar/tests.rs:8:
+     path::{Path, PathBuf},
+-    sync::{atomic::Ordering, Arc},
++    sync::{Arc, atomic::Ordering},
+ };
+ use tempfile::tempdir;
+ 
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/sidebar/tests.rs:265:
+             e.sidebar.folder_icon(Path::new("vacant"), false),
+             "icon:folder"
+         );
+-        assert!(!e
+-            .sidebar
+-            .browser
+-            .entries
+-            .contains_key(Path::new("sub/second.md")));
++        assert!(
++            !e.sidebar
++                .browser
++                .entries
++                .contains_key(Path::new("sub/second.md"))
++        );
+     });
+     cx.update(|_, cx| {
+         editor.update(cx, |e, cx| {
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/sidebar/tests.rs:544:
+         .outline()
+         .as_ptr())
+     );
+-    println!("tree first drawable {tree_time:?}, list scan {scan_time:?}, {entries} entries, {documents} documents, {read} enumerations, {} prefixes, channel peak {peak}, 1000 headings / 30 scroll frames {:?}, frame p50 {:?} p95 {:?} max {:?}",service.summaries.load(Ordering::Relaxed),outline_start.elapsed(),frames[15],frames[28],frames[29]);
++    println!(
++        "tree first drawable {tree_time:?}, list scan {scan_time:?}, {entries} entries, {documents} documents, {read} enumerations, {} prefixes, channel peak {peak}, 1000 headings / 30 scroll frames {:?}, frame p50 {:?} p95 {:?} max {:?}",
++        service.summaries.load(Ordering::Relaxed),
++        outline_start.elapsed(),
++        frames[15],
++        frames[28],
++        frames[29]
++    );
+ }
+ 
+ #[gpui::test]
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/theme.rs:1:
+ //! Application appearance, shared colors, typography and page geometry. Values use GPUI logical pixels.
+-use gpui::{font, Font, FontFallbacks, TextSystem};
++use gpui::{Font, FontFallbacks, TextSystem, font};
+ 
+ pub const BODY: (f32, f32) = (18., 30.);
+ pub const CODE: (f32, f32) = (15., 24.);
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/theme.rs:117:
+             Self::Dark => true,
+             Self::Light => false,
+         };
+-        if dark {
+-            Palette::DARK
+-        } else {
+-            Palette::LIGHT
+-        }
++        if dark { Palette::DARK } else { Palette::LIGHT }
+     }
+ }
+ 
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/theme_tests.rs:1:
+ //! Real GPUI action dispatch and layout-cache coverage without native event-loop assertions.
+ use crate::theme::{self, Mode, Palette, Settings};
+ use crate::window_controls_tests::test_editor;
+-use crate::{menus, Document};
++use crate::{Document, menus};
+ use gpui::{BorrowAppContext, EntityInputHandler, TestAppContext, WindowAppearance};
+ 
+ #[gpui::test]
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/welcome.rs:43:
+     use super::*;
+     use ryne_extensions::FileStore;
+     use ryne_parser::{Alignment, NodeKind, Source};
+-    use ryne_session::{basic::SourceEditing, SessionServices};
++    use ryne_session::{SessionServices, basic::SourceEditing};
+     use ryne_syntax::ParseSnapshot;
+     use std::{path::Path, sync::Arc};
+ 
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/welcome.rs:97:
+                 assert!(has(kind.clone()), "{language:?}: {kind:?}");
+             }
+             assert!(has(NodeKind::BlockQuote));
+-            assert!(parse
+-                .nodes
+-                .iter()
+-                .any(|n| matches!(n.kind, NodeKind::Task(_))));
+-            assert!(parse
+-                .nodes
+-                .iter()
+-                .any(|n| matches!(n.kind, NodeKind::Link { .. })));
+-            assert!(parse
+-                .nodes
+-                .iter()
+-                .any(|n| matches!(n.kind, NodeKind::Image { .. })));
+-            assert!(parse
+-                .nodes
+-                .iter()
+-                .any(|n| matches!(n.kind, NodeKind::InlineMath(_))));
+-            assert!(parse
+-                .nodes
+-                .iter()
+-                .any(|n| matches!(n.kind, NodeKind::Code(_))));
++            assert!(
++                parse
++                    .nodes
++                    .iter()
++                    .any(|n| matches!(n.kind, NodeKind::Task(_)))
++            );
++            assert!(
++                parse
++                    .nodes
++                    .iter()
++                    .any(|n| matches!(n.kind, NodeKind::Link { .. }))
++            );
++            assert!(
++                parse
++                    .nodes
++                    .iter()
++                    .any(|n| matches!(n.kind, NodeKind::Image { .. }))
++            );
++            assert!(
++                parse
++                    .nodes
++                    .iter()
++                    .any(|n| matches!(n.kind, NodeKind::InlineMath(_)))
++            );
++            assert!(
++                parse
++                    .nodes
++                    .iter()
++                    .any(|n| matches!(n.kind, NodeKind::Code(_)))
++            );
+             let items = ryne_syntax::list::items(&parse);
+             assert!(
+                 items.iter().any(|item| item.parent.is_some()),
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/welcome.rs:128:
+                 tables[0].align,
+                 [Alignment::Left, Alignment::Center, Alignment::Right]
+             );
+-            assert!(tables[0]
+-                .rows
+-                .iter()
+-                .flat_map(|row| &row.cells)
+-                .any(|cell| cell.content.is_empty()));
++            assert!(
++                tables[0]
++                    .rows
++                    .iter()
++                    .flat_map(|row| &row.cells)
++                    .any(|cell| cell.content.is_empty())
++            );
+             let blocks = ryne_syntax::code_block::blocks(&parse);
+             assert_eq!(
+                 blocks.len(),
+Diff in /Users/jiangtao/code/github.com/piccolomon/crates/ryne-ui/src/window_controls_tests.rs:1:
+ //! Exercise the actual editor div tree with GPUI's platform event dispatcher.
+ //! No native AppKit/Win32 loop is involved, so failed checks stay in the test runner.
+ use super::{
+-    math_fonts, DesktopServices, Document, Editor, ExportRegistry, Language, Localization,
+-    SelectAll, SessionServices, Text,
++    DesktopServices, Document, Editor, ExportRegistry, Language, Localization, SelectAll,
++    SessionServices, Text, math_fonts,
+ };
+ use gpui::{
+-    point, px, size, Context, KeyBinding, Modifiers, MouseButton, MouseDownEvent, MouseUpEvent,
+-    TestAppContext,
++    Context, KeyBinding, Modifiers, MouseButton, MouseDownEvent, MouseUpEvent, TestAppContext,
++    point, px, size,
+ };
+ use std::sync::Arc;
+ 
+Diff in /Users/jiangtao/code/github.com/piccolomon/docs/reviews/render_interactions/main.rs:4:
+ #[cfg(test)]
+ mod tests;
+ 
+-use features::{session, ListActions, TableActions};
++use features::{ListActions, TableActions, session};
+ use protocol::*;
+ 
+ fn main() -> Result<(), String> {
+Diff in /Users/jiangtao/code/github.com/piccolomon/docs/reviews/render_interactions/tests.rs:2:
+ use ryne_extensions::{CommandPlan, EditingState, Validator};
+ use ryne_session::EditorSession;
+ use std::sync::{
+-    atomic::{AtomicBool, Ordering},
+     Arc,
++    atomic::{AtomicBool, Ordering},
+ };
+ 
+ fn host() -> Host {
+Diff in /Users/jiangtao/code/github.com/piccolomon/docs/reviews/render_interactions/tests.rs:111:
+     let command = menu.take(1).unwrap();
+     assert!(menu.take(1).is_err());
+     host.execute(&mut doc, frame.context, command).unwrap();
+-    assert!(doc
+-        .source
+-        .text()
+-        .contains("| :--- | ---: |\n|  |  |\n| 中😀"));
++    assert!(
++        doc.source
++            .text()
++            .contains("| :--- | ---: |\n|  |  |\n| 中😀")
++    );
+ }
+ 
+ #[test]
+Diff in /Users/jiangtao/code/github.com/piccolomon/docs/reviews/render_interactions/tests.rs:191:
+         epoch: frame.context.epoch + 1,
+         ..frame.context
+     };
+-    assert!(host
+-        .activate(&doc, context, &frame, frame.controls[0].bounds.center())
+-        .is_err());
++    assert!(
++        host.activate(&doc, context, &frame, frame.controls[0].bounds.center())
++            .is_err()
++    );
+     assert!(host.execute(&mut doc, context, command).is_err());
+     assert!(!doc.dirty());
+ }
+Diff in /Users/jiangtao/code/github.com/piccolomon/docs/reviews/render_interactions/tests.rs:355:
+     let specs = host.contribute(&doc).unwrap();
+     let mut surfaces = fixture_surfaces(&specs);
+     surfaces[1].bounds = surfaces[0].bounds;
+-    assert!(host
+-        .layout(&doc, Context::rendered(doc.source.id()), &surfaces, specs)
+-        .is_err());
++    assert!(
++        host.layout(&doc, Context::rendered(doc.source.id()), &surfaces, specs)
++            .is_err()
++    );
+ }
+ #[test]
+ fn malformed_markdown_stays_editable_without_interaction_contributions() {

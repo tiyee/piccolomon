@@ -1,0 +1,172 @@
+[
+  {
+    "name": "gpui-pre",
+    "vers": "0.3.12",
+    "cksum": "29db89613527079737f53752eab27fb65c9a7dd94979256c65a0e590c9fd34d8",
+    "yanked": false,
+    "pubtime": "2026-11-09T00:30:37Z",
+    "rust_version": null,
+    "features": {
+      "font-kit": [],
+      "inspector": [
+        "gpui_macros/inspector"
+      ],
+      "leak-detection": [],
+      "screen-capture": [
+        "scap"
+      ],
+      "wayland": []
+    },
+    "features2": {
+      "bench": [
+        "bench-support"
+      ],
+      "bench-support": [
+        "profiler",
+        "dep:criterion",
+        "dep:bench_metrics"
+      ],
+      "default": [
+        "font-kit",
+        "wayland",
+        "x11",
+        "windows-manifest"
+      ],
+      "hot-reload": [
+        "dep:async-tungstenite",
+        "dep:dioxus-cli-config",
+        "dep:dioxus-devtools-types",
+        "dep:smol",
+        "dep:subsecond"
+      ],
+      "profiler": [
+        "dep:hdrhistogram"
+      ],
+      "stacker": [
+        "dep:stacksafe"
+      ],
+      "test-support": [
+        "bench_metrics?/test-support",
+        "collections/test-support",
+        "http_client/test-support",
+        "wayland",
+        "x11",
+        "proptest",
+        "dep:futures-concurrency",
+        "dep:postage",
+        "dep:web-time"
+      ],
+      "windows-manifest": [
+        "dep:embed-resource"
+      ],
+      "x11": [
+        "scap?/x11"
+      ]
+    }
+  },
+  {
+    "name": "gpui-pre-macos",
+    "vers": "0.3.12",
+    "cksum": "2de7d3f4ad51ac387e822495db363fcc1188d349793365731d054444c4cb06ee",
+    "yanked": false,
+    "pubtime": "2026-11-09T00:30:43Z",
+    "rust_version": null,
+    "features": {
+      "bench-support": [
+        "gpui/bench-support",
+        "gpui_apple/bench-support"
+      ],
+      "default": [
+        "gpui/default"
+      ],
+      "font-kit": [
+        "gpui_apple/font-kit"
+      ],
+      "runtime_shaders": [
+        "gpui_apple/runtime_shaders"
+      ],
+      "test-support": [
+        "gpui/test-support",
+        "gpui_apple/test-support"
+      ]
+    },
+    "features2": {
+      "screen-capture": [
+        "gpui/screen-capture",
+        "dep:objc2-core-media",
+        "dep:objc2-screen-capture-kit"
+      ]
+    }
+  },
+  {
+    "name": "gpui-pre-platform",
+    "vers": "0.3.12",
+    "cksum": "d2b785bdcbd229f762096aebf4f9ae913bdaa9db49794907cabaf516eb55227b",
+    "yanked": false,
+    "pubtime": "2026-11-09T00:30:45Z",
+    "rust_version": null,
+    "features": {
+      "bench-support": [
+        "gpui/bench-support",
+        "gpui_macos/bench-support",
+        "gpui_wgpu/bench-support"
+      ],
+      "default": [
+        "multithreaded"
+      ],
+      "font-kit": [
+        "gpui_macos/font-kit"
+      ],
+      "inspector": [
+        "gpui/inspector"
+      ],
+      "multithreaded": [
+        "gpui_web/multithreaded"
+      ],
+      "runtime_shaders": [
+        "gpui_macos/runtime_shaders",
+        "gpui_ios/runtime_shaders"
+      ],
+      "screen-capture": [
+        "gpui/screen-capture",
+        "gpui_macos/screen-capture",
+        "gpui_windows/screen-capture",
+        "gpui_linux/screen-capture"
+      ],
+      "test-support": [
+        "gpui/test-support",
+        "gpui_macos/test-support",
+        "gpui_windows/test-support",
+        "gpui_wgpu/test-support"
+      ],
+      "wayland": [
+        "gpui_linux/wayland"
+      ],
+      "x11": [
+        "gpui_linux/x11"
+      ]
+    },
+    "features2": null
+  },
+  {
+    "name": "gpui-pre-windows",
+    "vers": "0.3.12",
+    "cksum": "7201762420222d5b5ce5bdf0056996199212a3349bfb2457a3a0238c688681f3",
+    "yanked": false,
+    "pubtime": "2026-11-09T00:30:41Z",
+    "rust_version": null,
+    "features": {
+      "default": [
+        "gpui/default"
+      ],
+      "screen-capture": [
+        "gpui/screen-capture",
+        "scap"
+      ],
+      "test-support": [
+        "gpui/test-support"
+      ]
+    },
+    "features2": null
+  }
+]

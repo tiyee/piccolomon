@@ -1,0 +1,34 @@
+grammar rust: strong=true, jsx=false
+grammar python: has_error
+grammar javascript: has_error
+grammar typescript: has_error
+grammar tsx: has_error
+grammar json: has_error
+grammar bash: has_error
+grammar java: strong=true, jsx=false
+grammar go: has_error
+found=["rust", "java"]
+budget=50ms result=Undetermined elapsed=4.740796ms
+grammar rust: strong=true, jsx=false
+grammar python: has_error
+grammar javascript: has_error
+grammar typescript: has_error
+grammar tsx: has_error
+grammar json: has_error
+grammar bash: has_error
+grammar java: strong=true, jsx=false
+grammar go: has_error
+found=["rust", "java"]
+budget=500ms result=Undetermined elapsed=2.396506ms
+grammar rust: strong=true, jsx=false
+grammar python: has_error
+grammar javascript: has_error
+grammar typescript: has_error
+grammar tsx: has_error
+grammar json: has_error
+grammar bash: has_error
+grammar java: strong=true, jsx=false
+grammar go: has_error
+found=["rust", "java"]
+budget=5000ms result=Undetermined elapsed=2.024518ms
+total 9.229557ms

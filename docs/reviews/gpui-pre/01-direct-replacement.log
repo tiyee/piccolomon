@@ -1,0 +1,11 @@
+    Updating crates.io index
+error: failed to select a version for `gpui-pre`.
+    ... required by package `ryne-ui v0.2.9 (<PROBE_ROOT>/workspace/crates/ryne-ui)`
+    ... which satisfies path dependency `ryne-ui` (locked to 0.2.9) of package `ryne-app v0.2.9 (<PROBE_ROOT>/workspace)`
+versions that meet the requirements `=0.3.12` are: 0.3.12
+
+package `ryne-ui` depends on `gpui-pre` with feature `runtime_shaders` but `gpui-pre` does not have that feature.
+help: available features: bench, bench-support, default, font-kit, hot-reload, inspector, leak-detection, objc2, objc2-metal, profiler, proptest, scap, screen-capture, stacker, test-support, wayland, windows-manifest, x11
+
+
+failed to select a version for `gpui-pre` which could resolve this conflict

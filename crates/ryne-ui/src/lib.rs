@@ -37,6 +37,8 @@ mod smoke;
 #[cfg(windows)]
 mod windows_activation;
 pub use smoke::smoke_features;
+#[cfg(test)]
+mod gpui_upgrade_tests;
 mod text_layout;
 mod theme;
 #[cfg(test)]
@@ -230,7 +232,7 @@ impl Editor {
                 self.caret_state.preferred_x = None;
                 self.caret_state.caret_affinity = Affinity::Downstream;
                 self.viewport.ensure_caret = true;
-                window.focus(&self.focus);
+                window.focus(&self.focus, cx);
             }
             Err(_) => self.status = Text::AppendFailed.into(),
         }
@@ -271,7 +273,7 @@ impl Editor {
                 self.caret_state.preferred_x = None;
                 self.caret_state.caret_affinity = Affinity::Downstream;
                 self.viewport.ensure_caret = true;
-                window.focus(&self.focus);
+                window.focus(&self.focus, cx);
             }
             Err(_) => self.status = Text::InsertFailed.into(),
         }
@@ -993,10 +995,15 @@ impl Editor {
         self.insert(self.document.selection(), "", cx);
     }
     fn paste(&mut self, _: &Paste, _: &mut Window, cx: &mut Context<Self>) {
+        let text = cx.read_from_clipboard().and_then(|item| item.text());
+        self.paste_content(text, cx);
+    }
+    // Both action and platform paste use the same Markdown transaction path.
+    fn paste_content(&mut self, text: Option<String>, cx: &mut Context<Self>) {
         if !self.commit_composition(cx) {
             return;
         }
-        if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()) {
+        if let Some(text) = text {
             self.insert_from(
                 self.document.selection(),
                 &text,
@@ -1056,7 +1063,7 @@ impl Editor {
                 cx.notify();
             }
         }
-        self.focus.focus(window);
+        self.focus.focus(window, cx);
     }
     fn toggle_source(&mut self, _: &ToggleSource, _: &mut Window, cx: &mut Context<Self>) {
         if !self.commit_composition(cx) {
@@ -1130,7 +1137,7 @@ impl Editor {
         if !self.commit_composition(cx) {
             return;
         }
-        window.focus(&self.focus);
+        window.focus(&self.focus, cx);
         if let Some(geometry) = &self.viewport.geometry {
             if !geometry.is_current(self) {
                 return;
@@ -1345,7 +1352,7 @@ impl Editor {
         self.refresh(cx);
         self.update_block_hover(event.position, cx);
     }
-    fn scroll(&mut self, event: &ScrollWheelEvent, _: &mut Window, cx: &mut Context<Self>) {
+    fn scroll(&mut self, event: &ScrollEvent, _: &mut Window, cx: &mut Context<Self>) {
         self.menus.render_menu = None;
         self.menus.hovered_render = None;
         self.menus.append_hovered = false;
@@ -1456,7 +1463,7 @@ pub fn run(
             Err(e) => eprintln!("Ryne file activation: {e}"),
         }
     }
-    let application = Application::new().with_assets(crate::assets::Assets {
+    let application = gpui_platform::application().with_assets(crate::assets::Assets {
         formulas: formulas.clone(),
     });
     application.on_open_urls(move |urls| {
@@ -1540,7 +1547,8 @@ pub fn run(
                     }
                     editor
                 });
-                window.focus(&editor.read(cx).focus);
+                let focus = editor.read(cx).focus.clone();
+                window.focus(&focus, cx);
                 let weak = editor.downgrade();
                 window.on_window_should_close(cx, move |window, cx| {
                     weak.update(cx, |editor, cx| editor.request_close(window, cx))
@@ -1577,7 +1585,7 @@ pub fn run(
             }
         })
         .detach();
-        cx.on_window_closed(|cx| {
+        cx.on_window_closed(|cx, _window_id| {
             if cx.windows().is_empty() {
                 cx.quit();
             }

@@ -141,13 +141,13 @@ impl TreeSitterLanguageDetector {
                             )
                             && node.parent().is_some_and(|p| p.child_count() > 1)
                     }
+                    // Java accepts method fragments such as Rust's `fn main()`;
+                    // require a surrounding declaration as strong evidence.
                     "java" => matches!(
                         kind,
                         "class_declaration"
                             | "interface_declaration"
                             | "enum_declaration"
-                            | "method_declaration"
-                            | "constructor_declaration"
                             | "package_declaration"
                     ),
                     "go" => matches!(
@@ -225,6 +225,22 @@ mod tests {
             );
         }
     }
+    #[test]
+    fn java_requires_declaration_context_instead_of_ambiguous_method_fragments() {
+        // The Java grammar accepts Rust's `fn main()` as a method whose return
+        // type is `fn`. A standalone method/constructor is not strong evidence;
+        // its enclosing Java class/interface (or package) is.
+        for (code, expected) in [
+            ("fn main() {}", Some("rust")),
+            ("class Main { void run() {} }", Some("java")),
+            ("package example; class Main {}", Some("java")),
+            ("Widget create() { return null; }", None),
+            ("package main\nfunc main() {}", Some("go")),
+        ] {
+            assert_eq!(TreeSitterLanguageDetector.detect(code), expected, "{code}");
+        }
+    }
+
     #[test]
     fn ambiguous_literal_incomplete_and_oversized_input_stays_unlabelled() {
         for code in [
